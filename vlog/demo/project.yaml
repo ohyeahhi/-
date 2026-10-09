@@ -1,0 +1,45 @@
+# 다큐 톤 브이로그 프로젝트 예시
+# 경로는 이 파일 기준 상대 경로. 시간 단위는 초.
+
+title: 어느 평범한 화요일
+subtitle: 서 울 ,  하 루 의  기 록
+letterbox: true        # 위아래 시네마 띠(2.39:1)
+ambient_volume: 0.8    # 현장음 크기
+# bgm: music/bgm.mp3   # 배경음악(직접 고른 음원)
+# bgm_volume: 0.25
+
+scenes:
+  - clip: footage/morning.mp4
+    start: 0
+    end: 8.5
+    zoom: 0.05
+    chapter: { time: "AM 07:12", text: "하루의 시작" }
+    place: 서울 마포구, 집
+    captions:
+      - { at: 4.2, dur: 3.6, text: "알람보다 먼저 눈이 떠지는 날이 있다." }
+
+  - clip: footage/cafe.mp4
+    start: 0.5
+    end: 8.5
+    place: 연남동, 단골 카페
+    captions:
+      - { at: 1.0, dur: 3.2, text: "늘 같은 자리, 늘 같은 커피." }
+      - { at: 4.5, dur: 3.2, text: "익숙한 것들이 주는 안도감." }
+
+  - clip: footage/walk.mp4
+    start: 0
+    end: 8.5
+    chapter: { time: "PM 04:30", text: "걷는 시간" }
+    place: 경의선 숲길
+    captions:
+      - { at: 4.2, dur: 3.8, text: "목적지 없이 걷다 보면\n생각이 조금씩 정리된다." }
+
+  - clip: footage/night.mp4
+    start: 0
+    end: 8.5
+    zoom: 0.03
+    chapter: { time: "PM 10:48", text: "하루의 끝" }
+    captions:
+      - { at: 4.0, dur: 4.0, text: "별일 없던 하루가, 가장 고마운 하루였다." }
+
+ending: 오늘도, 수고했어.
