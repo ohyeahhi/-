@@ -1,45 +1,54 @@
-# 다큐 톤 브이로그 프로젝트 예시
-# 경로는 이 파일 기준 상대 경로. 시간 단위는 초.
+# 감성 다큐 톤 브이로그 프로젝트 예시
+# 경로는 이 파일 기준 상대 경로. 시간 단위는 초. 장면 안의 시간(at)은 그 장면 시작 기준.
 
-title: 어느 평범한 화요일
+title: an ordinary day        # 오프닝 타이틀 (검은 화면)
 subtitle: 서 울 ,  하 루 의  기 록
-letterbox: true        # 위아래 시네마 띠(2.39:1)
-ambient_volume: 0.8    # 현장음 크기
-# bgm: music/bgm.mp3   # 배경음악(직접 고른 음원)
+look: cool                     # cool(차분한 푸른 톤) | warm(따뜻한 필름 톤) | none
+letterbox: false               # true면 위아래 시네마 띠
+caption_font: sans             # sans(고딕) | serif(명조)
+ambient_volume: 0.8            # 현장음 크기
+# bgm: music/bgm.mp3           # 배경음악(직접 고른 음원). 목소리가 나오면 자동으로 작아짐
 # bgm_volume: 0.25
+# voice_volume: 1.0
 
 scenes:
   - clip: footage/morning.mp4
     start: 0
     end: 8.5
-    zoom: 0.05
-    chapter: { time: "AM 07:12", text: "하루의 시작" }
-    place: 서울 마포구, 집
+    # voice: voice/01.m4a              # 이 장면에 넣을 내 목소리 녹음
+    # voice: { file: voice/01.m4a, at: 0.5 }   # 장면 시작 0.5초 뒤부터
+    words:                             # 화면 속 영어 키워드 (x, y는 화면 비율 0~1)
+      - { text: make,   at: 0.6, x: 0.19, y: 0.67 }
+      - { text: my,     at: 1.1, x: 0.27, y: 0.79 }
+      - { text: brew,   at: 1.6, x: 0.73, y: 0.30 }
+      - { text: coffee, at: 2.1, x: 0.92, y: 0.17, color: "#E39A4C" }
     captions:
-      - { at: 4.2, dur: 3.6, text: "알람보다 먼저 눈이 떠지는 날이 있다." }
+      - { at: 4.4, dur: 3.6, text: "아침은 늘 커피를 내리는 일로 시작한다" }
 
   - clip: footage/cafe.mp4
     start: 0.5
     end: 8.5
-    place: 연남동, 단골 카페
     captions:
-      - { at: 1.0, dur: 3.2, text: "늘 같은 자리, 늘 같은 커피." }
-      - { at: 4.5, dur: 3.2, text: "익숙한 것들이 주는 안도감." }
+      - { at: 0.8, dur: 3.4, text: "치과의사가 되어 대학병원에서 근무하다" }
+      - { at: 4.4, dur: 3.2, text: "익숙해질 법도 한데, 아직은 매일이 새롭다" }
 
   - clip: footage/walk.mp4
     start: 0
     end: 8.5
-    chapter: { time: "PM 04:30", text: "걷는 시간" }
-    place: 경의선 숲길
+    words:
+      - { text: ocean, at: 0.8, x: 0.155, y: 0.49, size: 100 }
     captions:
-      - { at: 4.2, dur: 3.8, text: "목적지 없이 걷다 보면\n생각이 조금씩 정리된다." }
+      - { at: 2.0, dur: 3.2, text: "아름다운 강원도의 바다," }
+      - { at: 5.3, dur: 3.0, text: "그리고 오랜만의 휴식" }
 
   - clip: footage/night.mp4
     start: 0
     end: 8.5
-    zoom: 0.03
-    chapter: { time: "PM 10:48", text: "하루의 끝" }
+    zoom: 0.02
+    words:
+      - { text: slow,  at: 1.0, x: 0.30, y: 0.40 }
+      - { text: night, at: 1.6, x: 0.66, y: 0.58 }
     captions:
-      - { at: 4.0, dur: 4.0, text: "별일 없던 하루가, 가장 고마운 하루였다." }
+      - { at: 4.0, dur: 4.0, text: "별일 없던 하루가, 가장 고마운 하루였다" }
 
 ending: 오늘도, 수고했어.
