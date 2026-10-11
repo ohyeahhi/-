@@ -41,6 +41,19 @@
 @keyframes dangle{from{transform:rotate(-2.5deg)}to{transform:rotate(2.5deg)}}
 @keyframes flutter{from{transform:translate(0,0) rotate(-8deg)}to{transform:translate(14px,-12px) rotate(8deg)}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important}}
+
+.shiver{animation:shiver .18s linear infinite alternate;transform-box:fill-box}
+.spin{animation:spin 6s linear infinite;transform-box:fill-box;transform-origin:50% 50%}
+.fall{animation:fall 3.2s ease-in infinite;transform-box:fill-box}
+.blow{animation:blow 1.4s ease-out infinite;transform-box:fill-box}
+.snow{animation:snow 6s linear infinite;transform-box:fill-box}
+.puff{animation:puff 1.4s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:50% 50%}
+@keyframes shiver{from{transform:translateX(-1.5px)}to{transform:translateX(1.5px)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fall{0%{transform:translateY(-10px) rotate(0)}100%{transform:translateY(30px) rotate(25deg)}}
+@keyframes blow{0%{transform:translateX(-10px);opacity:0}30%{opacity:1}100%{transform:translateX(40px);opacity:0}}
+@keyframes snow{0%{transform:translateY(-30px)}100%{transform:translateY(60px)}}
+@keyframes puff{from{transform:scale(1)}to{transform:scale(1.06)}}
 </style>
 <defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFF1C4"/><stop offset="1" stop-color="#FFD7B0"/></linearGradient><radialGradient id="glow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#FFF3C4" stop-opacity=".95"/><stop offset="1" stop-color="#FFF3C4" stop-opacity="0"/></radialGradient><radialGradient id="moonglow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#FFF6D0" stop-opacity=".55"/><stop offset="1" stop-color="#FFF6D0" stop-opacity="0"/></radialGradient><radialGradient id="ropeglow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#FFE9A0" stop-opacity=".7"/><stop offset="1" stop-color="#FFE9A0" stop-opacity="0"/></radialGradient></defs>
 <rect width="800" height="600" fill="url(#sky)"/><circle cx="400" cy="320" r="230" fill="#FFF8E1" opacity=".8"/><g transform="translate(400 330) scale(1 1)"><g class="bob"><path d="M-150-10C-90-40-30-40 0-10C30-40 90-40 150-10V110C90 80 30 80 0 110C-30 80-90 80-150 110Z" fill="#FFFFFF" stroke="#F0E2C2" stroke-width="4"/><path d="M0-10V110" stroke="#F0E2C2" stroke-width="4"/><path d="M-120 20h90M-120 44h80M-120 68h90M30 20h90M30 44h80M30 68h90" stroke="#F2E6CC" stroke-width="6" stroke-linecap="round"/></g></g><g transform="translate(270 300) scale(1 1)"><path d="M-60 0q12-20 0-40M-40 10q24-40 0-80" stroke="#FFC93C" stroke-width="10" fill="none" stroke-linecap="round"/></g><g transform="translate(320 230) scale(1 1)"><g class="rise" style="animation-delay:0.0s"><path d="M0 6C-14-4-12-18 0-12C12-18 14-4 0 6Z" fill="#FF8FA3"/></g></g><g transform="translate(470 210) scale(1 1)"><g class="rise" style="animation-delay:-1.1s"><path d="M0 6C-14-4-12-18 0-12C12-18 14-4 0 6Z" fill="#FF8FA3"/></g></g><g transform="translate(400 190) scale(1 1)"><g class="rise" style="animation-delay:-2.2s"><path d="M0 6C-14-4-12-18 0-12C12-18 14-4 0 6Z" fill="#FF8FA3"/></g></g><g transform="translate(220 180) scale(1 1)"><g class="twinkle" style="animation-delay:0.0s"><path d="M0-12Q0 0 12 0Q0 0 0 12Q0 0-12 0Q0 0 0-12Z" fill="#FFC93C"/></g></g><g transform="translate(600 200) scale(1 1)"><g class="twinkle" style="animation-delay:-0.5s"><path d="M0-14Q0 0 14 0Q0 0 0 14Q0 0-14 0Q0 0 0-14Z" fill="#FFC93C"/></g></g><g transform="translate(590 430) scale(1 1)"><g class="twinkle" style="animation-delay:-1.0s"><path d="M0-10Q0 0 10 0Q0 0 0 10Q0 0-10 0Q0 0 0-10Z" fill="#FFC93C"/></g></g>

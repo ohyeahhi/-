@@ -3,7 +3,7 @@
 캐릭터(엄마, 오누이, 호랑이, 토끼, 거북이, 나무꾼, 산신령)를 한 번씩만 정의하고
 쪽마다 자세·표정·위치만 바꿔서 그려요. 그래서 모든 쪽에서 캐릭터가 똑같아요.
 
-    python3 tools/draw_scenes.py      # img/*.svg 를 다시 만들어요
+    python3 tools/build_images.py     # img/*.svg 를 다시 만들어요 (전체 쪽 배치는 build_images.py)
 
 그림 안에 CSS 애니메이션이 들어 있어서 <img>로 넣어도 살짝 움직여요.
 (prefers-reduced-motion 규칙도 넣었지만, <img> 안의 SVG에는 브라우저에 따라 적용되지 않아요.)
@@ -562,9 +562,9 @@ def sinseon(hold=None, rising=False):
              '<circle cx="-74" cy="-200" r="12" fill="#E9B44C"/><circle cx="-74" cy="-214" r="8" fill="#E9B44C"/>')
     arm_l = (f'<path d="M-30-150Q-60-150-66-176" stroke="#F4F7FB" stroke-width="22" fill="none" stroke-linecap="round"/>'
              f'<circle cx="-68" cy="-182" r="10" fill="{SKIN}"/>')
-    if hold == 'gold':
+    if hold in ('gold', 'silver', 'iron'):
         arm_r = (f'<path d="M30-150Q66-170 70-214" stroke="#F4F7FB" stroke-width="22" fill="none" stroke-linecap="round"/>'
-                 + put(anim('float', axe('gold')), 72, -190, 1.1, rot=20) + f'<circle cx="72" cy="-218" r="10" fill="{SKIN}"/>')
+                 + put(anim('float', axe(hold)), 72, -190, 1.1, rot=20) + f'<circle cx="72" cy="-218" r="10" fill="{SKIN}"/>')
     elif hold == 'give':
         arm_r = (f'<path d="M30-150Q60-140 80-128" stroke="#F4F7FB" stroke-width="22" fill="none" stroke-linecap="round"/>'
                  f'<circle cx="86" cy="-126" r="10" fill="{SKIN}"/>')
@@ -860,6 +860,6 @@ def build():
 
 
 if __name__ == '__main__':
-    build()
-    export_parts()
-    print('그림을 만들었어요:', ', '.join(sorted(p.stem for p in OUT.glob('*.svg'))))
+    # 쪽 번호와 새 동화까지 모두 build_images.py 가 정해요.
+    import build_images
+    build_images.main()
