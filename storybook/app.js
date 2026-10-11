@@ -2,6 +2,8 @@ import { STORIES, getStory as getBuiltin } from './stories.js';
 import * as db from './db.js';
 import { shareEnabled, uploadShare, fetchShare, publicUrl } from './share.js';
 import * as mine from './mystories.js';
+import qrcode from './vendor/qrcode.js';
+import { payEnabled, startPayment, confirmPayment } from './pay.js';
 
 const app = document.getElementById('app');
 const toastEl = document.getElementById('toast');
@@ -167,7 +169,7 @@ function toast(msg) {
   toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2400);
 }
 
-function sheet({ icon, title, body, primary = '확인', secondary, onPrimary, onSecondary, actions = true }) {
+function sheet({ icon, title, body, primary = '확인', secondary, onPrimary, onSecondary, onDismiss, actions = true }) {
   const el = document.createElement('div');
   el.className = 'sheet-backdrop';
   el.innerHTML = `
@@ -189,6 +191,7 @@ function sheet({ icon, title, body, primary = '확인', secondary, onPrimary, on
     if ((e.target === el && actions) || act) close();
     if (act === 'primary') onPrimary?.();
     if (act === 'secondary') onSecondary?.();
+    if (e.target === el && actions) onDismiss?.();
   });
   onDispose(close);
   return { el, close };
@@ -237,35 +240,36 @@ function sendLink(story, shareId) {
   });
 }
 
-async function shareStory(id) {
-  const story = getStory(id);
-  if (!shareEnabled()) {
-    sheet({
-      icon: '🔌',
-      title: '공유 서버가 아직 연결되지 않았어요',
-      body: '<code>config.js</code>에 Supabase 주소와 키를 넣으면<br>가족에게 링크를 보낼 수 있어요.<br>(설정 방법: SETUP-공유.md)',
-    });
-    return;
-  }
-  const pages = pagesOf(story);
-  const records = await Promise.all(pages.map((_, i) => db.getRecord(keyOf(id, i))));
-  const recorded = records.map((r, i) => r && { i, ...r }).filter(Boolean);
-  const latest = Math.max(...recorded.map((r) => r.at || 0));
-  const saved = local.get(shareKey)?.[id];
-  // 올린 뒤로 다시 녹음한 쪽이 없으면 예전 링크를 그대로 써요.
-  if (saved && saved.at >= latest) { sendLink(story, saved.id); return; }
+// 예/아니오를 묻는 시트를 Promise 로 써요.
+const ask = (opts) => new Promise((resolve) => sheet({
+  ...opts,
+  onPrimary: () => resolve(true),
+  onSecondary: () => resolve(false),
+  onDismiss: () => resolve(false),
+}));
 
+async function recordingsOf(story) {
+  const records = await Promise.all(pagesOf(story).map((_, i) => db.getRecord(keyOf(story.id, i)).catch(() => null)));
+  const recorded = records.map((r, i) => r && { i, ...r }).filter(Boolean);
+  return { recorded, latest: Math.max(0, ...recorded.map((r) => r.at || 0)), total: records.length };
+}
+
+// 올린 뒤로 다시 녹음한 쪽이 없으면 예전 공유 ID 를 그대로 써요.
+const savedShareId = (story, latest) => {
+  const saved = local.get(shareKey)?.[story.id];
+  return saved && saved.at >= latest ? saved.id : null;
+};
+
+function noServerSheet() {
   sheet({
-    icon: '☁️',
-    title: `${esc(kidTo())} 보낼 링크를 만들까요?`,
-    body: '녹음을 서버에 올리고 링크를 만들어요.<br>링크를 아는 사람은 누구나 들을 수 있으니<br>가족에게만 보내주세요.',
-    secondary: '취소',
-    primary: '링크 만들기',
-    onPrimary: () => uploadAndSend(story, recorded),
+    icon: '🔌',
+    title: '공유 서버가 아직 연결되지 않았어요',
+    body: '<code>config.js</code>에 Supabase 주소와 키를 넣으면<br>가족에게 링크를 보낼 수 있어요.<br>(설정 방법: SETUP-공유.md)',
   });
 }
 
-async function uploadAndSend(story, recorded) {
+// 녹음을 올리고 공유 ID 를 돌려줘요. 실패하면 다시 시도할지 묻고, 그만두면 null.
+async function uploadWithProgress(story, recorded) {
   const total = recorded.length + 1;
   const { el, close } = sheet({
     icon: '☁️',
@@ -288,18 +292,38 @@ async function uploadAndSend(story, recorded) {
     );
     local.set(shareKey, { ...(local.get(shareKey) || {}), [story.id]: { id: shareId, at: Date.now() } });
     close();
-    setTimeout(() => sendLink(story, shareId), 280);
+    await new Promise((r) => setTimeout(r, 280));
+    return shareId;
   } catch {
     close();
-    setTimeout(() => sheet({
+    await new Promise((r) => setTimeout(r, 280));
+    const retry = await ask({
       icon: '📶',
       title: '올리지 못했어요',
       body: '인터넷 연결을 확인하고 다시 시도해 주세요.',
       secondary: '닫기',
       primary: '다시 시도',
-      onPrimary: () => uploadAndSend(story, recorded),
-    }), 280);
+    });
+    return retry ? uploadWithProgress(story, recorded) : null;
   }
+}
+
+async function shareStory(id) {
+  const story = getStory(id);
+  if (!shareEnabled()) { noServerSheet(); return; }
+  const { recorded, latest } = await recordingsOf(story);
+  const saved = savedShareId(story, latest);
+  if (saved) { sendLink(story, saved); return; }
+  const ok = await ask({
+    icon: '☁️',
+    title: `${esc(kidTo())} 보낼 링크를 만들까요?`,
+    body: '녹음을 서버에 올리고 링크를 만들어요.<br>링크를 아는 사람은 누구나 들을 수 있으니<br>가족에게만 보내주세요.',
+    secondary: '취소',
+    primary: '링크 만들기',
+  });
+  if (!ok) return;
+  const shareId = await uploadWithProgress(story, recorded);
+  if (shareId) sendLink(story, shareId);
 }
 
 const topbar = ({ back = '', title = '', right = '' } = {}) => `
@@ -449,7 +473,10 @@ async function storyView(id) {
       ${coverHTML(s, 'cover-lg')}
       <h1 class="title-lg">${esc(s.title)}</h1>
       <p class="sub">${esc(s.desc)}</p>
-      ${s.custom ? `<a class="chip chip-edit" href="#/edit/${id}">${I.edit}이야기 고치기</a>` : ''}
+      <div class="chip-row">
+        <a class="chip" href="#/book/${id}">📖 그림책으로 만들기</a>
+        ${s.custom ? `<a class="chip" href="#/edit/${id}">${I.edit}이야기 고치기</a>` : ''}
+      </div>
       <div class="stat-row">
         <div><b>${pages.length}쪽</b><span>분량</span></div>
         <div><b>약 ${s.minutes}분</b><span>읽는 시간</span></div>
@@ -727,7 +754,7 @@ async function listenView(id) {
   const pages = pagesOf(s);
   const recs = await Promise.all(pages.map((_, i) => db.getRecord(keyOf(id, i)).catch(() => null)));
   const list = pages
-    .map((p, i) => ({ ...p, rec: recs[i] }))
+    .map((p, i) => ({ ...p, n: i, rec: recs[i] }))
     .filter((p) => p.rec)
     .map(({ rec, ...p }) => ({
       ...p,
@@ -747,21 +774,26 @@ async function listenView(id) {
 }
 
 /* ---------- 화면: 공유 링크로 듣기 (받은 가족) ---------- */
-async function sharedView(shareId) {
+// 직접 지은 이야기는 글이 목록에 함께 들어 있어서, 받은 쪽에서 같은 그림을 다시 만들어요.
+async function loadShared(shareId) {
+  try {
+    const manifest = await fetchShare(shareId);
+    const s = manifest.custom ? mine.toStory({ id: manifest.storyId, ...manifest.custom }) : getStory(manifest.storyId);
+    return s ? { manifest, s } : null;
+  } catch {
+    return null;
+  }
+}
+
+// #/s/<공유ID>/<쪽> : 그림책 QR 은 그 쪽부터 들려줘요.
+async function sharedView(shareId, page) {
   render(`
     ${topbar()}
     <div class="listen" id="stage"><div class="loading"><span class="spinner"></span><p class="sub">동화를 불러오고 있어요</p></div></div>
   `, 'screen-listen');
-  let manifest;
-  try {
-    manifest = await fetchShare(shareId);
-  } catch {
-    manifest = null;
-  }
-  // 직접 지은 이야기는 글이 목록에 함께 들어 있어서, 받은 쪽에서 같은 그림을 다시 만들어요.
-  const s = manifest && (manifest.custom
-    ? mine.toStory({ id: manifest.storyId, ...manifest.custom })
-    : getStory(manifest.storyId));
+  const loaded = await loadShared(shareId);
+  const manifest = loaded?.manifest;
+  const s = loaded?.s;
   const stage = app.querySelector('#stage');
   if (!stage) return; // 기다리는 사이 다른 화면으로 갔어요
   if (!s) {
@@ -778,6 +810,7 @@ async function sharedView(shareId) {
     .filter((f) => pages[f.i])
     .map((f) => ({
       ...pages[f.i],
+      n: f.i,
       video: isVideo(f.type),
       load: async () => { setSource(publicUrl(shareId, f.file)); return true; },
     }));
@@ -787,11 +820,13 @@ async function sharedView(shareId) {
     reader: whoOf(manifest.role),
     kid: (manifest.kid || '').trim(),
     endExtra: `<a class="btn btn-secondary full" href="#/" data-act="invite">우리 가족도 만들어 보기</a>`,
+    startAt: Number(page) || 0,
   });
 }
 
 // 듣기 화면: 표지 → 쪽마다 그림 + 목소리 → 끝. 한 쪽이 끝나면 저절로 넘어가요.
-function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '' }) {
+function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startAt = 0 }) {
+  const first = Math.max(0, list.findIndex((p) => p.n === startAt));
   let pos = 0;
   let alive = true;
   let advanceTimer = 0;
@@ -801,7 +836,7 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '' }) {
     stage.innerHTML = `
       <div class="listen-start">
         ${coverHTML(s, 'cover-xl')}
-        <p class="eyebrow">${reader}가 읽어주는</p>
+        <p class="eyebrow">${reader}가 읽어주는${first > 0 && list[first].n ? ` · ${list[first].n}쪽부터` : ''}</p>
         <h1 class="title-xl">${esc(s.title)}</h1>
         ${kid ? `<p class="sub">${esc(toOf(kid))}</p>` : ''}
         <button class="play-big" data-act="start" aria-label="듣기 시작">${I.play}</button>
@@ -869,7 +904,8 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '' }) {
 
   stage.addEventListener('click', (e) => {
     const act = e.target.closest('[data-act]')?.dataset.act;
-    if (act === 'start' || act === 'again') playAt(0);
+    if (act === 'start') playAt(first);
+    else if (act === 'again') playAt(0);
     else if (act === 'prev') playAt(pos - 1);
     else if (act === 'next') playAt(pos + 1);
     else if (act === 'toggle') {
@@ -1029,6 +1065,268 @@ function editorView(editId) {
   }));
 }
 
+/* ---------- 그림책: 미리보기 · PDF · QR ---------- */
+// A5 가로(210×148mm) 한 쪽에 그림 + 글 + QR. 브라우저 인쇄로 PDF 를 만들어요.
+const qrSvg = (url) => {
+  const q = qrcode(0, 'M');
+  q.addData(url);
+  q.make();
+  return q.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
+};
+const appBase = () => `${location.origin}${location.pathname}`;
+const listenUrl = (shareId, n) => `${appBase()}#/s/${shareId}${n ? `/${n}` : ''}`;
+const todayKo = () => new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
+
+function bookPagesHTML(s, { shareId, reader, kid, date = todayKo() }) {
+  const pages = pagesOf(s, reader === '할아버지' ? 'grandpa' : 'grandma', kid);
+  const to = toOf(kid);
+  const qr = (n, label) => (shareId
+    ? `<div class="bp-qr">${qrSvg(listenUrl(shareId, n))}<span>${label}</span></div>`
+    : '');
+  const cover = `
+    <section class="book-page book-cover">
+      <img class="bc-img" src="${esc(s.coverImage || pages[1].image)}" alt="">
+      <div class="bc-band">
+        <p class="bc-eyebrow">${reader}가 ${esc(to)} 들려주는</p>
+        <h1 class="bc-title">${esc(s.title)}</h1>
+        <p class="bc-date">${date}</p>
+      </div>
+    </section>`;
+  const letter = `
+    <section class="book-page book-letter">
+      <img class="bl-img" src="img/intro.svg" alt="">
+      <div class="bl-text">
+        <p class="bl-eyebrow">💌 ${reader}의 인사</p>
+        <p>이 책에는 ${reader}의 목소리가 담겨 있어요.<br>QR코드를 휴대폰 카메라로 찍으면<br>그 쪽을 ${reader} 목소리로 들을 수 있어요.</p>
+        ${qr(0, `${reader}의 인사 듣기`)}
+      </div>
+    </section>`;
+  const body = pages.slice(1).map((p, k) => `
+    <section class="book-page">
+      <div class="bp-art"><img src="${esc(p.image)}" alt=""></div>
+      <div class="bp-text">
+        <p>${esc(p.text)}</p>
+        ${qr(k + 1, `찍으면 ${reader}<br>목소리로 들어요`)}
+      </div>
+      <span class="bp-num">${k + 1}</span>
+    </section>`).join('');
+  const back = `
+    <section class="book-page book-back">
+      <div>
+        <p class="bb-text">이 책은 ${reader}가 ${esc(to)}<br>직접 읽어 준 목소리 그림책이에요.</p>
+        ${shareId ? `<div class="bb-qr">${qrSvg(listenUrl(shareId, 0))}<span>처음부터 끝까지 듣기</span></div>` : ''}
+      </div>
+      <p class="bb-brand"><img src="icons/icon.svg" alt="" width="28" height="28">들려줄게</p>
+    </section>`;
+  return cover + letter + body + back;
+}
+
+async function bookView(id) {
+  const s = getStory(id);
+  if (!s) return notFound();
+  const { recorded, latest, total } = await recordingsOf(s);
+  const done = recorded.length === total;
+  let shareId = shareEnabled() && done ? savedShareId(s, latest) : null;
+
+  render(`
+    <div class="no-print">${topbar({ back: `#/story/${id}`, title: '그림책 미리보기' })}</div>
+    <div class="book-notice no-print" id="notice"></div>
+    <div class="book" id="book"></div>
+    <div class="cta-bar no-print">
+      <button class="btn btn-secondary" id="pdf">PDF로 저장</button>
+      <a class="btn btn-primary grow" href="#/order/${id}">인쇄된 책 주문하기</a>
+    </div>
+  `, 'screen-book');
+
+  const book = app.querySelector('#book');
+  const notice = app.querySelector('#notice');
+  const draw = () => {
+    book.innerHTML = bookPagesHTML(s, { shareId, reader: who(), kid: kidName() });
+    notice.innerHTML = shareId
+      ? `<p>📱 쪽마다 <b>QR코드</b>가 들어 있어요. 휴대폰 카메라로 찍으면 그 쪽을 ${who()} 목소리로 들을 수 있어요.</p>`
+      : !done
+        ? `<p>🎙️ 녹음을 다 마치면 쪽마다 <b>QR코드</b>가 들어가요. (${recorded.length}/${total}쪽 녹음)</p>`
+        : !shareEnabled()
+          ? '<p>🔌 공유 서버를 연결하면 쪽마다 QR코드를 넣을 수 있어요.</p>'
+          : `<p>📱 녹음을 올리면 쪽마다 <b>QR코드</b>가 들어가요.</p><button class="btn btn-secondary full" id="make-qr">QR코드 넣기</button>`;
+    notice.querySelector('#make-qr')?.addEventListener('click', async () => {
+      const got = await uploadWithProgress(s, recorded);
+      if (got) { shareId = got; draw(); toast('QR코드를 넣었어요'); }
+    });
+  };
+  draw();
+  app.querySelector('#pdf').addEventListener('click', () => {
+    toast('인쇄 화면에서 ‘PDF로 저장’을 골라 주세요');
+    setTimeout(() => window.print(), 400);
+  });
+}
+
+// 주문받은 책을 인쇄용으로 펼쳐요 (공유 ID 로 누구나 같은 책을 만들 수 있어요).
+async function printView(shareId) {
+  render('<div class="book" id="book"><div class="loading"><span class="spinner"></span></div></div>', 'screen-book');
+  const loaded = await loadShared(shareId);
+  const book = app.querySelector('#book');
+  if (!book) return;
+  if (!loaded) { book.innerHTML = '<p class="sub">책을 불러오지 못했어요.</p>'; return; }
+  const { manifest, s } = loaded;
+  book.innerHTML = bookPagesHTML(s, {
+    shareId,
+    reader: whoOf(manifest.role),
+    kid: (manifest.kid || '').trim(),
+    date: new Date(manifest.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }),
+  });
+}
+
+/* ---------- 결제 ---------- */
+async function checkout(order) {
+  if (!payEnabled()) {
+    sheet({
+      icon: '💳',
+      title: '결제가 아직 연결되지 않았어요',
+      body: '토스페이먼츠 키와 주문 서버를 연결하면<br>여기서 바로 결제할 수 있어요.<br>(설정 방법: SETUP-결제.md)',
+    });
+    return;
+  }
+  local.set('pendingOrder', { storyId: order.storyId, title: order.title, qty: order.qty });
+  try {
+    await startPayment(order, { successUrl: `${appBase()}?pay=success`, failUrl: `${appBase()}?pay=fail` });
+  } catch (e) {
+    if (e.code === 'USER_CANCEL' || e.code === 'PAY_PROCESS_CANCELED') { toast('결제를 취소했어요'); return; }
+    sheet({ icon: '😢', title: '결제를 시작하지 못했어요', body: `${esc(e.message || '잠시 뒤 다시 시도해 주세요.')}` });
+  }
+}
+
+// 토스 결제창에서 돌아왔을 때 (?pay=success&paymentKey=…&orderId=…&amount=…)
+async function payReturnView() {
+  const q = new URLSearchParams(location.search);
+  history.replaceState(null, '', `${appBase()}#/`);
+  if (q.get('pay') !== 'success') {
+    render(`
+      ${topbar({ back: '#/' })}
+      <div class="celebrate"><div class="celebrate-badge">😢</div>
+        <h1 class="title-lg">결제가 완료되지 않았어요</h1>
+        <p class="sub">${esc(q.get('message') || '결제를 취소했거나 문제가 생겼어요.')}</p></div>
+      <div class="cta-bar"><a class="btn btn-primary" href="#/">처음으로</a></div>`);
+    return;
+  }
+  render(`<div class="loading"><span class="spinner"></span><p class="sub">결제를 확인하고 있어요</p></div>`);
+  try {
+    const { order } = await confirmPayment({ paymentKey: q.get('paymentKey'), orderId: q.get('orderId'), amount: q.get('amount') });
+    local.set('pendingOrder', null);
+    render(`
+      ${topbar({ back: '#/' })}
+      <div class="celebrate">
+        <div class="celebrate-badge">🎁</div>
+        <h1 class="title-xl">주문이 완료됐어요</h1>
+        <p class="sub">‘${esc(order.title)}’ 그림책 ${order.qty}권을<br>정성껏 만들어 7~10일 안에 보내드릴게요.</p>
+      </div>
+      <div class="order-sum">
+        <div><span>주문 번호</span><b>${esc(order.orderId)}</b></div>
+        <div class="total"><span>결제 금액</span><b>${won(order.amount)}</b></div>
+      </div>
+      <div class="cta-bar">
+        ${order.receiptUrl ? `<a class="btn btn-secondary" href="${esc(order.receiptUrl)}" target="_blank" rel="noopener">영수증</a>` : ''}
+        <a class="btn btn-primary grow" href="#/">처음으로</a>
+      </div>`);
+  } catch (e) {
+    render(`
+      ${topbar({ back: '#/' })}
+      <div class="celebrate"><div class="celebrate-badge">⚠️</div>
+        <h1 class="title-lg">결제를 확인하지 못했어요</h1>
+        <p class="sub">${esc(e.message || '')}<br>돈이 빠져나갔다면 자동으로 취소돼요. 다시 주문해 주세요.</p></div>
+      <div class="cta-bar"><a class="btn btn-primary" href="#/">처음으로</a></div>`);
+  }
+}
+
+/* ---------- 그림책 주문 ---------- */
+const BOOK_PRICE = 39000;
+const won = (n) => `${n.toLocaleString('ko-KR')}원`;
+
+async function orderView(id) {
+  const s = getStory(id);
+  if (!s) return notFound();
+  const form = { qty: 1, name: '', phone: '', addr: '', memo: '', ...(local.get('orderForm') || {}) };
+  form.qty = 1;
+  render(`
+    ${topbar({ back: `#/book/${id}`, title: '그림책 주문' })}
+    <div class="order-item">
+      ${coverHTML(s)}
+      <div>
+        <div class="story-card-title">${esc(s.title)}</div>
+        <div class="story-card-meta">A5 가로 · 양장 · ${s.pages.length + 3}쪽 · QR코드</div>
+        <div class="order-price">${won(BOOK_PRICE)}</div>
+      </div>
+    </div>
+    <label class="label" for="o-name">받는 분</label>
+    <input id="o-name" class="input" autocomplete="name" value="${esc(form.name)}" placeholder="이름">
+    <label class="label" for="o-phone">휴대폰 번호</label>
+    <input id="o-phone" class="input" inputmode="tel" autocomplete="tel" value="${esc(form.phone)}" placeholder="010-0000-0000">
+    <label class="label" for="o-addr">받으실 주소</label>
+    <textarea id="o-addr" class="input textarea" rows="2" autocomplete="street-address" placeholder="도로명 주소와 동·호수">${esc(form.addr)}</textarea>
+    <span class="label">권수</span>
+    <div class="stepper"><button data-q="-1" aria-label="한 권 빼기">−</button><b id="qty">1권</b><button data-q="1" aria-label="한 권 더하기">+</button></div>
+    <label class="label" for="o-memo">남기실 말 <span class="opt">선택</span></label>
+    <input id="o-memo" class="input" value="${esc(form.memo)}" placeholder="예) 손주 돌잔치 선물이에요">
+    <div class="order-sum">
+      <div><span>책 값</span><b id="sum-books"></b></div>
+      <div><span>배송비</span><b>무료</b></div>
+      <div class="total"><span>결제 금액</span><b id="sum-total"></b></div>
+    </div>
+    <label class="check"><input type="checkbox" id="o-agree">
+      <span>주문 제작 상품이라 제작이 시작되면 취소할 수 없어요. 배송을 위해 이름·연락처·주소를 모으는 데 동의해요.</span></label>
+    <div class="cta-bar"><button class="btn btn-primary" id="pay"></button></div>
+  `, 'screen-order');
+
+  const $ = (q) => app.querySelector(q);
+  const sync = () => {
+    $('#qty').textContent = `${form.qty}권`;
+    $('#sum-books').textContent = won(BOOK_PRICE * form.qty);
+    $('#sum-total').textContent = won(BOOK_PRICE * form.qty);
+    $('#pay').textContent = `${won(BOOK_PRICE * form.qty)} 결제하기`;
+  };
+  sync();
+  app.querySelector('.stepper').addEventListener('click', (e) => {
+    const d = Number(e.target.closest('[data-q]')?.dataset.q || 0);
+    form.qty = Math.min(10, Math.max(1, form.qty + d));
+    sync();
+  });
+
+  $('#pay').addEventListener('click', async () => {
+    Object.assign(form, {
+      name: $('#o-name').value.trim(),
+      phone: $('#o-phone').value.trim(),
+      addr: $('#o-addr').value.trim(),
+      memo: $('#o-memo').value.trim(),
+    });
+    local.set('orderForm', { name: form.name, phone: form.phone, addr: form.addr });
+    if (!form.name || !/^0\d{1,2}-?\d{3,4}-?\d{4}$/.test(form.phone) || form.addr.length < 6) {
+      toast('받는 분, 휴대폰 번호, 주소를 확인해 주세요');
+      return;
+    }
+    if (!$('#o-agree').checked) { toast('주문 내용에 동의해 주세요'); return; }
+    if (!shareEnabled()) { noServerSheet(); return; }
+    // 인쇄소가 같은 책(그림·글·QR)을 만들 수 있도록 녹음을 먼저 올려 둬요.
+    const { recorded, latest, total } = await recordingsOf(s);
+    if (recorded.length < total) {
+      toast(`녹음을 다 마친 뒤에 주문할 수 있어요 (${recorded.length}/${total}쪽)`);
+      return;
+    }
+    const shareId = savedShareId(s, latest) || await uploadWithProgress(s, recorded);
+    if (!shareId) return;
+    await checkout({
+      shareId,
+      storyId: s.id,
+      title: s.title,
+      qty: form.qty,
+      amount: BOOK_PRICE * form.qty,
+      name: form.name,
+      phone: form.phone,
+      addr: form.addr,
+      memo: form.memo,
+    });
+  });
+}
+
 function notFound() {
   render(`
     ${topbar({ back: '#/' })}
@@ -1048,7 +1346,10 @@ const routes = [
   [/^#\/record\/([\w-]+)\/(\d+)$/, recordView],
   [/^#\/done\/([\w-]+)$/, doneView],
   [/^#\/listen\/([\w-]+)$/, listenView],
-  [/^#\/s\/([a-z0-9]+)$/, sharedView],
+  [/^#\/s\/([a-z0-9]+)(?:\/(\d+))?$/, sharedView],
+  [/^#\/book\/([\w-]+)$/, bookView],
+  [/^#\/print\/([a-z0-9]+)$/, printView],
+  [/^#\/order\/([\w-]+)$/, orderView],
   [/^#\/new$/, () => editorView()],
   [/^#\/edit\/([\w-]+)$/, editorView],
 ];
@@ -1056,9 +1357,10 @@ const routes = [
 async function route() {
   dispose();
   stopAudio();
+  if (/[?&]pay=/.test(location.search)) { await payReturnView(); return; }
   const hash = location.hash || '#/';
   // 공유 링크(#/s/…)는 처음 설정 없이 바로 열려요.
-  if (!profile && hash !== '#/welcome' && !hash.startsWith('#/s/')) {
+  if (!profile && hash !== '#/welcome' && !hash.startsWith('#/s/') && !hash.startsWith('#/print/')) {
     location.replace('#/welcome');
     return;
   }
