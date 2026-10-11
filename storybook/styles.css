@@ -584,3 +584,31 @@ button:disabled { cursor: default; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ---------- 소개 (부모 세대용) ---------- */
+.about-hero { text-align: center; }
+.about-hero .scene-xl { aspect-ratio: 4 / 3; }
+.about-hero .sub { margin-top: 10px; }
+.about-steps { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.about-steps li {
+  display: flex; gap: 14px; align-items: flex-start; padding: 18px;
+  background: var(--surface); border-radius: 22px; box-shadow: var(--shadow);
+}
+.about-steps b { font-size: 17px; }
+.about-steps p, .about-book p, .about-faq p { margin-top: 4px; font-size: 15px; line-height: 1.6; color: var(--text-2); }
+.about-step-emoji, .about-book-emoji {
+  flex: none; width: 44px; height: 44px; border-radius: 14px;
+  display: grid; place-items: center; font-size: 22px; background: var(--accent-weak);
+}
+.about-gallery { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.about-gallery .scene { height: auto; aspect-ratio: 1; border-radius: 18px; margin: 0; }
+.about-note { margin-top: 12px; font-size: 15px; line-height: 1.6; color: var(--text-2); }
+.about-book {
+  display: flex; gap: 14px; align-items: flex-start; margin-top: 28px; padding: 20px;
+  border-radius: 22px; background: var(--accent-weak);
+}
+.about-book b { font-size: 17px; }
+.about-faq { display: grid; gap: 8px; }
+.about-faq details { background: var(--surface); border-radius: 18px; padding: 16px 18px; box-shadow: var(--shadow); }
+.about-faq summary { font-size: 16px; font-weight: 600; cursor: pointer; }
+.about-faq a { color: var(--accent-text); text-decoration: underline; }

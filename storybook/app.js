@@ -854,7 +854,7 @@ async function sharedView(shareId, page) {
     list,
     reader: whoOf(manifest.role),
     kid: (manifest.kid || '').trim(),
-    endExtra: `<a class="btn btn-secondary full" href="#/" data-act="invite">우리 가족도 만들어 보기</a>`,
+    endExtra: `<a class="btn btn-secondary full" href="#/about" data-act="invite">우리 가족도 만들어 보기</a>`,
     startAt: Number(page) || 0,
   });
 }
@@ -1391,6 +1391,65 @@ function policyView(doc) {
   `);
 }
 
+// 부모(자녀) 세대용 소개. 이 화면을 본 자녀가 할머니·할아버지께 앱 링크를 보내요.
+function aboutView() {
+  const url = appBase();
+  const msg = '엄마(아빠) 목소리로 손주에게 동화 읽어 주세요 💛 링크를 누르고 동화를 골라 녹음만 하면 돼요.';
+  const steps = [
+    ['📱', '링크 하나로 시작', '앱 설치나 가입 없이 링크만 열면 돼요. 글씨가 크고 버튼이 단순해요.'],
+    ['🎙️', '쪽마다 녹음', '그림과 글을 보며 한 쪽씩 읽어요. 얼굴 영상도 함께 담을 수 있어요.'],
+    ['💌', '아이에게 도착', '다 읽으면 카톡으로 링크가 와요. 아이는 그림을 보며 할머니 목소리로 들어요.'],
+  ];
+  const samples = ['sun-moon-4', 'rabbit-turtle-6', 'heungbu-8'];
+  render(`
+    ${topbar({ back: profile ? '#/' : '', title: '들려줄게 소개' })}
+    <section class="about">
+      <div class="about-hero">
+        <div class="scene scene-xl"><img src="img/intro.svg" alt=""></div>
+        <h1 class="title-xl">아이가 잠들기 전,<br>할머니 목소리로<br>동화를 들려주세요</h1>
+        <p class="sub">멀리 사는 할머니·할아버지가 직접 읽어 주신 동화를 아이가 언제든 들을 수 있어요.</p>
+      </div>
+
+      <h2 class="section-label">이렇게 써요</h2>
+      <ol class="about-steps">
+        ${steps.map(([e, h, p], i) => `<li><span class="about-step-emoji">${e}</span><div><b>${i + 1}. ${h}</b><p>${p}</p></div></li>`).join('')}
+      </ol>
+
+      <h2 class="section-label">동화 13편, 직접 그린 그림</h2>
+      <div class="about-gallery">
+        ${samples.map((n) => `<div class="scene"><img src="img/${n}.svg" alt="" loading="lazy"></div>`).join('')}
+      </div>
+      <p class="about-note">해님 달님, 흥부와 놀부, 토끼와 거북이… 저작권이 끝난 옛이야기를 다시 쓰고 그림은 모두 직접 그렸어요. 할머니가 지어낸 이야기도 그림이 저절로 그려져요.</p>
+
+      <div class="about-book">
+        <div class="about-book-emoji">📖</div>
+        <div>
+          <b>목소리 그림책으로 간직하기</b>
+          <p>녹음한 동화를 A5 그림책으로 만들어 드려요. 쪽마다 있는 QR을 찍으면 그 쪽부터 할머니 목소리가 나와요. 한 권 ${won(BOOK_PRICE)}, 배송비 무료.</p>
+        </div>
+      </div>
+
+      <h2 class="section-label">걱정되는 것들</h2>
+      <div class="about-faq">
+        <details><summary>녹음은 어디에 저장되나요?</summary><p>처음에는 할머니 휴대폰에만 있어요. ‘보내기’를 누를 때만 서버에 올라가고, 링크를 아는 가족만 들을 수 있어요.</p></details>
+        <details><summary>아이 정보는 안전한가요?</summary><p>손주 이름은 넣지 않아도 돼요. 서버에 올리기 전에 보호자 동의를 확인하고, 지워 달라고 하시면 바로 지워 드려요. <a href="#/policy/privacy">개인정보처리방침</a></p></details>
+        <details><summary>돈이 드나요?</summary><p>녹음하고 링크로 보내는 건 무료예요. 그림책을 주문할 때만 비용이 들어요.</p></details>
+      </div>
+    </section>
+    ${footerHTML()}
+    <div class="cta-bar">
+      <button class="btn btn-secondary" id="try">먼저 해 보기</button>
+      <button class="btn btn-primary" id="send-parents">부모님께 보내기</button>
+    </div>
+  `);
+  app.querySelector('#try').addEventListener('click', () => { location.hash = profile ? '#/' : '#/welcome'; });
+  // navigator.share는 누른 그 순간에 불러야 열려요.
+  app.querySelector('#send-parents').addEventListener('click', () => {
+    if (navigator.share) navigator.share({ title: '들려줄게', text: msg, url }).catch(() => {});
+    else copyText(`${msg}\n${url}`);
+  });
+}
+
 function notFound() {
   render(`
     ${topbar({ back: '#/' })}
@@ -1415,6 +1474,7 @@ const routes = [
   [/^#\/print\/([a-z0-9]+)$/, printView],
   [/^#\/order\/([\w-]+)$/, orderView],
   [/^#\/policy\/(terms|privacy|refund)$/, policyView],
+  [/^#\/about$/, aboutView],
   [/^#\/new$/, () => editorView()],
   [/^#\/edit\/([\w-]+)$/, editorView],
 ];
