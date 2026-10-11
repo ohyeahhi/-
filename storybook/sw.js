@@ -1,6 +1,6 @@
-// 앱 화면을 캐시해 두고, 다음에 열 때 바로 뜨게 해요. (stale-while-revalidate)
-const CACHE = 'deullyeojulge-v3';
-const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'stories.js', 'db.js', 'manifest.webmanifest', 'icons/icon.svg', 'fonts/pretendard/pretendardvariable-dynamic-subset.css'];
+// 앱 화면을 캐시해 두고, 다음에 열 때 바로 뜨게 해요. (네트워크 우선, 오프라인이면 캐시)
+const CACHE = 'deullyeojulge-v5';
+const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'stories.js', 'db.js', 'share.js', 'config.js', 'manifest.webmanifest', 'icons/icon.svg', 'fonts/pretendard/pretendardvariable-dynamic-subset.css'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -15,15 +15,16 @@ self.addEventListener('activate', (e) => {
 });
 
 self.addEventListener('fetch', (e) => {
-  if (e.request.method !== 'GET') return;
+  // 우리 앱 파일만 캐시해요. 공유 서버의 녹음·목록은 항상 새로 받아요.
+  if (e.request.method !== 'GET' || new URL(e.request.url).origin !== self.location.origin) return;
+  // 인터넷이 되면 항상 최신 파일을, 안 되면 저장해 둔 파일을 보여줘요.
   e.respondWith(caches.open(CACHE).then(async (cache) => {
-    const cached = await cache.match(e.request);
-    const network = fetch(e.request)
-      .then((res) => {
-        if (res.ok || res.type === 'opaque') cache.put(e.request, res.clone());
-        return res;
-      })
-      .catch(() => cached);
-    return cached || network;
+    try {
+      const res = await fetch(e.request);
+      if (res.ok) cache.put(e.request, res.clone());
+      return res;
+    } catch {
+      return (await cache.match(e.request)) || Response.error();
+    }
   }));
 });

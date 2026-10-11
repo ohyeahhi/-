@@ -1,5 +1,6 @@
 import { STORIES, getStory } from './stories.js';
 import * as db from './db.js';
+import { shareEnabled, uploadShare, fetchShare, publicUrl } from './share.js';
 
 const app = document.getElementById('app');
 const toastEl = document.getElementById('toast');
@@ -20,6 +21,7 @@ const I = {
   next: svg('<path d="M9 5l7 7-7 7"/>', 28),
   redo: svg('<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/>', 20),
   speaker: svg('<path d="M11 5L6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/>', 18),
+  send: svg('<path d="M21 3L10 14"/><path d="M21 3l-7 18-4-7-7-4z"/>', 20),
   user: svg('<circle cx="12" cy="8" r="4"/><path d="M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6"/>', 22),
 };
 
@@ -36,20 +38,23 @@ const hasBatchim = (w) => {
   const c = w.charCodeAt(w.length - 1);
   return c >= 0xac00 && c <= 0xd7a3 && (c - 0xac00) % 28 !== 0;
 };
-const who = () => (profile?.role === 'grandpa' ? '할아버지' : '할머니');
-const kidName = () => (profile?.kid || '').trim();
+const whoOf = (role) => (role === 'grandpa' ? '할아버지' : '할머니');
 // 하은 → 하은이에게 / 민서 → 민서에게
-const kidTo = () => { const n = kidName(); return !n ? '손주에게' : hasBatchim(n) ? `${n}이에게` : `${n}에게`; };
+const toOf = (n) => (!n ? '손주에게' : hasBatchim(n) ? `${n}이에게` : `${n}에게`);
 // 하은 → 하은아 / 민서 → 민서야
-const kidCall = () => { const n = kidName(); return !n ? '' : hasBatchim(n) ? `${n}아` : `${n}야`; };
+const callOf = (n) => (!n ? '' : hasBatchim(n) ? `${n}아` : `${n}야`);
+const who = () => whoOf(profile?.role);
+const kidName = () => (profile?.kid || '').trim();
+const kidTo = () => toOf(kidName());
 
 // 모든 동화의 첫 쪽은 손주에게 건네는 인사말이에요.
-const pagesOf = (story) => [
+// 공유 링크로 열면 보낸 사람의 이름 정보(role, kid)로 그려요.
+const pagesOf = (story, role = profile?.role, kid = kidName()) => [
   {
     intro: true,
     scene: { bg: 'warm', items: [['💌', 50, 52, 1.35, 'bob'], ['💛', 26, 30, 0.38, 'float'], ['💛', 76, 26, 0.32, 'float'], ['✨', 80, 70, 0.3, 'twinkle'], ['✨', 20, 72, 0.25, 'twinkle']] },
-    text: `${kidTo()} 인사를 건네주세요`,
-    hint: `예) ${kidCall() ? `${kidCall()}, ` : ''}${who()}야. 오늘은 ‘${story.title}’ 이야기를 들려줄게.`,
+    text: `${toOf(kid)} 인사를 건네주세요`,
+    hint: `예) ${callOf(kid) ? `${callOf(kid)}, ` : ''}${whoOf(role)}야. 오늘은 ‘${story.title}’ 이야기를 들려줄게.`,
   },
   ...story.pages,
 ];
@@ -67,12 +72,16 @@ function dispose() {
 /* ---------- 오디오 ---------- */
 const player = new Audio();
 let playerUrl = null;
-async function loadAudio(key) {
+function setSource(src, objectUrl = false) {
+  if (playerUrl) URL.revokeObjectURL(playerUrl);
+  playerUrl = objectUrl ? src : null;
+  player.src = src;
+}
+// 이 기기에 저장된 녹음
+async function loadLocal(key) {
   const blob = await db.getBlob(key);
   if (!blob) return false;
-  if (playerUrl) URL.revokeObjectURL(playerUrl);
-  playerUrl = URL.createObjectURL(blob);
-  player.src = playerUrl;
+  setSource(URL.createObjectURL(blob), true);
   return true;
 }
 function stopAudio() {
@@ -138,7 +147,7 @@ function toast(msg) {
   toastTimer = setTimeout(() => toastEl.classList.remove('show'), 2400);
 }
 
-function sheet({ icon, title, body, primary = '확인', secondary, onPrimary }) {
+function sheet({ icon, title, body, primary = '확인', secondary, onPrimary, onSecondary, actions = true }) {
   const el = document.createElement('div');
   el.className = 'sheet-backdrop';
   el.innerHTML = `
@@ -147,20 +156,22 @@ function sheet({ icon, title, body, primary = '확인', secondary, onPrimary }) 
       ${icon ? `<div class="sheet-icon">${icon}</div>` : ''}
       <h2 class="sheet-title" id="sheet-title">${title}</h2>
       <p class="sheet-body">${body}</p>
-      <div class="sheet-actions">
+      ${actions ? `<div class="sheet-actions">
         ${secondary ? `<button class="btn btn-secondary" data-act="secondary">${secondary}</button>` : ''}
         <button class="btn btn-primary" data-act="primary">${primary}</button>
-      </div>
+      </div>` : ''}
     </div>`;
   document.body.append(el);
   requestAnimationFrame(() => el.classList.add('open'));
   const close = () => { el.classList.remove('open'); setTimeout(() => el.remove(), 260); };
   el.addEventListener('click', (e) => {
     const act = e.target.closest('[data-act]')?.dataset.act;
-    if (e.target === el || act) close();
+    if ((e.target === el && actions) || act) close();
     if (act === 'primary') onPrimary?.();
+    if (act === 'secondary') onSecondary?.();
   });
   onDispose(close);
+  return { el, close };
 }
 
 function speak(text) {
@@ -176,11 +187,95 @@ const openExternal = () => {
   location.href = `kakaotalk://web/openExternal?url=${encodeURIComponent(location.href)}`;
 };
 
-const shareSoon = () => sheet({
-  icon: '💌',
-  title: '가족에게 보내기는 준비 중이에요',
-  body: `다음 버전에서는 카카오톡 링크 하나로<br>${esc(kidTo())} 바로 들려줄 수 있어요.<br>지금은 이 휴대폰에서 함께 들어보세요.`,
-});
+/* ---------- 가족에게 보내기 ---------- */
+const shareKey = 'shares';
+const shareUrl = (shareId) => `${location.origin}${location.pathname}#/s/${shareId}`;
+
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('링크를 복사했어요. 카톡 대화창에 붙여넣어 주세요');
+  } catch {
+    toast('복사하지 못했어요. 링크를 길게 눌러 복사해 주세요');
+  }
+}
+
+function sendLink(story, shareId) {
+  const url = shareUrl(shareId);
+  const text = `${who()}가 ${kidTo()} 들려주는 ‘${story.title}’ 동화예요 💛`;
+  sheet({
+    icon: '💌',
+    title: '링크가 준비됐어요',
+    body: `카톡이나 문자로 보내면 앱 설치 없이<br>링크만 눌러서 바로 들을 수 있어요.<span class="link-box">${esc(url)}</span>`,
+    secondary: navigator.share ? '링크 복사' : '',
+    primary: navigator.share ? '카톡·문자로 보내기' : '링크 복사하기',
+    onSecondary: () => copyText(url),
+    // navigator.share는 버튼을 누른 그 순간에 불러야 열려요 (await 없이)
+    onPrimary: () => (navigator.share
+      ? navigator.share({ title: story.title, text, url }).catch(() => {})
+      : copyText(url)),
+  });
+}
+
+async function shareStory(id) {
+  const story = getStory(id);
+  if (!shareEnabled()) {
+    sheet({
+      icon: '🔌',
+      title: '공유 서버가 아직 연결되지 않았어요',
+      body: '<code>config.js</code>에 Supabase 주소와 키를 넣으면<br>가족에게 링크를 보낼 수 있어요.<br>(설정 방법: SETUP-공유.md)',
+    });
+    return;
+  }
+  const pages = pagesOf(story);
+  const records = await Promise.all(pages.map((_, i) => db.getRecord(keyOf(id, i))));
+  const recorded = records.map((r, i) => r && { i, ...r }).filter(Boolean);
+  const latest = Math.max(...recorded.map((r) => r.at || 0));
+  const saved = local.get(shareKey)?.[id];
+  // 올린 뒤로 다시 녹음한 쪽이 없으면 예전 링크를 그대로 써요.
+  if (saved && saved.at >= latest) { sendLink(story, saved.id); return; }
+
+  sheet({
+    icon: '☁️',
+    title: `${esc(kidTo())} 보낼 링크를 만들까요?`,
+    body: '녹음을 서버에 올리고 링크를 만들어요.<br>링크를 아는 사람은 누구나 들을 수 있으니<br>가족에게만 보내주세요.',
+    secondary: '취소',
+    primary: '링크 만들기',
+    onPrimary: () => uploadAndSend(story, recorded),
+  });
+}
+
+async function uploadAndSend(story, recorded) {
+  const total = recorded.length + 1;
+  const { el, close } = sheet({
+    icon: '☁️',
+    title: '목소리를 올리고 있어요',
+    body: `<span class="up-bar"><span style="width:0%"></span></span><span class="up-text">0 / ${total}</span>`,
+    actions: false,
+  });
+  const bar = el.querySelector('.up-bar span');
+  const label = el.querySelector('.up-text');
+  try {
+    const shareId = await uploadShare(
+      { storyId: story.id, role: profile?.role || 'grandma', kid: kidName() },
+      recorded.map(({ i, blob }) => ({ i, blob })),
+      (n, t) => { bar.style.width = `${(n / t) * 100}%`; label.textContent = `${n} / ${t}`; },
+    );
+    local.set(shareKey, { ...(local.get(shareKey) || {}), [story.id]: { id: shareId, at: Date.now() } });
+    close();
+    setTimeout(() => sendLink(story, shareId), 280);
+  } catch {
+    close();
+    setTimeout(() => sheet({
+      icon: '📶',
+      title: '올리지 못했어요',
+      body: '인터넷 연결을 확인하고 다시 시도해 주세요.',
+      secondary: '닫기',
+      primary: '다시 시도',
+      onPrimary: () => uploadAndSend(story, recorded),
+    }), 280);
+  }
+}
 
 const topbar = ({ back = '', title = '', right = '' } = {}) => `
   <header class="topbar">
@@ -325,7 +420,7 @@ async function storyView(id) {
     <ol class="list">${rows}</ol>
     <div class="cta-bar">${cta}</div>
   `);
-  app.querySelector('#share')?.addEventListener('click', shareSoon);
+  app.querySelector('#share')?.addEventListener('click', () => shareStory(id));
 }
 
 /* ---------- 화면: 녹음 ---------- */
@@ -432,7 +527,7 @@ async function recordView(id, idxStr) {
       btn.innerHTML = `${I.play}<span>들어보기</span>`;
       return;
     }
-    if (!(await loadAudio(key))) return;
+    if (!(await loadLocal(key))) return;
     player.onended = () => { btn.innerHTML = `${I.play}<span>들어보기</span>`; };
     await player.play().catch(() => {});
     btn.innerHTML = `${I.pause}<span>멈추기</span>`;
@@ -508,7 +603,7 @@ function doneView(id) {
       <a class="btn btn-primary grow" href="#/listen/${id}">지금 들려주기</a>
     </div>
   `);
-  app.querySelector('#share').addEventListener('click', shareSoon);
+  app.querySelector('#share').addEventListener('click', () => shareStory(id));
 }
 
 /* ---------- 화면: 손주가 듣기 ---------- */
@@ -517,32 +612,71 @@ async function listenView(id) {
   if (!s) return notFound();
   const rec = await recordedSet();
   const list = pagesOf(s)
-    .map((p, i) => ({ ...p, i }))
-    .filter((p) => rec.has(keyOf(id, p.i)));
+    .map((p, i) => ({ ...p, load: () => loadLocal(keyOf(id, i)), has: rec.has(keyOf(id, i)) }))
+    .filter((p) => p.has);
   if (!list.length) {
     toast('먼저 녹음해 주세요');
     location.replace(`#/story/${id}`);
     return;
   }
-
   render(`
     ${topbar({ right: `<a class="icon-btn" href="#/story/${id}" aria-label="닫기">${I.close}</a>` })}
     <div class="listen" id="stage"></div>
   `, 'screen-listen');
+  mountPlayer(app.querySelector('#stage'), { story: s, list, reader: who(), kid: kidName() });
+}
 
+/* ---------- 화면: 공유 링크로 듣기 (받은 가족) ---------- */
+async function sharedView(shareId) {
+  render(`
+    ${topbar()}
+    <div class="listen" id="stage"><div class="loading"><span class="spinner"></span><p class="sub">동화를 불러오고 있어요</p></div></div>
+  `, 'screen-listen');
+  let manifest;
+  try {
+    manifest = await fetchShare(shareId);
+  } catch {
+    manifest = null;
+  }
+  const s = manifest && getStory(manifest.storyId);
   const stage = app.querySelector('#stage');
+  if (!stage) return; // 기다리는 사이 다른 화면으로 갔어요
+  if (!s) {
+    stage.innerHTML = `
+      <div class="listen-start">
+        <div class="celebrate-badge">🔗</div>
+        <h1 class="title-lg">링크를 열 수 없어요</h1>
+        <p class="sub">주소가 정확한지 보낸 분께 확인해 주세요.</p>
+      </div>`;
+    return;
+  }
+  const pages = pagesOf(s, manifest.role, manifest.kid || '');
+  const list = manifest.pages
+    .filter((f) => pages[f.i])
+    .map((f) => ({ ...pages[f.i], load: async () => { setSource(publicUrl(shareId, f.file)); return true; } }));
+  mountPlayer(stage, {
+    story: s,
+    list,
+    reader: whoOf(manifest.role),
+    kid: (manifest.kid || '').trim(),
+    endExtra: `<a class="btn btn-secondary full" href="#/" data-act="invite">우리 가족도 만들어 보기</a>`,
+  });
+}
+
+// 듣기 화면: 표지 → 쪽마다 그림 + 목소리 → 끝. 한 쪽이 끝나면 저절로 넘어가요.
+function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '' }) {
   let pos = 0;
   let alive = true;
   let advanceTimer = 0;
-  onDispose(() => { alive = false; clearTimeout(advanceTimer); stopAudio(); });
+  onDispose(() => { alive = false; clearTimeout(advanceTimer); stopAudio(); player.onerror = null; });
 
   const drawStart = () => {
     stage.innerHTML = `
       <div class="listen-start">
         <div class="cover cover-xl" style="${tintStyle(s)}"><span>${s.cover}</span></div>
-        <p class="eyebrow">${who()}가 읽어주는</p>
+        <p class="eyebrow">${reader}가 읽어주는</p>
         <h1 class="title-xl">${s.title}</h1>
-        ${kidName() ? `<p class="sub">${esc(kidTo())}</p>` : ''}
+        ${kid ? `<p class="sub">${esc(toOf(kid))}</p>` : ''}
         <button class="play-big" data-act="start" aria-label="듣기 시작">${I.play}</button>
       </div>`;
   };
@@ -551,7 +685,7 @@ async function listenView(id) {
     const p = list[pos];
     stage.innerHTML = `
       ${sceneHTML(p, 'scene-xl')}
-      <p class="listen-text">${p.intro ? `${who()}의 인사 💌` : esc(p.text)}</p>
+      <p class="listen-text">${p.intro ? `${reader}의 인사 💌` : esc(p.text)}</p>
       <div class="dots">${list.map((_, j) => `<i class="${j === pos ? 'on' : ''}"></i>`).join('')}</div>
       <div class="controls">
         <button class="ctl" data-act="prev" aria-label="앞 쪽" ${pos === 0 ? 'disabled' : ''}>${I.prev}</button>
@@ -565,8 +699,11 @@ async function listenView(id) {
       <div class="listen-start">
         <div class="celebrate-badge">🌟</div>
         <h1 class="title-xl">끝!</h1>
-        <p class="sub">${who()}, 재미있는 이야기 고마워요!</p>
-        <button class="btn btn-primary full" data-act="again">처음부터 다시 듣기</button>
+        <p class="sub">${reader}, 재미있는 이야기 고마워요!</p>
+        <div class="end-actions">
+          <button class="btn btn-primary full" data-act="again">처음부터 다시 듣기</button>
+          ${endExtra}
+        </div>
       </div>`;
   };
 
@@ -575,11 +712,17 @@ async function listenView(id) {
     if (b) b.innerHTML = playing ? I.pause : I.play;
   };
 
+  player.onerror = () => {
+    if (!alive || !player.getAttribute('src')) return;
+    setToggle(false);
+    toast('이 쪽 소리를 불러오지 못했어요');
+  };
+
   async function playAt(j) {
     clearTimeout(advanceTimer);
     pos = j;
     drawPage();
-    if (!(await loadAudio(keyOf(id, list[pos].i))) || !alive) return;
+    if (!(await list[pos].load()) || !alive) return;
     player.onended = () => {
       setToggle(false);
       advanceTimer = setTimeout(() => {
@@ -624,13 +767,15 @@ const routes = [
   [/^#\/record\/([\w-]+)\/(\d+)$/, recordView],
   [/^#\/done\/([\w-]+)$/, doneView],
   [/^#\/listen\/([\w-]+)$/, listenView],
+  [/^#\/s\/([a-z0-9]+)$/, sharedView],
 ];
 
 async function route() {
   dispose();
   stopAudio();
   const hash = location.hash || '#/';
-  if (!profile && hash !== '#/welcome') {
+  // 공유 링크(#/s/…)는 처음 설정 없이 바로 열려요.
+  if (!profile && hash !== '#/welcome' && !hash.startsWith('#/s/')) {
     location.replace('#/welcome');
     return;
   }

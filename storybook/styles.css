@@ -387,6 +387,26 @@ button:disabled { cursor: default; }
 @keyframes rise    { from { transform: translateY(35%); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes kenburns { from { transform: scale(1); } to { transform: scale(1.07) translateY(-1.5%); } }
 
+/* ---------- 보내기 · 불러오기 ---------- */
+.link-box {
+  display: block; margin-top: 16px; padding: 12px 14px; border-radius: 14px;
+  background: var(--fill); color: var(--text-2);
+  font-size: 14px; text-align: left; word-break: break-all; user-select: all;
+}
+.sheet-body code { font-size: 15px; padding: 1px 6px; border-radius: 6px; background: var(--fill); }
+.up-bar { display: block; height: 10px; margin: 18px 0 10px; border-radius: 5px; background: var(--fill); overflow: hidden; }
+.up-bar span { display: block; height: 100%; border-radius: 5px; background: var(--accent); transition: width .3s var(--ease); }
+.up-text { display: block; font-size: 15px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+.loading { display: flex; flex-direction: column; align-items: center; gap: 16px; padding-top: 30vh; }
+.spinner {
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 4px solid var(--accent-weak); border-top-color: var(--accent);
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.end-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 32px; }
+.end-actions .btn { margin-top: 0; }
+
 /* ---------- 시트 · 토스트 ---------- */
 .sheet-backdrop {
   position: fixed; inset: 0; z-index: 40;

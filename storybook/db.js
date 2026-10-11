@@ -30,10 +30,13 @@ export async function putBlob(key, blob) {
   return tx('readwrite', (s) => s.put({ buf, type: blob.type, at: Date.now() }, key));
 }
 
-export async function getBlob(key) {
+// { blob, at } — at은 녹음한 시각이에요. 공유 뒤에 다시 녹음했는지 알아낼 때 써요.
+export async function getRecord(key) {
   const rec = await tx('readonly', (s) => s.get(key));
-  return rec ? new Blob([rec.buf], { type: rec.type }) : null;
+  return rec ? { blob: new Blob([rec.buf], { type: rec.type }), at: rec.at } : null;
 }
+
+export const getBlob = async (key) => (await getRecord(key))?.blob ?? null;
 
 export const remove = (key) => tx('readwrite', (s) => s.delete(key));
 export const keys = () => tx('readonly', (s) => s.getAllKeys());
