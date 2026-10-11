@@ -410,17 +410,26 @@ button:disabled { cursor: default; }
 .end-actions .btn { margin-top: 0; }
 
 /* ---------- 얼굴 영상 (영상통화 느낌) ---------- */
-.scene-wrap { position: relative; }
-.pip {
-  position: absolute; top: 10px; right: 10px; z-index: 2;
-  width: 28%; max-width: 132px; aspect-ratio: 3 / 4;
-  border-radius: 18px; overflow: hidden;
-  background: #2B2416; border: 3px solid #fff;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, .22);
+/* 그림을 가리지 않도록: 녹음 화면은 녹음 버튼 옆, 듣기 화면은 그림 아래 글 옆에 둬요. */
+.chip-group { display: flex; gap: 6px; }
+.chip-cam.on { background: var(--accent); color: var(--accent-ink); }
+.rec-dock { flex-direction: row; gap: 16px; }
+.dock-main { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; }
+.self-cam {
+  flex: none; width: 88px; aspect-ratio: 3 / 4; border-radius: 18px; overflow: hidden;
+  background: #2B2416; box-shadow: 0 6px 18px rgba(0, 0, 0, .18);
 }
-.pip video { width: 100%; height: 100%; object-fit: cover; display: block; }
-.pip-self video { transform: scaleX(-1); }  /* 내 얼굴은 거울처럼 */
-.pip-call { width: 34%; max-width: 170px; top: 14px; right: 14px; border-radius: 22px; }
+.self-cam[hidden] { display: none; }
+.self-cam video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.self-cam video.mirror { transform: scaleX(-1); }  /* 미리보기만 거울처럼 */
+.scene-call { aspect-ratio: 4 / 3; }
+.call-row { display: flex; align-items: center; gap: 14px; margin: 18px 0 14px; text-align: left; }
+.call-cam {
+  position: relative; flex: none; width: 36%; max-width: 160px; aspect-ratio: 3 / 4;
+  border-radius: 22px; overflow: hidden; background: #2B2416; box-shadow: 0 8px 24px rgba(0, 0, 0, .18);
+}
+.call-cam video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.call-text { margin: 0; min-height: 0; font-size: 21px; line-height: 1.6; }
 .pip-label {
   position: absolute; left: 8px; bottom: 8px; z-index: 1;
   display: inline-flex; align-items: center; gap: 5px;
@@ -428,14 +437,6 @@ button:disabled { cursor: default; }
   background: rgba(0, 0, 0, .45); color: #fff; font-size: 13px; font-weight: 700;
 }
 .pip-label i { width: 7px; height: 7px; border-radius: 50%; background: #3DDC84; }
-.cam-toggle {
-  position: absolute; left: 10px; top: 10px; z-index: 2;
-  display: inline-flex; align-items: center; gap: 6px;
-  height: 36px; padding: 0 12px; border-radius: 18px;
-  background: rgba(255, 255, 255, .92); color: var(--accent-ink);
-  font-size: 14px; font-weight: 700; box-shadow: 0 4px 14px rgba(0, 0, 0, .12);
-}
-.cam-toggle.on { background: var(--accent); }
 
 /* ---------- 내가 지은 이야기 ---------- */
 .new-card { border: 2px dashed var(--line); box-shadow: none; background: transparent; }

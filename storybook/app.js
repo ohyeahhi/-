@@ -505,7 +505,10 @@ async function recordView(id, idxStr) {
     ${topbar({
       back: `#/story/${id}`,
       title: i === 0 ? '인사말' : `${i} / ${pages.length - 1}쪽`,
-      right: `<button class="chip" id="guide">${I.speaker}안내 듣기</button>`,
+      right: `<div class="chip-group">
+        <button class="chip chip-cam" id="cam-toggle" aria-pressed="false"></button>
+        <button class="chip" id="guide">${I.speaker}안내</button>
+      </div>`,
     })}
     <div class="stepbar"><span style="width:${((i + 1) / pages.length) * 100}%"></span></div>
     ${inKakao ? `
@@ -513,14 +516,13 @@ async function recordView(id, idxStr) {
         <p>카카오톡 안에서는 녹음이 안 될 수 있어요.</p>
         <button class="notice-btn" id="external">다른 브라우저로 열기</button>
       </div>` : ''}
-    <div class="scene-wrap">
-      ${sceneHTML(p)}
-      <button class="cam-toggle" id="cam-toggle" aria-pressed="false"></button>
-      <div class="pip pip-self" id="pip" hidden></div>
-    </div>
+    ${sceneHTML(p)}
     <p class="read-text">${esc(p.text)}</p>
     ${p.intro ? `<div class="hint-card">${esc(p.hint)}</div>` : ''}
-    <div class="rec-dock" id="dock" aria-live="polite"></div>
+    <div class="rec-dock">
+      <div class="self-cam" id="pip" hidden></div>
+      <div class="dock-main" id="dock" aria-live="polite"></div>
+    </div>
   `, 'screen-record');
 
   const dock = app.querySelector('#dock');
@@ -536,14 +538,14 @@ async function recordView(id, idxStr) {
   const camWanted = () => local.get('faceVideo') === true;
   const drawCamBtn = () => {
     const on = Boolean(cam);
-    camBtn.innerHTML = `${on ? I.cam : I.camOff}<span>${on ? '얼굴 함께 녹화 중' : '얼굴도 함께 담기'}</span>`;
+    camBtn.innerHTML = `${on ? I.cam : I.camOff}<span>얼굴 ${on ? '켬' : '끔'}</span>`;
     camBtn.setAttribute('aria-pressed', String(on));
     camBtn.classList.toggle('on', on);
   };
   const showPreview = () => {
     if (!cam) return;
     parkPlayer();
-    preview ??= Object.assign(document.createElement('video'), { muted: true, autoplay: true, playsInline: true });
+    preview ??= Object.assign(document.createElement('video'), { muted: true, autoplay: true, playsInline: true, className: 'mirror' });
     preview.setAttribute('playsinline', '');
     preview.srcObject = cam;
     pip.replaceChildren(preview);
@@ -582,9 +584,11 @@ async function recordView(id, idxStr) {
     if (remember) local.set('faceVideo', false);
     drawCamBtn();
   }
-  camBtn.addEventListener('click', () => {
+  camBtn.addEventListener('click', async () => {
     if (recorder.active) { toast('녹음이 끝난 뒤에 바꿀 수 있어요'); return; }
-    if (cam) camOff(); else camOn();
+    if (cam) { camOff(); toast('목소리만 녹음해요'); return; }
+    await camOn();
+    if (cam) toast('얼굴도 함께 녹화해요');
   });
 
   const draw = (state) => {
@@ -846,11 +850,13 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
   const drawPage = () => {
     const p = list[pos];
     stage.innerHTML = `
-      <div class="scene-wrap">
-        ${sceneHTML(p, 'scene-xl')}
-        ${p.video ? `<div class="pip pip-call"><span class="pip-label"><i></i>${reader}</span></div>` : ''}
-      </div>
-      <p class="listen-text">${p.intro ? `${reader}의 인사 💌` : esc(p.text)}</p>
+      ${sceneHTML(p, p.video ? 'scene-xl scene-call' : 'scene-xl')}
+      ${p.video
+        ? `<div class="call-row">
+            <div class="call-cam"><span class="pip-label"><i></i>${reader}</span></div>
+            <p class="listen-text call-text">${p.intro ? `${reader}의 인사 💌` : esc(p.text)}</p>
+          </div>`
+        : `<p class="listen-text">${p.intro ? `${reader}의 인사 💌` : esc(p.text)}</p>`}
       <div class="dots">${list.map((_, j) => `<i class="${j === pos ? 'on' : ''}"></i>`).join('')}</div>
       <div class="controls">
         <button class="ctl" data-act="prev" aria-label="앞 쪽" ${pos === 0 ? 'disabled' : ''}>${I.prev}</button>
@@ -889,7 +895,7 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
     drawPage();
     if (!(await list[pos].load()) || !alive) return;
     // 영상통화처럼: 얼굴 영상이 있으면 그림 위 작은 창에서 보여줘요.
-    const pip = stage.querySelector('.pip-call');
+    const pip = stage.querySelector('.call-cam');
     if (pip) pip.prepend(player); else parkPlayer();
     player.onended = () => {
       setToggle(false);
