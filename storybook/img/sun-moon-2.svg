@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">
+  <!-- 해님 달님 2쪽: 떡 바구니를 인 엄마 앞에 호랑이가 나타난 장면 -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFB48C"/>
+      <stop offset=".55" stop-color="#FFD9A0"/>
+      <stop offset="1" stop-color="#FFEBB8"/>
+    </linearGradient>
+    <radialGradient id="glow" cx=".5" cy=".5" r=".5">
+      <stop offset="0" stop-color="#FFF3C4" stop-opacity=".95"/>
+      <stop offset="1" stop-color="#FFF3C4" stop-opacity="0"/>
+    </radialGradient>
+    <g id="pine">
+      <rect x="-8" y="-42" width="16" height="44" rx="4" fill="#8A5A3B"/>
+      <path d="M-56-36L0-112L56-36Z" fill="#4E8A5A" stroke="#4E8A5A" stroke-width="16" stroke-linejoin="round"/>
+      <path d="M-44-84L0-150L44-84Z" fill="#5A9866" stroke="#5A9866" stroke-width="14" stroke-linejoin="round"/>
+      <path d="M-30-126L0-182L30-126Z" fill="#66A572" stroke="#66A572" stroke-width="12" stroke-linejoin="round"/>
+    </g>
+    <g id="tuft">
+      <path d="M-14 0Q-12-16-4-22M0 0Q0-20 4-28M12 0Q12-14 18-20" stroke="#7FA552" stroke-width="5" stroke-linecap="round" fill="none"/>
+    </g>
+  </defs>
+
+  <!-- 하늘과 노을 -->
+  <rect width="800" height="600" fill="url(#sky)"/>
+  <circle cx="610" cy="300" r="150" fill="url(#glow)"/>
+  <circle cx="610" cy="318" r="62" fill="#FFD66B"/>
+  <g fill="#FFF6E6" opacity=".85">
+    <path d="M90 120a26 26 0 0 1 48-12a20 20 0 0 1 34 14a16 16 0 0 1 2 30H96a20 20 0 0 1-6-32z"/>
+    <path d="M430 80a22 22 0 0 1 40-10a17 17 0 0 1 29 12a13 13 0 0 1 2 25h-66a17 17 0 0 1-5-27z"/>
+  </g>
+  <g stroke="#B9746A" stroke-width="4" stroke-linecap="round" fill="none">
+    <path d="M300 150q10-10 20 0q10-10 20 0"/>
+    <path d="M352 128q8-8 16 0q8-8 16 0"/>
+  </g>
+
+  <!-- 먼 산, 언덕, 땅 -->
+  <path d="M0 360C80 300 140 268 220 298S340 248 430 258 560 322 640 300 760 288 800 306V600H0Z" fill="#E9A88E"/>
+  <path d="M0 402C120 362 220 352 330 382S520 360 640 370 770 390 800 396V600H0Z" fill="#CDB57E"/>
+  <path d="M0 452C150 426 300 430 420 446S680 440 800 430V600H0Z" fill="#AAC56F"/>
+  <path d="M330 600C360 540 420 500 520 470S700 445 800 446V472C700 472 612 480 546 502S420 566 410 600Z" fill="#EDD39E"/>
+
+  <!-- 소나무 -->
+  <use href="#pine" transform="translate(70 452) scale(1.05)"/>
+  <use href="#pine" transform="translate(150 446) scale(.8)"/>
+  <use href="#pine" transform="translate(748 440) scale(.95)"/>
+  <use href="#tuft" x="200" y="560"/>
+  <use href="#tuft" x="690" y="540"/>
+  <use href="#tuft" x="40" y="520"/>
+  <g>
+    <circle cx="120" cy="548" r="7" fill="#FFF6E6"/><circle cx="120" cy="548" r="3" fill="#FFC93C"/>
+    <circle cx="740" cy="512" r="7" fill="#FFF6E6"/><circle cx="740" cy="512" r="3" fill="#FFC93C"/>
+  </g>
+
+  <!-- 엄마 -->
+  <ellipse cx="270" cy="506" rx="74" ry="12" fill="#5A4A2A" opacity=".14"/>
+  <path d="M198 502C202 432 228 384 270 378S338 432 342 502Z" fill="#E4738A"/>
+  <path d="M206 488C230 496 310 496 334 488" stroke="#D05E77" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <path d="M226 394C230 352 248 336 270 336S310 352 314 394Z" fill="#FFF3DD"/>
+  <path d="M256 338L270 364L284 338" stroke="#5B6BB5" stroke-width="7" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
+  <path d="M272 366q14 8 8 30M272 366q-2 16-12 26" stroke="#D94A5E" stroke-width="6" fill="none" stroke-linecap="round"/>
+  <!-- 팔: 바구니를 받치고 있어요 -->
+  <path d="M240 352Q212 318 228 272" stroke="#FFF3DD" stroke-width="24" fill="none" stroke-linecap="round"/>
+  <path d="M300 352Q328 318 312 272" stroke="#FFF3DD" stroke-width="24" fill="none" stroke-linecap="round"/>
+  <path d="M220 284l18 4M302 288l18-4" stroke="#5B6BB5" stroke-width="7" stroke-linecap="round"/>
+  <circle cx="230" cy="264" r="10" fill="#FFD6B3"/>
+  <circle cx="310" cy="264" r="10" fill="#FFD6B3"/>
+  <!-- 얼굴 -->
+  <circle cx="270" cy="306" r="31" fill="#FFD6B3"/>
+  <path d="M239 306C239 270 301 270 301 306C296 290 282 284 270 286C258 284 245 290 239 306Z" fill="#2E2A33"/>
+  <path d="M270 276v11" stroke="#FFD6B3" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M252 296q6-5 12 0M276 296q6-5 12 0" stroke="#2E2A33" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <circle cx="259" cy="306" r="4.5" fill="#2E2A33"/>
+  <circle cx="281" cy="306" r="4.5" fill="#2E2A33"/>
+  <ellipse cx="270" cy="322" rx="4.5" ry="5.5" fill="#B5485A"/>
+  <circle cx="251" cy="317" r="6" fill="#FF9AA8" opacity=".55"/>
+  <circle cx="289" cy="317" r="6" fill="#FF9AA8" opacity=".55"/>
+  <path d="M311 284q6 9 0 14q-6-5 0-14z" fill="#8FD0F2"/>
+  <!-- 떡 바구니 -->
+  <path d="M214 262Q270 292 326 262L318 244Q270 262 222 244Z" fill="#C98B4F"/>
+  <ellipse cx="270" cy="244" rx="50" ry="10" fill="#B07440"/>
+  <path d="M236 254l6 14M256 258l3 15M280 258l-2 15M302 254l-6 14" stroke="#A86B38" stroke-width="3" stroke-linecap="round"/>
+  <ellipse cx="248" cy="236" rx="13" ry="8" fill="#FFFDF6" stroke="#EADFC8" stroke-width="2"/>
+  <ellipse cx="270" cy="232" rx="13" ry="8" fill="#F7B6C2" stroke="#E99FAE" stroke-width="2"/>
+  <ellipse cx="292" cy="236" rx="13" ry="8" fill="#C3DB8E" stroke="#AFC97A" stroke-width="2"/>
+  <ellipse cx="259" cy="223" rx="12" ry="7.5" fill="#FFFDF6" stroke="#EADFC8" stroke-width="2"/>
+  <ellipse cx="281" cy="223" rx="12" ry="7.5" fill="#F7B6C2" stroke="#E99FAE" stroke-width="2"/>
+  <!-- 깜짝! -->
+  <g fill="#E4573D">
+    <rect x="192" y="196" width="10" height="30" rx="5" transform="rotate(-18 197 211)"/>
+    <circle cx="206" cy="236" r="5.5"/>
+    <rect x="336" y="200" width="9" height="24" rx="4.5" transform="rotate(16 340 212)"/>
+    <circle cx="334" cy="232" r="5"/>
+  </g>
+
+  <!-- 호랑이 -->
+  <ellipse cx="566" cy="508" rx="100" ry="14" fill="#5A4A2A" opacity=".16"/>
+  <path d="M632 490C704 492 716 420 684 398C668 388 690 368 706 386" stroke="#F29440" stroke-width="20" fill="none" stroke-linecap="round"/>
+  <path d="M668 474l14-10M690 436l16 2M684 404l12-12" stroke="#3A2A22" stroke-width="6" stroke-linecap="round"/>
+  <path d="M498 502C488 440 510 368 566 360S644 440 634 502Z" fill="#F59A45"/>
+  <path d="M534 502C528 452 544 410 566 404S604 452 598 502Z" fill="#FFF1D6"/>
+  <path d="M508 440q18-6 28 6M504 472q18-4 26 8M624 440q-18-6-28 6M628 472q-18-4-26 8" stroke="#3A2A22" stroke-width="7" fill="none" stroke-linecap="round"/>
+  <ellipse cx="520" cy="500" rx="28" ry="13" fill="#F59A45"/>
+  <ellipse cx="612" cy="500" rx="28" ry="13" fill="#F59A45"/>
+  <ellipse cx="582" cy="498" rx="17" ry="11" fill="#FFE7C7"/>
+  <path d="M577 492v8M587 492v8" stroke="#E9B98C" stroke-width="3" stroke-linecap="round"/>
+  <!-- 앞발을 쭉 내밀어요 -->
+  <path d="M548 412Q506 404 478 380" stroke="#F59A45" stroke-width="28" fill="none" stroke-linecap="round"/>
+  <path d="M512 396l6 14M496 386l5 14" stroke="#3A2A22" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="472" cy="376" r="17" fill="#FFE7C7"/>
+  <path d="M463 366l4 6M472 362v7M481 366l-4 6" stroke="#E9B98C" stroke-width="3" stroke-linecap="round"/>
+  <!-- 머리 -->
+  <circle cx="518" cy="270" r="19" fill="#F59A45"/><circle cx="518" cy="270" r="9" fill="#FFC9A0"/>
+  <circle cx="612" cy="270" r="19" fill="#F59A45"/><circle cx="612" cy="270" r="9" fill="#FFC9A0"/>
+  <ellipse cx="565" cy="318" rx="68" ry="59" fill="#F59A45"/>
+  <path d="M500 330q-14 8-6 22q8-6 16-4M630 330q14 8 6 22q-8-6-16-4" fill="#FFF1D6"/>
+  <ellipse cx="565" cy="342" rx="38" ry="27" fill="#FFF1D6"/>
+  <!-- 이마의 왕(王) 무늬 -->
+  <path d="M548 276h34M551 288h28M553 299h24M565 274v26" stroke="#3A2A22" stroke-width="6" stroke-linecap="round"/>
+  <path d="M502 306q14 2 20 12M628 306q-14 2-20 12M506 292q10 0 16 6M624 292q-10 0-16 6" stroke="#3A2A22" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <path d="M528 298l24 6M602 298l-24 6" stroke="#3A2A22" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="542" cy="316" r="12" fill="#fff"/><circle cx="588" cy="316" r="12" fill="#fff"/>
+  <circle cx="537" cy="318" r="6.5" fill="#2B211C"/><circle cx="583" cy="318" r="6.5" fill="#2B211C"/>
+  <circle cx="535" cy="315" r="2" fill="#fff"/><circle cx="581" cy="315" r="2" fill="#fff"/>
+  <path d="M556 332h18l-9 9z" fill="#E8707E" stroke="#E8707E" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M565 341v6M543 346q22 20 44 0" stroke="#3A2A22" stroke-width="4.5" fill="none" stroke-linecap="round"/>
+  <path d="M554 351l4 9 4-8zM568 351l4 8 4-9z" fill="#fff"/>
+  <g fill="#3A2A22"><circle cx="545" cy="342" r="2"/><circle cx="539" cy="348" r="2"/><circle cx="585" cy="342" r="2"/><circle cx="591" cy="348" r="2"/></g>
+  <path d="M528 346l-26-4M528 354l-24 4M602 346l26-4M602 354l24 4" stroke="#3A2A22" stroke-width="2.5" stroke-linecap="round" opacity=".7"/>
+</svg>
