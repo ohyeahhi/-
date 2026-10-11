@@ -2,7 +2,7 @@
 // 받은 사람은 공개 주소로 바로 들어요. 로그인도, 데이터베이스도 필요 없어요.
 //
 //   shares/<공유ID>/manifest.json   동화 id, 누가 읽었는지, 쪽별 파일 이름
-//   shares/<공유ID>/0.m4a, 1.m4a…   쪽별 녹음
+//   shares/<공유ID>/0.m4a, 1.mp4…   쪽별 녹음 (얼굴 영상이면 mp4·webm 영상)
 //
 // 공유ID는 추측하기 어려운 무작위 12글자예요. 링크를 아는 사람만 들을 수 있어요.
 import { CONFIG } from './config.js';
@@ -19,7 +19,11 @@ function newShareId() {
   return Array.from(bytes, (b) => ID_CHARS[b % ID_CHARS.length]).join('');
 }
 
-const extOf = (type) => (type.includes('mp4') ? 'm4a' : type.includes('ogg') ? 'ogg' : 'webm');
+const extOf = (type) => {
+  const video = type.startsWith('video/');
+  if (type.includes('mp4')) return video ? 'mp4' : 'm4a';
+  return type.includes('ogg') ? 'ogg' : 'webm';
+};
 
 async function upload(path, body, type) {
   const key = CONFIG.supabaseAnonKey;

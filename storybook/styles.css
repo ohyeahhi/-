@@ -409,6 +409,69 @@ button:disabled { cursor: default; }
 .end-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 32px; }
 .end-actions .btn { margin-top: 0; }
 
+/* ---------- 얼굴 영상 (영상통화 느낌) ---------- */
+.scene-wrap { position: relative; }
+.pip {
+  position: absolute; top: 10px; right: 10px; z-index: 2;
+  width: 28%; max-width: 132px; aspect-ratio: 3 / 4;
+  border-radius: 18px; overflow: hidden;
+  background: #2B2416; border: 3px solid #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .22);
+}
+.pip video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pip-self video { transform: scaleX(-1); }  /* 내 얼굴은 거울처럼 */
+.pip-call { width: 34%; max-width: 170px; top: 14px; right: 14px; border-radius: 22px; }
+.pip-label {
+  position: absolute; left: 8px; bottom: 8px; z-index: 1;
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: 10px;
+  background: rgba(0, 0, 0, .45); color: #fff; font-size: 13px; font-weight: 700;
+}
+.pip-label i { width: 7px; height: 7px; border-radius: 50%; background: #3DDC84; }
+.cam-toggle {
+  position: absolute; left: 10px; top: 10px; z-index: 2;
+  display: inline-flex; align-items: center; gap: 6px;
+  height: 36px; padding: 0 12px; border-radius: 18px;
+  background: rgba(255, 255, 255, .92); color: var(--accent-ink);
+  font-size: 14px; font-weight: 700; box-shadow: 0 4px 14px rgba(0, 0, 0, .12);
+}
+.cam-toggle.on { background: var(--accent); }
+
+/* ---------- 내가 지은 이야기 ---------- */
+.new-card { border: 2px dashed var(--line); box-shadow: none; background: transparent; }
+.cover-new { background: var(--accent-weak); color: var(--accent-text); }
+.chip-edit { margin-top: 14px; }
+.screen-editor .title-lg { margin-top: 12px; }
+.page-card {
+  margin-top: 16px; padding: 16px; border-radius: 22px;
+  background: var(--surface); box-shadow: var(--shadow);
+}
+.page-card-head { display: flex; align-items: center; justify-content: space-between; min-height: 32px; margin-bottom: 10px; font-size: 16px; }
+.icon-mini { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; color: var(--text-3); }
+.icon-mini:active { background: var(--fill); }
+.page-art { aspect-ratio: 4 / 3; border-radius: 18px; overflow: hidden; background: var(--fill); }
+.page-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.page-text {
+  display: block; width: 100%; margin-top: 12px; padding: 14px 16px;
+  border: 2px solid transparent; border-radius: 16px;
+  background: var(--fill); color: var(--text);
+  font: inherit; font-size: 19px; line-height: 1.6; resize: vertical;
+}
+.page-text:focus { outline: none; border-color: var(--accent); background: var(--surface); }
+.page-tools { display: flex; gap: 8px; margin-top: 10px; }
+.page-tools .pill { height: 48px; font-size: 16px; }
+.pill.listening { background: var(--red); color: #fff; animation: pulse-soft 1.2s ease-in-out infinite alternate; }
+@keyframes pulse-soft { to { opacity: .75; } }
+.add-page {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; height: 58px; margin-top: 16px; border-radius: 18px;
+  border: 2px dashed var(--line); color: var(--text-2); font-size: 17px; font-weight: 700;
+}
+.text-danger {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; margin-top: 24px; padding: 12px; color: var(--red); font-size: 16px; font-weight: 600;
+}
+
 /* ---------- 시트 · 토스트 ---------- */
 .sheet-backdrop {
   position: fixed; inset: 0; z-index: 40;

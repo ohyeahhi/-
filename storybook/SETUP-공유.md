@@ -12,8 +12,11 @@ Supabase 무료 요금제로 시작할 수 있고, 15분 정도 걸려요.
 - Name: `shares`
 - **Public bucket: 켬** (링크를 아는 사람이 들을 수 있게)
 - Additional configuration
-  - Restrict file upload size: **5 MB**
-  - Allowed MIME types: `audio/mp4, audio/webm, audio/ogg, application/json`
+  - Restrict file upload size: **10 MB** (얼굴 영상은 한 쪽에 최대 1분 30초, 약 7MB)
+  - Allowed MIME types: `audio/mp4, audio/webm, audio/ogg, video/mp4, video/webm, application/json`
+
+> 이미 버킷을 만들었다면: Storage → `shares` 옆 ⋮ → **Edit bucket**에서 위 두 값을 바꿔 주세요.
+> 영상 형식을 허용하지 않으면 얼굴 영상을 녹화한 동화는 "올리지 못했어요"가 떠요.
 
 ## 3. 올리기 권한 주기
 **SQL Editor**에서 아래를 실행해요. 누구나 *올리기만* 할 수 있고, 목록 보기·고치기·지우기는 못 해요.
@@ -41,4 +44,4 @@ export const CONFIG = {
 - **링크를 아는 사람은 누구나 들을 수 있어요.** 공유 ID는 무작위 12글자라 추측하기는 어려워요.
 - 지금은 로그인 없이 누구나 이 버킷에 파일을 올릴 수 있어요. 크기와 형식을 제한해 두었지만, 정식 출시 전에는 로그인이나 서버 함수를 거쳐 올리도록 바꿔야 해요.
 - 녹음 삭제 기능은 아직 없어요. 지우려면 Supabase 대시보드의 Storage에서 해당 폴더를 지우면 돼요.
-- 동화 한 편(7쪽) 녹음은 대략 0.5~1MB예요. 무료 요금제 저장 용량(1GB) 안에서 1,000편 이상 올릴 수 있어요.
+- 동화 한 편(7쪽) 녹음은 목소리만이면 대략 0.5~1MB, 얼굴 영상까지 담으면 10~20MB예요. 무료 요금제(1GB)로 목소리만이면 1,000편 이상, 영상이면 50~100편 정도예요.

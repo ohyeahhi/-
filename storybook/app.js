@@ -1,11 +1,15 @@
-import { STORIES, getStory } from './stories.js';
+import { STORIES, getStory as getBuiltin } from './stories.js';
 import * as db from './db.js';
 import { shareEnabled, uploadShare, fetchShare, publicUrl } from './share.js';
+import * as mine from './mystories.js';
 
 const app = document.getElementById('app');
 const toastEl = document.getElementById('toast');
 const MAX_SECONDS = 180;
+// 얼굴 영상은 파일이 커서 한 쪽에 1분 30초까지만 녹화해요. (공유 서버 파일 한도 10MB 안쪽)
+const MAX_SECONDS_VIDEO = 90;
 const inKakao = /KAKAOTALK/i.test(navigator.userAgent);
+const getStory = (id) => getBuiltin(id) || (mine.getRaw(id) ? mine.toStory(mine.getRaw(id)) : null);
 
 /* ---------- 아이콘 ---------- */
 const svg = (d, w = 24) =>
@@ -23,6 +27,13 @@ const I = {
   speaker: svg('<path d="M11 5L6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/>', 18),
   send: svg('<path d="M21 3L10 14"/><path d="M21 3l-7 18-4-7-7-4z"/>', 20),
   user: svg('<circle cx="12" cy="8" r="4"/><path d="M4 20c1.5-4 4.5-6 8-6s6.5 2 8 6"/>', 22),
+  cam: svg('<rect x="2.5" y="6" width="13" height="12" rx="3"/><path d="M15.5 10.5l5-3v9l-5-3"/>', 18),
+  camOff: svg('<rect x="2.5" y="6" width="13" height="12" rx="3"/><path d="M15.5 10.5l5-3v9l-5-3M3 3l18 18"/>', 18),
+  plus: svg('<path d="M12 5v14M5 12h14"/>', 22),
+  mic: svg('<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>', 18),
+  shuffle: svg('<path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/>', 18),
+  trash: svg('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>', 18),
+  edit: svg('<path d="M4 20h4L19 9l-4-4L4 16z"/>', 18),
 };
 
 /* ---------- 프로필 ---------- */
@@ -69,44 +80,52 @@ function dispose() {
   disposers = [];
 }
 
-/* ---------- 오디오 ---------- */
-const player = new Audio();
+/* ---------- 재생 ---------- */
+// 소리만 있는 녹음도, 얼굴 영상 녹음도 같은 <video> 하나로 재생해요.
+// 영상이면 그림 위 작은 창(.pip)에 붙이고, 소리만이면 보이지 않는 곳에 둬요.
+const player = document.createElement('video');
+player.playsInline = true;
+player.setAttribute('playsinline', '');
+const mediaDock = document.createElement('div');
+mediaDock.hidden = true;
+mediaDock.append(player);
+document.body.append(mediaDock);
+const parkPlayer = () => { if (player.parentNode !== mediaDock) mediaDock.append(player); };
 let playerUrl = null;
 function setSource(src, objectUrl = false) {
   if (playerUrl) URL.revokeObjectURL(playerUrl);
   playerUrl = objectUrl ? src : null;
   player.src = src;
 }
-// 이 기기에 저장된 녹음
-async function loadLocal(key) {
-  const blob = await db.getBlob(key);
-  if (!blob) return false;
-  setSource(URL.createObjectURL(blob), true);
-  return true;
-}
 function stopAudio() {
   player.pause();
   player.onended = null;
+  parkPlayer();
 }
+
+const AUDIO = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+const AUDIO_TYPES = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus'];
+const VIDEO_TYPES = ['video/mp4;codecs=avc1,mp4a', 'video/mp4', 'video/webm;codecs=vp8,opus', 'video/webm'];
+const isVideo = (type) => /^video\//.test(type || '');
 
 const recorder = {
   cur: null,
   get active() { return !!this.cur; },
-  async start(onLevel) {
+  // stream 을 주면(얼굴 미리보기 중인 카메라) 그걸로 녹화하고, 끝나도 끄지 않아요.
+  async start(onLevel, given = null) {
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
       throw Object.assign(new Error('녹음 미지원'), { name: 'Unsupported' });
     }
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-    });
-    const type = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus']
-      .find((t) => MediaRecorder.isTypeSupported?.(t));
-    const mr = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
+    const stream = given || await navigator.mediaDevices.getUserMedia({ audio: AUDIO });
+    const video = stream.getVideoTracks().length > 0;
+    const type = (video ? VIDEO_TYPES : AUDIO_TYPES).find((t) => MediaRecorder.isTypeSupported?.(t));
+    const opts = { audioBitsPerSecond: 64000, ...(video ? { videoBitsPerSecond: 600000 } : {}), ...(type ? { mimeType: type } : {}) };
+    const mr = new MediaRecorder(stream, opts);
     const chunks = [];
     mr.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
     mr.start(250);
 
-    const cur = { stream, mr, chunks, type, raf: 0, ctx: null };
+    const cur = { stream, mr, chunks, type, raf: 0, ctx: null, owns: !given, video };
     try {
       cur.ctx = new (window.AudioContext || window.webkitAudioContext)();
       const analyser = cur.ctx.createAnalyser();
@@ -131,9 +150,10 @@ const recorder = {
     cancelAnimationFrame(c.raf);
     c.ctx?.close?.();
     return new Promise((resolve) => {
-      c.mr.onstop = () => resolve(new Blob(c.chunks, { type: c.mr.mimeType || c.type || 'audio/webm' }));
+      const fallback = c.video ? 'video/webm' : 'audio/webm';
+      c.mr.onstop = () => resolve(new Blob(c.chunks, { type: c.mr.mimeType || c.type || fallback }));
       try { c.mr.stop(); } catch { resolve(null); }
-      c.stream.getTracks().forEach((t) => t.stop());
+      if (c.owns) c.stream.getTracks().forEach((t) => t.stop());
     });
   },
 };
@@ -257,7 +277,12 @@ async function uploadAndSend(story, recorded) {
   const label = el.querySelector('.up-text');
   try {
     const shareId = await uploadShare(
-      { storyId: story.id, role: profile?.role || 'grandma', kid: kidName() },
+      {
+        storyId: story.id,
+        role: profile?.role || 'grandma',
+        kid: kidName(),
+        ...(story.custom ? { custom: { title: story.title, pages: story.pages.map(({ text, seed }) => ({ text, seed })) } } : {}),
+      },
       recorded.map(({ i, blob }) => ({ i, blob })),
       (n, t) => { bar.style.width = `${(n / t) * 100}%`; label.textContent = `${n} / ${t}`; },
     );
@@ -342,7 +367,7 @@ function welcomeView() {
 /* ---------- 화면: 홈 ---------- */
 async function homeView() {
   const rec = await recordedSet();
-  const cards = STORIES.map((s) => {
+  const card = (s) => {
     const pages = pagesOf(s);
     const n = pages.filter((_, i) => rec.has(keyOf(s.id, i))).length;
     const done = n === pages.length;
@@ -353,13 +378,14 @@ async function homeView() {
       <a class="story-card" href="#/story/${s.id}">
         ${coverHTML(s)}
         <div class="story-card-body">
-          <div class="story-card-title">${s.title}</div>
+          <div class="story-card-title">${esc(s.title)}</div>
           <div class="story-card-meta">${meta}</div>
           ${n && !done ? `<div class="progress"><span style="width:${(n / pages.length) * 100}%"></span></div>` : ''}
         </div>
         <span class="chev">${I.chevron}</span>
       </a>`;
-  }).join('');
+  };
+  const mineList = mine.myStories();
 
   render(`
     ${topbar({
@@ -369,7 +395,17 @@ async function homeView() {
     <h1 class="title-xl">${who()} 목소리로<br>어떤 동화를 들려줄까요?</h1>
     <p class="sub">녹음해 두면 ${esc(kidTo())} 언제든 들려줄 수 있어요.</p>
     <h2 class="section-label">전래동화</h2>
-    ${cards}
+    ${STORIES.map(card).join('')}
+    <h2 class="section-label">내가 지은 이야기</h2>
+    ${mineList.map(card).join('')}
+    <a class="story-card new-card" href="#/new">
+      <div class="cover cover-new">${I.plus}</div>
+      <div class="story-card-body">
+        <div class="story-card-title">새 이야기 만들기</div>
+        <div class="story-card-meta">옛날이야기나 추억을 적으면 그림이 저절로 그려져요</div>
+      </div>
+      <span class="chev">${I.chevron}</span>
+    </a>
     <div class="tip">
       <span class="tip-emoji">💡</span>
       <p>조용한 곳에서 휴대폰을 입에서 한 뼘 정도 떨어뜨리고 읽으면 목소리가 깨끗하게 담겨요.</p>
@@ -411,8 +447,9 @@ async function storyView(id) {
     ${topbar({ back: '#/' })}
     <div class="hero">
       ${coverHTML(s, 'cover-lg')}
-      <h1 class="title-lg">${s.title}</h1>
-      <p class="sub">${s.desc}</p>
+      <h1 class="title-lg">${esc(s.title)}</h1>
+      <p class="sub">${esc(s.desc)}</p>
+      ${s.custom ? `<a class="chip chip-edit" href="#/edit/${id}">${I.edit}이야기 고치기</a>` : ''}
       <div class="stat-row">
         <div><b>${pages.length}쪽</b><span>분량</span></div>
         <div><b>약 ${s.minutes}분</b><span>읽는 시간</span></div>
@@ -449,16 +486,79 @@ async function recordView(id, idxStr) {
         <p>카카오톡 안에서는 녹음이 안 될 수 있어요.</p>
         <button class="notice-btn" id="external">다른 브라우저로 열기</button>
       </div>` : ''}
-    ${sceneHTML(p)}
+    <div class="scene-wrap">
+      ${sceneHTML(p)}
+      <button class="cam-toggle" id="cam-toggle" aria-pressed="false"></button>
+      <div class="pip pip-self" id="pip" hidden></div>
+    </div>
     <p class="read-text">${esc(p.text)}</p>
     ${p.intro ? `<div class="hint-card">${esc(p.hint)}</div>` : ''}
     <div class="rec-dock" id="dock" aria-live="polite"></div>
   `, 'screen-record');
 
   const dock = app.querySelector('#dock');
+  const pip = app.querySelector('#pip');
+  const camBtn = app.querySelector('#cam-toggle');
   let busy = false;
   let timer = 0;
   let bars = [];
+
+  // ----- 얼굴 함께 녹화 (켜고 끌 수 있어요) -----
+  let cam = null;
+  let preview = null;
+  const camWanted = () => local.get('faceVideo') === true;
+  const drawCamBtn = () => {
+    const on = Boolean(cam);
+    camBtn.innerHTML = `${on ? I.cam : I.camOff}<span>${on ? '얼굴 함께 녹화 중' : '얼굴도 함께 담기'}</span>`;
+    camBtn.setAttribute('aria-pressed', String(on));
+    camBtn.classList.toggle('on', on);
+  };
+  const showPreview = () => {
+    if (!cam) return;
+    parkPlayer();
+    preview ??= Object.assign(document.createElement('video'), { muted: true, autoplay: true, playsInline: true });
+    preview.setAttribute('playsinline', '');
+    preview.srcObject = cam;
+    pip.replaceChildren(preview);
+    pip.hidden = false;
+    preview.play?.().catch(() => {});
+  };
+  async function camOn() {
+    try {
+      cam = await navigator.mediaDevices.getUserMedia({
+        audio: AUDIO,
+        video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 640 } },
+      });
+    } catch (e) {
+      cam = null;
+      local.set('faceVideo', false);
+      drawCamBtn();
+      sheet({
+        icon: '📷',
+        title: '카메라를 켤 수 없어요',
+        body: e.name === 'NotAllowedError'
+          ? '얼굴을 함께 담으려면 카메라 권한이 필요해요.<br>주소창 옆 설정에서 카메라를 ‘허용’으로 바꿔주세요.'
+          : '이 기기에서는 카메라를 쓸 수 없어요.<br>목소리만으로도 녹음할 수 있어요.',
+      });
+      return;
+    }
+    local.set('faceVideo', true);
+    drawCamBtn();
+    showPreview();
+  }
+  function camOff(remember = true) {
+    cam?.getTracks().forEach((t) => t.stop());
+    cam = null;
+    if (preview) preview.srcObject = null;
+    pip.replaceChildren();
+    pip.hidden = true;
+    if (remember) local.set('faceVideo', false);
+    drawCamBtn();
+  }
+  camBtn.addEventListener('click', () => {
+    if (recorder.active) { toast('녹음이 끝난 뒤에 바꿀 수 있어요'); return; }
+    if (cam) camOff(); else camOn();
+  });
 
   const draw = (state) => {
     if (state === 'idle') {
@@ -492,8 +592,9 @@ async function recordView(id, idxStr) {
 
   async function startRec() {
     stopAudio();
+    showPreview();
     try {
-      await recorder.start(onLevel);
+      await recorder.start(onLevel, cam);
     } catch (e) {
       recError(e);
       return;
@@ -505,7 +606,7 @@ async function recordView(id, idxStr) {
     timer = setInterval(() => {
       const sec = Math.floor((Date.now() - started) / 1000);
       el.textContent = `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
-      if (sec >= MAX_SECONDS) stopRec();
+      if (sec >= (cam ? MAX_SECONDS_VIDEO : MAX_SECONDS)) stopRec();
     }, 250);
   }
 
@@ -521,17 +622,24 @@ async function recordView(id, idxStr) {
     }
     await db.putBlob(key, blob);
     draw('done');
-    toast('목소리를 담았어요');
+    toast(isVideo(blob.type) ? '얼굴과 목소리를 담았어요' : '목소리를 담았어요');
   }
 
   async function togglePlay(btn) {
+    const reset = () => { btn.innerHTML = `${I.play}<span>들어보기</span>`; showPreview(); if (!cam) { pip.hidden = true; } };
     if (!player.paused) {
       stopAudio();
-      btn.innerHTML = `${I.play}<span>들어보기</span>`;
+      reset();
       return;
     }
-    if (!(await loadLocal(key))) return;
-    player.onended = () => { btn.innerHTML = `${I.play}<span>들어보기</span>`; };
+    const recd = await db.getRecord(key);
+    if (!recd) return;
+    setSource(URL.createObjectURL(recd.blob), true);
+    if (isVideo(recd.blob.type)) {  // 녹화한 얼굴을 작은 창에서 보여줘요
+      pip.replaceChildren(player);
+      pip.hidden = false;
+    }
+    player.onended = () => { parkPlayer(); reset(); };
     await player.play().catch(() => {});
     btn.innerHTML = `${I.pause}<span>멈추기</span>`;
   }
@@ -560,9 +668,12 @@ async function recordView(id, idxStr) {
   onDispose(() => {
     clearInterval(timer);
     if (recorder.active) recorder.stop();
+    camOff(false);
     if ('speechSynthesis' in window) speechSynthesis.cancel();
   });
 
+  drawCamBtn();
+  if (camWanted()) camOn();
   draw(rec.has(key) ? 'done' : 'idle');
 }
 
@@ -598,7 +709,7 @@ function doneView(id) {
     ${topbar({ back: `#/story/${id}` })}
     <div class="celebrate">
       <div class="celebrate-badge">🎉</div>
-      <h1 class="title-xl">‘${s.title}’<br>녹음을 마쳤어요</h1>
+      <h1 class="title-xl">‘${esc(s.title)}’<br>녹음을 마쳤어요</h1>
       <p class="sub">이제 ${esc(kidTo())} ${who()} 목소리로<br>동화를 들려줄 수 있어요.</p>
     </div>
     <div class="cta-bar">
@@ -613,10 +724,16 @@ function doneView(id) {
 async function listenView(id) {
   const s = getStory(id);
   if (!s) return notFound();
-  const rec = await recordedSet();
-  const list = pagesOf(s)
-    .map((p, i) => ({ ...p, load: () => loadLocal(keyOf(id, i)), has: rec.has(keyOf(id, i)) }))
-    .filter((p) => p.has);
+  const pages = pagesOf(s);
+  const recs = await Promise.all(pages.map((_, i) => db.getRecord(keyOf(id, i)).catch(() => null)));
+  const list = pages
+    .map((p, i) => ({ ...p, rec: recs[i] }))
+    .filter((p) => p.rec)
+    .map(({ rec, ...p }) => ({
+      ...p,
+      video: isVideo(rec.blob.type),
+      load: async () => { setSource(URL.createObjectURL(rec.blob), true); return true; },
+    }));
   if (!list.length) {
     toast('먼저 녹음해 주세요');
     location.replace(`#/story/${id}`);
@@ -641,7 +758,10 @@ async function sharedView(shareId) {
   } catch {
     manifest = null;
   }
-  const s = manifest && getStory(manifest.storyId);
+  // 직접 지은 이야기는 글이 목록에 함께 들어 있어서, 받은 쪽에서 같은 그림을 다시 만들어요.
+  const s = manifest && (manifest.custom
+    ? mine.toStory({ id: manifest.storyId, ...manifest.custom })
+    : getStory(manifest.storyId));
   const stage = app.querySelector('#stage');
   if (!stage) return; // 기다리는 사이 다른 화면으로 갔어요
   if (!s) {
@@ -656,7 +776,11 @@ async function sharedView(shareId) {
   const pages = pagesOf(s, manifest.role, manifest.kid || '');
   const list = manifest.pages
     .filter((f) => pages[f.i])
-    .map((f) => ({ ...pages[f.i], load: async () => { setSource(publicUrl(shareId, f.file)); return true; } }));
+    .map((f) => ({
+      ...pages[f.i],
+      video: isVideo(f.type),
+      load: async () => { setSource(publicUrl(shareId, f.file)); return true; },
+    }));
   mountPlayer(stage, {
     story: s,
     list,
@@ -678,7 +802,7 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '' }) {
       <div class="listen-start">
         ${coverHTML(s, 'cover-xl')}
         <p class="eyebrow">${reader}가 읽어주는</p>
-        <h1 class="title-xl">${s.title}</h1>
+        <h1 class="title-xl">${esc(s.title)}</h1>
         ${kid ? `<p class="sub">${esc(toOf(kid))}</p>` : ''}
         <button class="play-big" data-act="start" aria-label="듣기 시작">${I.play}</button>
       </div>`;
@@ -687,7 +811,10 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '' }) {
   const drawPage = () => {
     const p = list[pos];
     stage.innerHTML = `
-      ${sceneHTML(p, 'scene-xl')}
+      <div class="scene-wrap">
+        ${sceneHTML(p, 'scene-xl')}
+        ${p.video ? `<div class="pip pip-call"><span class="pip-label"><i></i>${reader}</span></div>` : ''}
+      </div>
       <p class="listen-text">${p.intro ? `${reader}의 인사 💌` : esc(p.text)}</p>
       <div class="dots">${list.map((_, j) => `<i class="${j === pos ? 'on' : ''}"></i>`).join('')}</div>
       <div class="controls">
@@ -726,6 +853,9 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '' }) {
     pos = j;
     drawPage();
     if (!(await list[pos].load()) || !alive) return;
+    // 영상통화처럼: 얼굴 영상이 있으면 그림 위 작은 창에서 보여줘요.
+    const pip = stage.querySelector('.pip-call');
+    if (pip) pip.prepend(player); else parkPlayer();
     player.onended = () => {
       setToggle(false);
       advanceTimer = setTimeout(() => {
@@ -751,6 +881,154 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '' }) {
   drawStart();
 }
 
+/* ---------- 화면: 이야기 만들기·고치기 ---------- */
+const DRAFT = 'storyDraft';
+const MAX_PAGES = 12;
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+function editorView(editId) {
+  const raw = editId ? mine.getRaw(editId) : null;
+  if (editId && !raw) return notFound();
+  const state = raw
+    ? JSON.parse(JSON.stringify(raw))
+    : (local.get(DRAFT) || { id: mine.newId(), title: '', pages: [{ text: '', seed: 0 }] });
+  const saveDraft = () => { if (!editId) local.set(DRAFT, state); };
+
+  render(`
+    ${topbar({ back: editId ? `#/story/${editId}` : '#/', title: editId ? '이야기 고치기' : '새 이야기' })}
+    <h1 class="title-lg">${editId ? '이야기를 고쳐 보세요' : `${who()}가 지은 이야기를<br>들려주세요`}</h1>
+    <p class="sub">장면마다 두세 문장씩 적으면 그림이 저절로 그려져요. 호랑이·강아지·고양이·집·숲·연못·밤 같은 말을 넣어 보세요.</p>
+    <label class="label" for="st-title">제목</label>
+    <input id="st-title" class="input" maxlength="30" placeholder="예) 할머니 어릴 적 개울가" value="${esc(state.title)}">
+    <div id="pages"></div>
+    <button class="add-page" id="add-page">${I.plus}장면 추가하기</button>
+    ${editId ? `<button class="text-danger" id="delete">${I.trash}이 이야기 지우기</button>` : ''}
+    <div class="cta-bar"><button class="btn btn-primary" id="save">${editId ? '저장하기' : '저장하고 녹음하기'}</button></div>
+  `, 'screen-editor');
+
+  const pagesEl = app.querySelector('#pages');
+  const drawPages = () => {
+    pagesEl.innerHTML = state.pages.map((p, n) => `
+      <section class="page-card" data-n="${n}">
+        <div class="page-card-head">
+          <b>${n + 1}번째 장면</b>
+          ${state.pages.length > 1 ? `<button class="icon-mini" data-act="del" aria-label="장면 지우기">${I.trash}</button>` : ''}
+        </div>
+        <div class="page-art"><img alt="" src="${mine.pageImage(p.text, p.seed)}"></div>
+        <textarea class="page-text" rows="3" maxlength="200" placeholder="${n === 0
+          ? '예) 옛날 옛날, 할머니가 어렸을 때 우리 집에는 누렁이라는 강아지가 있었단다.'
+          : '다음 장면을 적어 주세요'}">${esc(p.text)}</textarea>
+        <div class="page-tools">
+          ${SpeechRec ? `<button class="pill" data-act="dictate">${I.mic}<span>말로 쓰기</span></button>` : ''}
+          <button class="pill" data-act="reroll">${I.shuffle}다른 그림</button>
+        </div>
+      </section>`).join('');
+  };
+  drawPages();
+
+  const timers = new Map();
+  const refreshArt = (n) => {
+    clearTimeout(timers.get(n));
+    timers.set(n, setTimeout(() => {
+      const img = pagesEl.querySelector(`[data-n="${n}"] .page-art img`);
+      const p = state.pages[n];
+      if (img && p) img.src = mine.pageImage(p.text, p.seed);
+    }, 450));
+  };
+
+  app.querySelector('#st-title').addEventListener('input', (e) => { state.title = e.target.value; saveDraft(); });
+  pagesEl.addEventListener('input', (e) => {
+    const card = e.target.closest('[data-n]');
+    if (!card || !e.target.matches('textarea')) return;
+    const n = Number(card.dataset.n);
+    state.pages[n].text = e.target.value;
+    saveDraft();
+    refreshArt(n);
+  });
+
+  // 말로 쓰기: 휴대폰 음성 인식으로 받아 적어요.
+  let recog = null;
+  const stopDictation = () => { try { recog?.abort(); } catch { /* 이미 멈춤 */ } recog = null; };
+  onDispose(stopDictation);
+  function dictate(card, btn) {
+    if (recog) { recog.stop(); return; }
+    const ta = card.querySelector('textarea');
+    const base = ta.value.trim() ? `${ta.value.trim()} ` : '';
+    recog = new SpeechRec();
+    recog.lang = 'ko-KR';
+    recog.interimResults = true;
+    recog.onresult = (e) => {
+      ta.value = base + Array.from(e.results, (r) => r[0].transcript).join('');
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    recog.onerror = (e) => {
+      if (e.error === 'not-allowed') toast('마이크 권한을 허용해 주세요');
+      else if (e.error !== 'aborted' && e.error !== 'no-speech') toast('잘 듣지 못했어요. 다시 눌러 주세요');
+    };
+    recog.onend = () => { recog = null; btn.classList.remove('listening'); btn.innerHTML = `${I.mic}<span>말로 쓰기</span>`; };
+    try {
+      recog.start();
+      btn.classList.add('listening');
+      btn.innerHTML = `${I.mic}<span>듣고 있어요…</span>`;
+    } catch { recog = null; toast('음성 입력을 시작하지 못했어요'); }
+  }
+
+  pagesEl.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-act]');
+    const card = e.target.closest('[data-n]');
+    if (!btn || !card) return;
+    const n = Number(card.dataset.n);
+    if (btn.dataset.act === 'reroll') {
+      state.pages[n].seed = (state.pages[n].seed || 0) + 1;
+      saveDraft();
+      card.querySelector('.page-art img').src = mine.pageImage(state.pages[n].text, state.pages[n].seed);
+    } else if (btn.dataset.act === 'del') {
+      stopDictation();
+      state.pages.splice(n, 1);
+      saveDraft();
+      drawPages();
+    } else if (btn.dataset.act === 'dictate') {
+      dictate(card, btn);
+    }
+  });
+
+  app.querySelector('#add-page').addEventListener('click', () => {
+    if (state.pages.length >= MAX_PAGES) { toast(`장면은 ${MAX_PAGES}개까지 만들 수 있어요`); return; }
+    stopDictation();
+    state.pages.push({ text: '', seed: 0 });
+    saveDraft();
+    drawPages();
+    pagesEl.lastElementChild?.querySelector('textarea')?.focus();
+  });
+
+  app.querySelector('#save').addEventListener('click', () => {
+    const pages = state.pages.filter((p) => p.text.trim());
+    if (!pages.length) { toast('한 장면 이상 적어 주세요'); return; }
+    if (!mine.saveRaw({ ...state, title: state.title.trim() || '내가 지은 이야기', pages })) {
+      toast('저장하지 못했어요. 휴대폰 저장 공간을 확인해 주세요');
+      return;
+    }
+    if (!editId) local.set(DRAFT, null);
+    toast('이야기를 저장했어요');
+    location.hash = editId ? `#/story/${state.id}` : `#/record/${state.id}/0`;
+  });
+
+  app.querySelector('#delete')?.addEventListener('click', () => sheet({
+    icon: '🗑️',
+    title: '이 이야기를 지울까요?',
+    body: '이야기와 녹음이 이 휴대폰에서 지워져요.<br>지운 뒤에는 되살릴 수 없어요.',
+    secondary: '취소',
+    primary: '지우기',
+    onPrimary: async () => {
+      mine.removeRaw(editId);
+      const keys = await db.keys().catch(() => []);
+      await Promise.all(keys.filter((k) => k.startsWith(`${editId}/`)).map((k) => db.remove(k)));
+      toast('이야기를 지웠어요');
+      location.hash = '#/';
+    },
+  }));
+}
+
 function notFound() {
   render(`
     ${topbar({ back: '#/' })}
@@ -771,6 +1049,8 @@ const routes = [
   [/^#\/done\/([\w-]+)$/, doneView],
   [/^#\/listen\/([\w-]+)$/, listenView],
   [/^#\/s\/([a-z0-9]+)$/, sharedView],
+  [/^#\/new$/, () => editorView()],
+  [/^#\/edit\/([\w-]+)$/, editorView],
 ];
 
 async function route() {

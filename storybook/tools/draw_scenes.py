@@ -581,6 +581,97 @@ def sinseon(hold=None, rising=False):
     return mist + anim('bob' if not rising else 'float', figure)
 
 
+# ---------- 캐릭터: 할머니·할아버지 (지은 이야기용) ----------
+GLASSES = (f'<circle cx="-11" cy="0" r="9" fill="none" stroke="#8A6E52" stroke-width="2.5"/>'
+           f'<circle cx="11" cy="0" r="9" fill="none" stroke="#8A6E52" stroke-width="2.5"/>'
+           f'<path d="M-2 0h4" stroke="#8A6E52" stroke-width="2.5"/>')
+
+
+def grandma(mood='happy'):
+    """엄마 모양에 흰머리·안경·보라 치마. 발밑 가운데 (0,0)."""
+    g = (mom('down', mood).replace('#2E2A33', '#D9D6E0').replace('#E4738A', '#9A86CF')
+         .replace('#D05E77', '#8370BD'))
+    return g + put(GLASSES, 0, -196)
+
+
+def grandpa(mood='happy'):
+    """나무꾼 모양에 흰머리·흰 수염·파란 저고리·안경. 발밑 가운데 (0,0)."""
+    g = (woodcutter('down', mood).replace('#3B3036', '#DCDAE2').replace('#A8784E', '#7E9CC0')
+         .replace('#7A5A3E"/>\', \'', '#5F7FA6"/>\', \''))
+    return g + put(GLASSES, 0, -194)
+
+
+# ---------- 캐릭터: 강아지·고양이 ----------
+def dog(mood='happy'):
+    """발밑 가운데 (0,0), 키 약 120. 오른쪽을 봐요."""
+    fur, dark = '#E8B66B', '#B9844A'
+    d = (anim('wag', f'<path d="M-44-50q-24-10-22-34" stroke="{fur}" stroke-width="12" fill="none" stroke-linecap="round"/>')
+         + f'<ellipse cx="-6" cy="-40" rx="44" ry="28" fill="{fur}"/>'
+         f'<ellipse cx="-4" cy="-30" rx="26" ry="16" fill="#FFF1D6"/>'
+         + ''.join(f'<rect x="{x}" y="-26" width="14" height="26" rx="7" fill="{fur}"/>' for x in (-40, -22, 10, 26))
+         + f'<circle cx="34" cy="-74" r="30" fill="{fur}"/>'
+         + anim('ear', f'<ellipse cx="14" cy="-80" rx="11" ry="22" fill="{dark}" transform="rotate(20 14 -80)"/>')
+         + anim('ear', f'<ellipse cx="56" cy="-80" rx="11" ry="22" fill="{dark}" transform="rotate(-20 56 -80)"/>', delay=-1)
+         + f'<ellipse cx="40" cy="-62" rx="16" ry="12" fill="#FFF1D6"/>'
+         + put(face(mood, ex=10, ey=0, eye_r=3.8, mouth_y=16) + f'<ellipse cx="0" cy="8" rx="6" ry="4.5" fill="{INK}"/>', 36, -76))
+    return anim('bob', d)
+
+
+def cat(mood='calm'):
+    """발밑 가운데 (0,0), 키 약 120. 앉아 있어요."""
+    fur, stripe = '#F2C38B', '#D99A55'
+    c = (anim('wag', f'<path d="M30-10q40 0 36-44" stroke="{fur}" stroke-width="12" fill="none" stroke-linecap="round"/>')
+         + f'<path d="M-34 0C-38-50-20-74 0-74S38-50 34 0Z" fill="{fur}"/>'
+         f'<path d="M-14 0C-16-34-8-50 0-50S16-34 14 0Z" fill="#FFF1D6"/>'
+         f'<path d="M-30-34q10 0 12 6M30-34q-10 0-12 6" stroke="{stripe}" stroke-width="5" stroke-linecap="round" fill="none"/>'
+         f'<path d="M-30-96L-26-130L-6-108ZM30-96L26-130L6-108Z" fill="{fur}"/>'
+         f'<path d="M-25-104L-24-120L-14-110ZM25-104L24-120L14-110Z" fill="#FFC4CF"/>'
+         f'<circle cy="-90" r="30" fill="{fur}"/>'
+         f'<path d="M-8-118v10M0-120v10M8-118v10" stroke="{stripe}" stroke-width="4" stroke-linecap="round"/>'
+         + put(face(mood, ex=11, ey=-2, eye_r=4, mouth_y=12)
+               + '<path d="M-3 4h6l-3 3z" fill="#FF8FA3" stroke="#FF8FA3" stroke-width="3" stroke-linejoin="round"/>'
+               + f'<path d="M-14 8l-16-2M-14 12l-16 4M14 8l16-2M14 12l16 4" stroke="{INK}" stroke-width="2" opacity=".6"/>', 0, -90))
+    return anim('breathe', c)
+
+
+# ---------- 앱에서 그림을 조립할 부품 (img/parts.js) ----------
+def export_parts():
+    """지은 이야기의 그림을 휴대폰에서 바로 조립할 수 있게 부품을 JS 파일로 내보내요."""
+    import json
+    parts = {
+        # 이름: (그림, 기본 크기, 화면에서의 대략 높이)
+        'grandma': (grandma('happy'), .95, 280), 'grandpa': (grandpa('happy'), .95, 270),
+        'mom': (mom('down', 'happy'), .95, 260), 'woodcutter': (woodcutter('down', 'calm'), .95, 250),
+        'boy': (kid(True, 'down', 'happy'), 1.15, 150), 'girl': (kid(False, 'down', 'happy'), 1.15, 150),
+        'tiger': (tiger('sit', 'grin', look=(0, 2)), .85, 250), 'rabbit': (rabbit('stand', 'happy'), 1.2, 180),
+        'turtle': (turtle('happy'), 1.25, 110), 'dog': (dog('happy'), 1.2, 130), 'cat': (cat('calm'), 1.2, 140),
+        'sinseon': (sinseon(), .85, 270),
+    }
+    props = {
+        'house': house(0, 0, 1), 'house_night': house(0, 0, 1, night=True),
+        'tree': round_tree(0, 0, 1), 'tree_night': round_tree(0, 0, 1, night=True),
+        'pine': pine(0, 0, 1), 'pine_night': night_pine(0, 0, 1),
+        'pond': pond(0, 0, 210, 60), 'flower': flower(0, 0), 'flower_pink': flower(0, 0, '#FFC4CF'),
+        'tuft': tuft(0, 0), 'butterfly': butterfly(0, 0), 'cloud': cloud(0, 0), 'cloud_night': cloud(0, 0, 1, '#C9CCE8'),
+        'birds': birds(0, 0), 'sun': sun(0, 0, 46), 'moon': moon(0, 0, 40),
+        'stars': stars([(80, 70, 7), (200, 130, 5), (330, 60, 6), (470, 110, 5), (600, 70, 6), (760, 160, 6)]),
+        'sparkles': stars_colored([(-40, -20, 12), (40, -40, 10), (10, 30, 8)], '#FFE27A'),
+        'hearts': ''.join(put(anim('rise', '<path d="M0 6C-14-4-12-18 0-12C12-18 14-4 0 6Z" fill="#FF8FA3"/>', -n * 1.1), x, y)
+                          for n, (x, y) in enumerate(((-40, 0), (30, -20), (0, -40)))),
+        'axe_gold': axe('gold'),
+    }
+    bgs = {k: dict(zip(('defs', 'body'), bg(k))) for k in ('day', 'dusk', 'night', 'twilight', 'meadow', 'forest', 'warm')}
+    js = ('// tools/draw_scenes.py 가 만든 파일이에요. 직접 고치지 말고 생성기를 고쳐 주세요.\n'
+          f'export const STYLE = {json.dumps(STYLE)};\n'
+          f'export const BG = {json.dumps(bgs, ensure_ascii=False)};\n'
+          'export const CHARACTERS = {\n'
+          + ''.join(f'  {k}: {{ svg: {json.dumps(v[0])}, scale: {v[1]}, h: {v[2]} }},\n' for k, v in parts.items())
+          + '};\nexport const PROPS = {\n'
+          + ''.join(f'  {k}: {json.dumps(v)},\n' for k, v in props.items())
+          + '};\n')
+    (OUT / 'parts.js').write_text(js, encoding='utf-8')
+
+
 # ---------- 쪽 그림 ----------
 def page(name, title, kind, body):
     defs, back = bg(kind)
@@ -770,4 +861,5 @@ def build():
 
 if __name__ == '__main__':
     build()
+    export_parts()
     print('그림을 만들었어요:', ', '.join(sorted(p.stem for p in OUT.glob('*.svg'))))
