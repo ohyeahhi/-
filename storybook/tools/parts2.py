@@ -594,3 +594,92 @@ def villager(woman=False, mood='determined'):
     if woman:
         return recolor(mom('down', mood), {'#E4738A': '#8FB98A', '#D05E77': '#6FA06A'}) + put('<path d="M50-60V-200" stroke="#9C6B45" stroke-width="10" stroke-linecap="round"/>', 0, 0)
     return woodcutter('cheer', mood) + '<path d="M56-214l14-60" stroke="#9C6B45" stroke-width="10" stroke-linecap="round"/>'
+
+
+# ---------- 지은 이야기용 소품 (글에 나오면 그림에 넣어요) ----------
+def fish(color='#F2A33C'):
+    f = (f'<path d="M-30 0C-18-18 18-18 30 0C18 18-18 18-30 0Z" fill="{color}"/>'
+         f'<path d="M28 0l20-14v28z" fill="{color}"/><circle cx="-16" cy="-3" r="4" fill="#FFFFFF"/><circle cx="-16" cy="-3" r="2" fill="{INK}"/>'
+         '<path d="M-4-10q6 10 0 20M6-10q6 10 0 20" stroke="#FFFFFF" stroke-width="3" fill="none" opacity=".6"/>')
+    return anim('bob', f)
+
+
+def boat():
+    return anim('bob', '<path d="M-110-30h220l-34 40h-152z" fill="#B07440"/><path d="M-110-30h220" stroke="#8A5A3B" stroke-width="8"/>'
+                '<path d="M0-30V-150" stroke="#8A5A3B" stroke-width="7"/><path d="M6-146l70 90H6z" fill="#FFF6E6"/>')
+
+
+def umbrella(color='#7FB8E6'):
+    return ('<path d="M0 0V-110" stroke="#5A4A3A" stroke-width="5"/><path d="M0 0q0 14 12 14" stroke="#5A4A3A" stroke-width="5" fill="none"/>'
+            f'<path d="M-80-108C-80-170 80-170 80-108q-20-14-40 0q-20-14-40 0q-20-14-40 0q-20-14-40 0Z" fill="{color}"/>'
+            '<path d="M-40-108q0-50 40-56q40 6 40 56" stroke="#FFFFFF" stroke-width="3" fill="none" opacity=".5"/>')
+
+
+def kite():
+    return anim('float', '<path d="M0-60L40 0L0 60L-40 0Z" fill="#E4573D"/><path d="M0-60V60M-40 0H40" stroke="#FFF6E6" stroke-width="4"/>'
+                '<path d="M0 60q-14 20 0 40t0 40" stroke="#FFC93C" stroke-width="4" fill="none"/>')
+
+
+def cake():
+    return ('<rect x="-60" y="-50" width="120" height="50" rx="10" fill="#FFF1D6"/><path d="M-60-34q15 10 30 0t30 0 30 0 30 0" stroke="#FF9AA8" stroke-width="8" fill="none"/>'
+            '<rect x="-70" y="-4" width="140" height="10" rx="5" fill="#E5DCCB"/>'
+            + ''.join(f'<rect x="{x - 3}" y="-74" width="6" height="24" rx="3" fill="{c}"/>'
+                      + anim('glow', f'<ellipse cx="{x}" cy="-80" rx="5" ry="8" fill="#FFC93C"/>') for x, c in ((-30, '#7FB8E6'), (0, '#E4573D'), (30, '#8CCB8A')))
+            + '<circle cx="-40" cy="-56" r="5" fill="#E4573D"/><circle cx="40" cy="-56" r="5" fill="#E4573D"/>')
+
+
+def book():
+    return ('<path d="M-60 0C-40-10-12-10 0 0C12-10 40-10 60 0V-50C40-60 12-60 0-50C-12-60-40-60-60-50Z" fill="#FFFFFF" stroke="#E0D2B4" stroke-width="3"/>'
+            '<path d="M0-50V0" stroke="#E0D2B4" stroke-width="3"/><path d="M-48-36h36M-48-24h32M12-36h36M12-24h32" stroke="#E9DEC6" stroke-width="4" stroke-linecap="round"/>')
+
+
+def letter():
+    return anim('float', '<rect x="-46" y="-32" width="92" height="64" rx="8" fill="#FFFFFF" stroke="#E0D2B4" stroke-width="3"/>'
+                '<path d="M-46-30L0 6L46-30" stroke="#E0D2B4" stroke-width="3" fill="none"/>'
+                '<path d="M0 18C-10 10-9 2 0 6C9 2 10 10 0 18Z" fill="#FF8FA3"/>')
+
+
+def rainbow():
+    return anim('glow', ''.join(f'<path d="M-300 0A300 300 0 0 1 300 0" stroke="{c}" stroke-width="18" fill="none" transform="scale({1 - i * .06})"/>'
+                                for i, c in enumerate(('#FF9AA8', '#FFC93C', '#FFE27A', '#A8D58A', '#7FB8E6', '#B9A7E8'))))
+
+
+def rain():
+    drops = ''.join(put(anim('snow', '<path d="M0 0l-6 18" stroke="#7FB8E6" stroke-width="4" stroke-linecap="round" opacity=".8"/>', -i * .45), x, y)
+                    for i, (x, y) in enumerate(((40, 40), (130, 110), (220, 30), (300, 150), (390, 60), (470, 130), (560, 40), (640, 120),
+                                                (730, 60), (90, 230), (260, 260), (440, 230), (610, 250), (760, 220))))
+    return '<rect width="800" height="600" fill="#5B6BB5" opacity=".08"/>' + drops
+
+
+def full_moon(r=50):
+    return (f'<circle r="{r*2.6}" fill="url(#moonglow)"/>'
+            + anim('glow', f'<circle r="{r}" fill="#FFF1B8"/><circle cx="-16" cy="14" r="8" fill="#F2E3A0"/><circle cx="18" cy="-18" r="6" fill="#F2E3A0"/>'))
+
+
+def sea_bg():
+    d = grad('sky', [(0, '#BFE4FF'), (.6, '#FFF4D6')])
+    waves = ''.join(anim('drift', f'<path d="M{-40 + i * 20} {y}q30-12 60 0t60 0 60 0 60 0 60 0 60 0 60 0 60 0 60 0 60 0 60 0 60 0 60 0 60 0" stroke="#FFFFFF" stroke-width="5" fill="none" opacity=".7"/>', -i * 2)
+                    for i, y in enumerate((420, 460, 500)))
+    b = ('<rect width="800" height="600" fill="url(#sky)"/>'
+         '<path d="M0 380H800V600H0Z" fill="#6EC3EC"/><path d="M0 380H800V400H0Z" fill="#8FD3F2"/>' + waves
+         + '<path d="M0 540C200 520 500 520 800 545V600H0Z" fill="#F3DFB4"/>')
+    return d + GLOW, b
+
+
+_bg2_orig = bg2
+
+
+def bg2(kind):
+    if kind == 'sea':
+        return sea_bg()
+    return _bg2_orig(kind)
+
+
+def snowman():
+    return anim('bob', '<circle cy="-44" r="44" fill="#FFFFFF" stroke="#DDE7F3" stroke-width="3"/><circle cy="-116" r="32" fill="#FFFFFF" stroke="#DDE7F3" stroke-width="3"/>'
+                '<path d="M-40-70l-40-30M40-70l40-34" stroke="#8A5A3B" stroke-width="5" stroke-linecap="round"/>'
+                '<path d="M-30-92q30 14 60 0v12q-30 14-60 0z" fill="#E4573D"/><rect x="14" y="-90" width="12" height="30" rx="5" fill="#E4573D"/>'
+                '<rect x="-24" y="-176" width="48" height="30" rx="4" fill="#3A3436"/><rect x="-34" y="-150" width="68" height="8" rx="4" fill="#3A3436"/>'
+                f'<circle cx="-10" cy="-122" r="4" fill="{INK}"/><circle cx="10" cy="-122" r="4" fill="{INK}"/><path d="M0-114l18 5-18 4z" fill="#F2A33C"/>'
+                f'<path d="M-10-104q10 7 20 0" stroke="{INK}" stroke-width="3" fill="none" stroke-linecap="round"/>'
+                f'<circle cy="-56" r="4" fill="{INK}"/><circle cy="-36" r="4" fill="{INK}"/>')

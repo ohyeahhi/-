@@ -481,6 +481,91 @@ add(S, 10, '아기 돼지 삼형제 10: 벽돌집에서 오순도순', 'meadow',
 PAGES['intro'] = OLD['intro']
 
 
+# ---------- 지은 이야기용 부품 (img/parts.js) ----------
+# 캐릭터마다 표정·자세 몇 가지를 미리 그려 두면, 앱(composer.js)이 글을 읽고 골라 조립해요.
+#   CHARACTERS[name] = { scale, h, faces: 1(오른쪽을 봄) | 0(정면), sky: 하늘에 둘지, v: {표정: svg} }
+def export_parts_v2():
+    import json
+    G = ds.grandma
+    people_moods = ('happy', 'calm', 'shock', 'cry', 'sleep', 'angry')
+    face_of = {'angry': 'determined'}
+
+    def moods(fn):
+        return {m: fn(face_of.get(m, m)) for m in people_moods}
+
+    C = {
+        'grandma': dict(scale=.95, h=280, v={**moods(G), 'cheer': G('happy')}),
+        'grandpa': dict(scale=.95, h=270, v={**moods(lambda m: P.old_man(m)), 'cheer': P.old_man('happy', pose='cheer')}),
+        'mom': dict(scale=.95, h=260, v={**moods(lambda m: mom('down', m)), 'cheer': mom('down', 'happy')}),
+        'dad': dict(scale=.95, h=250, v={**moods(lambda m: woodcutter('down', m)), 'cheer': woodcutter('cheer', 'happy')}),
+        'boy': dict(scale=1.15, h=150, v={**moods(lambda m: kid(True, 'down', m)), 'cheer': kid(True, 'up', 'happy')}),
+        'girl': dict(scale=1.15, h=150, v={**moods(lambda m: kid(False, 'down', m)), 'cheer': kid(False, 'up', 'happy')}),
+        'baby': dict(scale=1, h=110, v={'happy': P.baby('happy'), 'calm': P.baby('calm'), 'cry': P.baby('cry'), 'sleep': P.baby('sleep'), 'shock': P.baby('shock')}),
+        'tiger': dict(scale=.85, h=250, v={'happy': tiger('sit', 'sweet'), 'calm': tiger('sit', 'grin', look=(0, 2)), 'angry': tiger('reach', 'grin'),
+                                           'shock': tiger('sit', 'surprised', look=(0, -2))}),
+        'rabbit': dict(scale=1.2, h=180, v={'happy': rabbit('stand', 'happy'), 'calm': rabbit('stand', 'calm'), 'shock': rabbit('stand', 'shock'),
+                                            'cry': rabbit('stand', 'cry'), 'sleep': rabbit('sleep'), 'angry': rabbit('point', 'smug'),
+                                            'run': rabbit('run', 'happy')}),
+        'turtle': dict(scale=1.25, h=110, faces=1, v={'happy': turtle('happy'), 'calm': turtle('calm'), 'angry': turtle('determined'),
+                                                     'shock': turtle('shock'), 'cry': turtle('cry'), 'sleep': turtle('sleep')}),
+        'dog': dict(scale=1.2, h=130, faces=1, v={m: ds.dog(face_of.get(m, m)) for m in people_moods}),
+        'cat': dict(scale=1.2, h=140, v={m: ds.cat(face_of.get(m, m)) for m in people_moods}),
+        'pig': dict(scale=1.15, h=140, v={m: P.pig(mood=face_of.get(m, m), scarf=None) for m in people_moods}),
+        'sheep': dict(scale=1.1, h=110, faces=1, v={'happy': P.sheep(), 'calm': P.sheep(), 'shock': P.sheep(scared=True), 'cry': P.sheep(scared=True)}),
+        'wolf': dict(scale=.8, h=240, v={'calm': P.wolf('sit', 'sly'), 'angry': P.wolf('reach', 'sly'), 'shock': P.wolf('sit', 'shock'),
+                                         'sleep': P.wolf('sit', 'sleep'), 'happy': P.wolf('sit', 'sly')}),
+        'goblin': dict(scale=.85, h=190, v={'happy': P.goblin('#7FA8E0', 'happy', club=False), 'calm': P.goblin('#8CCB8A', 'calm'),
+                                            'angry': P.goblin('#F08A7A', 'angry'), 'shock': P.goblin('#7FA8E0', 'calm')}),
+        'sinseon': dict(scale=.85, h=270, v={'calm': sinseon(), 'happy': sinseon(), 'gift': sinseon(hold='gold')}),
+        'ant': dict(scale=1.4, h=100, v={'happy': P.ant(True), 'calm': P.ant(True, 'calm'), 'cry': P.ant(False, 'tired'), 'sleep': P.ant(False, 'tired')}),
+        'grasshopper': dict(scale=1.15, h=170, v={'happy': P.grasshopper(True), 'calm': P.grasshopper(True, mood='calm'),
+                                                  'cry': P.grasshopper(cold=True, mood='cry'), 'shock': P.grasshopper(False, mood='shock')}),
+        'squirrel': dict(scale=1.2, h=130, v={'happy': P.squirrel(flag=False)}),
+        'chestnut': dict(scale=1.2, h=90, v={'happy': P.chestnut('happy'), 'angry': P.chestnut('determined'), 'shock': P.chestnut('shock')}),
+        'swallow': dict(scale=1, h=60, sky=True, v={'happy': P.swallow()}),
+        'bird': dict(scale=1.1, h=50, sky=True, v={'happy': P.bluebird()}),
+    }
+    props = {
+        'house': house(0, 0, 1), 'house_night': house(0, 0, 1, night=True),
+        'straw_house': P.straw_house(0, 0, 1), 'brick_house': P.brick_house(0, 0, 1),
+        'tree': round_tree(0, 0, 1), 'tree_night': round_tree(0, 0, 1, night=True),
+        'pine': pine(0, 0, 1), 'pine_night': night_pine(0, 0, 1),
+        'pond': pond(0, 0, 210, 60), 'pond_night': pond(0, 0, 210, 60, night=True),
+        'flower': flower(0, 0), 'flower_pink': flower(0, 0, '#FFC4CF'), 'flower_yellow': flower(0, 0, '#FFE27A', '#F2A33C'),
+        'tuft': tuft(0, 0), 'butterfly': butterfly(0, 0), 'butterfly_y': butterfly(0, 0, '#FFD66B'),
+        'cloud': cloud(0, 0), 'cloud_night': cloud(0, 0, 1, '#C9CCE8'), 'cloud_rain': cloud(0, 0, 1, '#C9D2E0'),
+        'birds': birds(0, 0), 'sun': sun(0, 0, 46), 'moon': moon(0, 0, 40), 'full_moon': P.full_moon(),
+        'stars': stars([(80, 70, 7), (200, 130, 5), (330, 60, 6), (470, 110, 5), (600, 70, 6), (760, 160, 6)]),
+        'sparkles': stars_colored([(-40, -20, 12), (40, -40, 10), (10, 30, 8)], '#FFE27A'),
+        'alarm': stars_colored([(-20, 0, 12), (20, -10, 10)], '#E4573D'),
+        'hearts': hearts(0, 0), 'notes': P.notes(0, 0), 'zz': zz(0, 0), 'question': question(0, 0),
+        'tear': anim('rise', '<path d="M0 0q6 9 0 14q-6-5 0-14z" fill="#8FD0F2"/>'),
+        'speed': ''.join(anim('drift', f'<path d="M0 {y}h{w}" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round"/>', -n) for n, (y, w) in enumerate(((0, 70), (30, 90), (60, 60)))),
+        'fish': P.fish(), 'fish2': P.fish('#7FB8E6'), 'boat': P.boat(), 'umbrella': P.umbrella(), 'umbrella2': P.umbrella('#FF9AA8'),
+        'kite': P.kite(), 'cake': P.cake(), 'book': P.book(), 'letter': P.letter(), 'rainbow': P.rainbow(), 'rain': P.rain(),
+        'treasure': P.treasure(0, 0, .7), 'basket': P.basket(0, 0, 1.1), 'basket_empty': P.basket(0, 0, 1.1, full=False),
+        'bowl': P.bowl(0, 0, 1), 'cauldron': P.cauldron(0, 0, .9), 'jar': P.jar(0, 0, 1), 'gourd': P.gourd(0, 0, .8),
+        'rice': P.rice_bundle(0, 0, .9), 'rock': P.rock(0, 0, 1), 'leaves': P.leaves(0, 0), 'bed': P.bed(0, 0, 1),
+        'ricecake': ''.join(f'<ellipse cx="{x}" cy="{y}" rx="14" ry="9" fill="{c}" stroke="#E5DCCB" stroke-width="2"/>'
+                            for x, y, c in ((-20, -10, '#FFFDF6'), (6, -12, '#F7B6C2'), (28, -9, '#C3DB8E'), (-6, -24, '#FFFDF6'), (16, -25, '#F7B6C2'))),
+        'axe': ds.axe('iron'), 'axe_gold': ds.axe('gold'), 'wood': woodload, 'snowman': P.snowman(),
+    }
+    # 침대: 앞(이불)과 뒤(머리판·베개)를 나눠 두면, 그 사이에 누운 캐릭터를 끼울 수 있어요.
+    bed_back, bed_front = P.bed(0, 0, 1, who='<!--WHO-->').split('<!--WHO-->')
+    props['bed_back'], props['bed_front'] = bed_back, bed_front
+    kinds = ('day', 'dusk', 'night', 'twilight', 'meadow', 'forest', 'warm', 'winter', 'autumn', 'kitchen', 'room', 'paddy', 'paddy_night', 'sea')
+    bgs = {k: dict(zip(('defs', 'body'), P.bg2(k))) for k in kinds}
+    out = {}
+    for name, c in C.items():
+        out[name] = {'scale': c['scale'], 'h': c['h'], 'faces': c.get('faces', 0), 'sky': c.get('sky', False), 'v': c['v']}
+    js = ('// tools/build_images.py 가 만든 파일이에요. 직접 고치지 말고 생성기를 고쳐 주세요.\n'
+          f'export const STYLE = {json.dumps(ds.STYLE)};\n'
+          f'export const BG = {json.dumps(bgs, ensure_ascii=False)};\n'
+          f'export const CHARACTERS = {json.dumps(out, ensure_ascii=False)};\n'
+          f'export const PROPS = {json.dumps(props, ensure_ascii=False)};\n')
+    (ds.OUT / 'parts.js').write_text(js, encoding='utf-8')
+
+
 def main():
     ds.OUT.mkdir(exist_ok=True)
     for old in ds.OUT.glob('*.svg'):
@@ -489,7 +574,7 @@ def main():
     for name, (title, kind, body) in PAGES.items():
         defs, back = P.bg2(kind)
         (ds.OUT / f'{name}.svg').write_text(ds.svg(title, defs, back + body), encoding='utf-8')
-    ds.export_parts()
+    export_parts_v2()
     print(f'그림 {len(PAGES)}장을 만들었어요.')
 
 
