@@ -2,6 +2,6 @@
 // 비워 두면 앱은 그대로 쓸 수 있고, "보내기"를 누르면 서버 연결 안내만 떠요.
 export const CONFIG = {
   supabaseUrl: 'https://xnnqmrinympbkutpzevb.supabase.co',
-  supabaseAnonKey: '',  // Supabase의 publishable 키(sb_publishable_…) 또는 anon 키 (공개해도 되는 키예요)
+  supabaseAnonKey: 'sb_publishable_Y-zsr0RngIcT91PiIUPlew_IaUTTDxF',  // Supabase의 publishable 키(sb_publishable_…) 또는 anon 키 (공개해도 되는 키예요)
   bucket: 'shares',
 };
