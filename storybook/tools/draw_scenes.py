@@ -6,7 +6,7 @@
     python3 tools/draw_scenes.py      # img/*.svg 를 다시 만들어요
 
 그림 안에 CSS 애니메이션이 들어 있어서 <img>로 넣어도 살짝 움직여요.
-(움직임 줄이기 설정을 켠 기기에서는 멈춰 있어요.)
+(prefers-reduced-motion 규칙도 넣었지만, <img> 안의 SVG에는 브라우저에 따라 적용되지 않아요.)
 """
 from pathlib import Path
 
@@ -517,8 +517,8 @@ def woodcutter(pose='chop', mood='calm'):
            '<rect x="-46" y="-92" width="92" height="12" rx="6" fill="#7A5A3E"/>')
     S = '#A8784E'
     if pose == 'chop':
-        arms = anim('chop', f'<path d="M-30-146Q-64-170-40-206M30-146Q10-182-20-206" stroke="{S}" stroke-width="20" fill="none" stroke-linecap="round"/>'
-                    + put(axe('iron'), -36, -170, 1, rot=-50) + f'<circle cx="-34" cy="-210" r="10" fill="{SKIN}"/><circle cx="-22" cy="-210" r="10" fill="{SKIN}"/>')
+        arms = anim('chop', f'<path d="M-30-146Q-62-200-40-258M30-146Q62-200 40-258" stroke="{S}" stroke-width="20" fill="none" stroke-linecap="round"/>'
+                    + put(axe('iron'), 58, -262, 1, rot=-90) + f'<circle cx="-40" cy="-262" r="10" fill="{SKIN}"/><circle cx="40" cy="-262" r="10" fill="{SKIN}"/>')
     elif pose == 'reach':
         arms = (f'<path d="M30-146Q70-150 96-130" stroke="{S}" stroke-width="20" fill="none" stroke-linecap="round"/>'
                 f'<circle cx="102" cy="-126" r="10" fill="{SKIN}"/>'
@@ -585,3 +585,189 @@ def sinseon(hold=None, rising=False):
 def page(name, title, kind, body):
     defs, back = bg(kind)
     (OUT / f'{name}.svg').write_text(svg(title, defs, back + body), encoding='utf-8')
+
+
+def build():
+    OUT.mkdir(exist_ok=True)
+    K = kid
+
+    # ===== 해님 달님 =====
+    page('sun-moon-1', '해님 달님 1: 산골에 사는 엄마와 오누이', 'day',
+         cloud(80, 90) + cloud(420, 60, .8, delay=-4) + birds(250, 130)
+         + pine(70, 470, 1.1) + pine(150, 462, .8, delay=-1) + pine(750, 460, 1)
+         + house(520, 452, 1)
+         + shadow(300, 506, 150)
+         + put(mom('down', 'happy'), 300, 502)
+         + put(K(True, 'down', 'happy'), 222, 508, .95) + put(K(False, 'down', 'happy'), 380, 508, .9)
+         + flower(110, 548) + flower(690, 540) + tuft(200, 560) + tuft(640, 556))
+
+    page('sun-moon-2', '해님 달님 2: 떡 하나 주면 안 잡아먹지!', 'dusk',
+         cloud(90, 120) + cloud(430, 80, .8, delay=-5) + birds(300, 150)
+         + '<path d="M330 600C360 540 420 500 520 470S700 445 800 446V472C700 472 612 480 546 502S420 566 410 600Z" fill="#EDD39E"/>'
+         + pine(70, 452, 1.05) + pine(150, 446, .8, delay=-1.4) + pine(748, 440, .95)
+         + shadow(270, 506, 74) + put(mom('carry', 'shock'), 270, 502)
+         + stars_colored([(198, 214, 14), (342, 214, 12)], '#E4573D')
+         + shadow(566, 508, 100) + put(tiger('reach', 'grin'), 566, 505)
+         + tuft(200, 560) + tuft(690, 540) + flower(120, 548) + flower(740, 512))
+
+    page('sun-moon-3', '해님 달님 3: 엄마인 척 문을 두드리는 호랑이', 'night',
+         moon(660, 100) + stars([(80, 70, 7), (200, 120, 5), (330, 60, 6), (470, 110, 5), (760, 200, 6)])
+         + night_pine(60, 470, 1) + night_pine(750, 466, .9)
+         + house(300, 470, 1.05, night=True)
+         + put(K(True, 'down', 'shock'), 200, 418, .55) + put(K(False, 'down', 'shock'), 400, 418, .55)
+         + shadow(560, 506, 96) + put(tiger('knock', 'sweet', disguise=True), 560, 505, .95)
+         + stars_colored([(430, 330, 12), (450, 300, 9)], '#FFE27A'))
+
+    page('sun-moon-4', '해님 달님 4: 나무 위로 올라간 오누이', 'night',
+         moon(120, 96) + stars([(300, 60, 6), (560, 80, 5), (700, 150, 7), (40, 200, 5)])
+         + night_pine(720, 470, 1)
+         + round_tree(420, 520, 1.15, night=True)
+         + put(K(True, 'down', 'shock'), 370, 300, .7) + put(K(False, 'down', 'shock'), 460, 296, .68)
+         + shadow(250, 512, 90) + put(tiger('reach', 'grin', look=(-4, -7)), 250, 510, .9, flip=True))
+
+    rope = ('<rect x="-60" y="0" width="120" height="420" fill="url(#ropeglow)"/>'
+            + anim('dangle', '<path d="M0 0C-6 80 6 160 0 240C-4 300 4 340 0 380" stroke="#C98B4F" stroke-width="10" '
+                   'fill="none" stroke-linecap="round" stroke-dasharray="14 6"/>'))
+    page('sun-moon-5', '해님 달님 5: 하늘에서 내려온 튼튼한 동아줄', 'night',
+         stars([(80, 70, 7), (200, 140, 5), (620, 60, 6), (720, 140, 6), (520, 170, 5)])
+         + cloud(250, 20, 1.3, '#E8E6F5') + cloud(470, 30, 1.1, '#E8E6F5', delay=-6)
+         + put(rope, 400, 60)
+         + round_tree(400, 640, 1.05, night=True)
+         + put(K(True, 'up', 'calm'), 380, 440, .75) + put(K(False, 'pray', 'happy'), 446, 446, .72)
+         + stars_colored([(330, 240, 10), (470, 220, 12), (420, 300, 8)], '#FFE27A'))
+
+    sun_face = put(face('happy', ex=18, ey=0, mouth_y=22) , 0, 0)
+    moon_face = put(face('calm', ex=14, ey=0, mouth_y=18), 0, 0)
+    page('sun-moon-6', '해님 달님 6: 해님이 된 누이, 달님이 된 오빠', 'twilight',
+         stars([(560, 80, 6), (700, 150, 7), (740, 60, 5), (620, 220, 5)])
+         + put('<circle r="170" fill="url(#glow)"/>' + anim('glow',
+               ''.join(f'<rect x="-6" y="-112" width="12" height="26" rx="6" fill="#FFC93C" transform="rotate({a})"/>' for a in range(0, 360, 30))
+               + '<circle r="78" fill="#FFD66B"/>'
+               '<path d="M-60-30C-62-80 62-80 60-30C50-50 30-58 0-56C-30-58-50-50-60-30Z" fill="#2E2A33"/>'
+               '<path d="M46-62q16 26 10 60" stroke="#2E2A33" stroke-width="12" fill="none" stroke-linecap="round"/>'
+               '<path d="M54-8l12 14l-18-2z" fill="#D94A5E"/>' + sun_face), 220, 270)
+         + put('<circle r="150" fill="url(#moonglow)"/>' + anim('glow',
+               '<circle r="74" fill="#FFF1B8"/><circle cx="-26" cy="20" r="8" fill="#F2E3A0"/><circle cx="30" cy="-34" r="6" fill="#F2E3A0"/>'
+               '<path d="M-58-30C-60-76 60-76 58-30C46-48 24-54 0-52C-24-54-46-48-58-30Z" fill="#2E2A33"/>' + moon_face), 590, 270)
+         + cloud(60, 440, 1.2) + cloud(620, 450, 1.1, '#C9CCE8', delay=-3)
+         + '<g fill="#B98E62" opacity=".8"><path d="M260 520q40-40 80 0zM360 528q30-30 60 0zM470 522q36-36 72 0z"/></g>')
+
+    # ===== 토끼와 거북이 =====
+    page('rabbit-turtle-1', '토끼와 거북이 1: 숲속 친구들', 'forest',
+         cloud(90, 90) + cloud(520, 70, .9, delay=-5)
+         + round_tree(90, 470, .9) + round_tree(720, 466, .85, delay=-2)
+         + shadow(290, 528, 64) + put(rabbit('stand', 'happy'), 290, 524, 1.35)
+         + shadow(500, 528, 96) + put(turtle('happy'), 490, 524, 1.4)
+         + butterfly(400, 260) + flower(200, 540) + flower(620, 550, '#FFC4CF') + flower(380, 560) + tuft(530, 560) + tuft(120, 560))
+
+    page('rabbit-turtle-2', '토끼와 거북이 2: 거북이를 놀리는 토끼', 'meadow',
+         sun(670, 100, 40) + cloud(120, 90)
+         + shadow(270, 528, 64) + put(rabbit('point', 'smug'), 270, 524, 1.35)
+         + shadow(560, 528, 96) + put(turtle('determined'), 550, 524, 1.4, flip=True)
+         + stars_colored([(600, 340, 12)], '#FF9AA8')
+         + flower(150, 540) + flower(700, 548, '#FFC4CF') + tuft(420, 560) + tuft(80, 556))
+
+    speed = ''.join(anim('drift', f'<path d="M{x} {y}h{w}" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" opacity=".9"/>', -n)
+                    for n, (x, y, w) in enumerate(((330, 420, 60), (310, 450, 80), (340, 480, 50))))
+    page('rabbit-turtle-3', '토끼와 거북이 3: 준비, 출발!', 'meadow',
+         cloud(140, 90) + cloud(560, 60, .8, delay=-3)
+         + '<path d="M0 520C200 500 500 470 800 440V470C520 500 220 530 0 560Z" fill="#EDD39E"/>'
+         + put('<rect x="-4" y="-120" width="8" height="120" fill="#8A5A3B"/>'
+               + anim('sway', '<path d="M4-120h60v40H4z" fill="#FFFFFF"/><path d="M4-120h15v10H4zM34-120h15v10H34zM19-110h15v10H19zM49-110h15v10H49zM4-100h15v10H4zM34-100h15v10H34zM19-90h15v10H19zM49-90h15v10H49z" fill="#3A2A22"/>'), 720, 440)
+         + speed + shadow(470, 500, 50) + anim('hop', put(rabbit('run', 'happy'), 470, 494, 1, rot=12))
+         + shadow(130, 540, 60) + put(turtle('determined', band=True), 130, 536, .9)
+         + tuft(300, 570) + flower(640, 540))
+
+    zz = ''.join(anim('rise', f'<text x="{x}" y="{y}" font-family="sans-serif" font-weight="700" font-size="{s}" fill="#5B6BB5">z</text>', d)
+                 for x, y, s, d in ((440, 400, 30, 0), (460, 380, 24, -1.2), (476, 362, 18, -2.4)))
+    page('rabbit-turtle-4', '토끼와 거북이 4: 나무 아래에서 쿨쿨 낮잠', 'forest',
+         cloud(560, 80) + round_tree(400, 500, 1.15)
+         + shadow(390, 526, 96) + put(rabbit('sleep'), 390, 522, 1.45) + zz
+         + butterfly(200, 300, '#FFD66B') + butterfly(640, 360)
+         + flower(140, 540) + flower(660, 548, '#FFC4CF') + tuft(260, 560) + tuft(560, 562))
+
+    page('rabbit-turtle-5', '토끼와 거북이 5: 쉬지 않고 엉금엉금', 'meadow',
+         sun(660, 100, 44) + cloud(120, 80)
+         + '<path d="M0 540C220 520 520 500 800 480V510C520 530 220 560 0 580Z" fill="#EDD39E"/>'
+         + shadow(400, 534, 100) + put(turtle('determined', band=True), 390, 530, 1.55)
+         + put(anim('rise', '<path d="M0 0q6 9 0 14q-6-5 0-14z" fill="#8FD0F2"/>'), 470, 430)
+         + flower(140, 520) + flower(660, 560, '#FFC4CF') + tuft(250, 500) + tuft(560, 496))
+
+    confetti = ''.join(put(anim('twinkle', f'<rect x="-5" y="-9" width="10" height="18" rx="3" fill="{c}" transform="rotate({r})"/>', -n * .4), x, y)
+                       for n, (x, y, c, r) in enumerate(((280, 160, '#FF9AA8', 20), (360, 120, '#FFC93C', -30), (460, 150, '#7FB8E6', 40),
+                                                          (540, 110, '#A8D58A', -15), (620, 170, '#FF9AA8', 60), (320, 230, '#7FB8E6', -50))))
+    page('rabbit-turtle-6', '토끼와 거북이 6: 결승선에 먼저 도착한 거북이', 'meadow',
+         cloud(80, 80) + confetti
+         + put('<rect x="-4" y="-130" width="8" height="130" fill="#8A5A3B"/><rect x="236" y="-130" width="8" height="130" fill="#8A5A3B"/>'
+               + anim('dangle', '<path d="M4-110Q120-96 236-110" stroke="#E4573D" stroke-width="8" fill="none"/>'), 340, 500)
+         + shadow(440, 506, 84) + anim('hop', put(turtle('happy', band=True), 430, 502, 1.3))
+         + put('<path d="M-30 0h60l-8-50h-44z" fill="#FFC93C"/><path d="M-30-40q-26 0-20 20M30-40q26 0 20 20" stroke="#FFC93C" stroke-width="7" fill="none"/>'
+               '<rect x="-20" y="0" width="40" height="10" rx="4" fill="#C98B4F"/>', 470, 290)
+         + shadow(150, 530, 54) + put(rabbit('stand', 'shock'), 150, 526, 1.05)
+         + flower(640, 548) + tuft(260, 560))
+
+    # ===== 금도끼 은도끼 =====
+    page('golden-axe-1', '금도끼 은도끼 1: 마음씨 착한 나무꾼', 'forest',
+         cloud(560, 70) + pine(80, 470, 1.15) + pine(700, 466, 1.05, delay=-2) + pine(600, 476, .8, delay=-1)
+         + put('<path d="M-22 0C-18-60-20-120-12-160H12C20-120 18-60 22 0Z" fill="#8A5A3B"/>'
+               '<path d="M-22-40l26 12" stroke="#FFE7C7" stroke-width="10" stroke-linecap="round"/>', 470, 500)
+         + put('<rect x="-70" y="-24" width="140" height="24" rx="12" fill="#B07440"/><circle cx="70" cy="-12" r="12" fill="#E9C9A0"/>'
+               '<rect x="-60" y="-48" width="120" height="24" rx="12" fill="#C98B4F"/><circle cx="60" cy="-36" r="12" fill="#F0D6B0"/>', 170, 540)
+         + shadow(360, 506, 70) + put(woodcutter('chop', 'calm'), 360, 502)
+         + flower(620, 548) + tuft(260, 566))
+
+    page('golden-axe-2', '금도끼 은도끼 2: 연못에 퐁당 빠진 도끼', 'forest',
+         cloud(120, 80) + pine(60, 440, .9) + pine(740, 436, .9, delay=-2)
+         + pond(470, 480, 230, 66)
+         + put(anim('float', axe('iron')), 500, 420, .9, rot=160) + ripples(490, 470) + bubbles(480, 470)
+         + shadow(170, 520, 70) + put(woodcutter('reach', 'shock'), 170, 516)
+         + stars_colored([(230, 270, 12)], '#E4573D'))
+
+    page('golden-axe-3', '금도끼 은도끼 3: 연못에서 나타난 산신령님', 'forest',
+         pine(60, 440, .9) + pine(740, 436, .9, delay=-2)
+         + pond(470, 486, 230, 66)
+         + put(sinseon(rising=True), 480, 470, .95)
+         + stars_colored([(360, 260, 12), (600, 230, 14), (560, 330, 9)], '#FFE27A')
+         + shadow(150, 522, 70) + put(woodcutter('cry', 'cry'), 150, 518))
+
+    page('golden-axe-4', '금도끼 은도끼 4: 이 금도끼가 네 도끼냐?', 'forest',
+         pine(60, 440, .9) + pine(740, 436, .9, delay=-2)
+         + pond(480, 486, 230, 66)
+         + put(sinseon(hold='gold'), 480, 470, .95)
+         + stars_colored([(600, 220, 14), (650, 290, 10)], '#FFE27A')
+         + shadow(160, 522, 70) + put(woodcutter('no', 'calm'), 160, 518))
+
+    page('golden-axe-5', '금도끼 은도끼 5: 정직한 나무꾼에게 준 선물', 'forest',
+         pine(740, 436, .9)
+         + pond(500, 486, 220, 64)
+         + put(sinseon(hold='give'), 560, 470, .9)
+         + put(anim('float', axe('gold')), 300, 300, .8, rot=-15)
+         + put(anim('float', axe('silver'), -1), 380, 270, .8, rot=0)
+         + put(anim('float', axe('iron'), -2), 460, 300, .8, rot=15)
+         + stars_colored([(330, 220, 10), (430, 200, 12)], '#FFE27A')
+         + shadow(170, 522, 70) + put(woodcutter('bow', 'happy'), 170, 518))
+
+    page('golden-axe-6', '금도끼 은도끼 6: 정직한 마음이 가장 큰 보물', 'day',
+         put(anim('glow', ''.join(f'<path d="M-300 0A300 300 0 0 1 300 0" stroke="{c}" stroke-width="18" fill="none" transform="scale({1 - i*.06})"/>'
+                                  for i, c in enumerate(('#FF9AA8', '#FFC93C', '#FFE27A', '#A8D58A', '#7FB8E6', '#B9A7E8')))), 400, 380)
+         + cloud(60, 330, 1.1) + cloud(620, 320, 1.1, delay=-4)
+         + house(500, 470, .95)
+         + put(axe('gold'), 616, 470, .7, rot=12) + put(axe('silver'), 640, 470, .7, rot=18) + put(axe('iron'), 664, 470, .7, rot=24)
+         + shadow(250, 512, 70) + put(woodcutter('cheer', 'happy'), 250, 508)
+         + flower(120, 540) + flower(720, 548, '#FFC4CF') + tuft(380, 560))
+
+    # ===== 인사말 =====
+    hearts = ''.join(put(anim('rise', '<path d="M0 6C-14-4-12-18 0-12C12-18 14-4 0 6Z" fill="#FF8FA3"/>', -n * 1.1), x, y)
+                     for n, (x, y) in enumerate(((320, 230), (470, 210), (400, 190))))
+    page('intro', '인사말: 손주에게 건네는 한마디', 'warm',
+         '<circle cx="400" cy="320" r="230" fill="#FFF8E1" opacity=".8"/>'
+         + put(anim('bob', '<path d="M-150-10C-90-40-30-40 0-10C30-40 90-40 150-10V110C90 80 30 80 0 110C-30 80-90 80-150 110Z" fill="#FFFFFF" stroke="#F0E2C2" stroke-width="4"/>'
+                    '<path d="M0-10V110" stroke="#F0E2C2" stroke-width="4"/>'
+                    '<path d="M-120 20h90M-120 44h80M-120 68h90M30 20h90M30 44h80M30 68h90" stroke="#F2E6CC" stroke-width="6" stroke-linecap="round"/>'), 400, 330)
+         + put('<path d="M-60 0q12-20 0-40M-40 10q24-40 0-80" stroke="#FFC93C" stroke-width="10" fill="none" stroke-linecap="round"/>', 270, 300)
+         + hearts + stars_colored([(220, 180, 12), (600, 200, 14), (590, 430, 10)], '#FFC93C'))
+
+
+if __name__ == '__main__':
+    build()
+    print('그림을 만들었어요:', ', '.join(sorted(p.stem for p in OUT.glob('*.svg'))))

@@ -52,7 +52,7 @@ const kidTo = () => toOf(kidName());
 const pagesOf = (story, role = profile?.role, kid = kidName()) => [
   {
     intro: true,
-    scene: { bg: 'warm', items: [['💌', 50, 52, 1.35, 'bob'], ['💛', 26, 30, 0.38, 'float'], ['💛', 76, 26, 0.32, 'float'], ['✨', 80, 70, 0.3, 'twinkle'], ['✨', 20, 72, 0.25, 'twinkle']] },
+    image: 'img/intro.svg',
     text: `${toOf(kid)} 인사를 건네주세요`,
     hint: `예) ${callOf(kid) ? `${callOf(kid)}, ` : ''}${whoOf(role)}야. 오늘은 ‘${story.title}’ 이야기를 들려줄게.`,
   },
@@ -285,10 +285,13 @@ const topbar = ({ back = '', title = '', right = '' } = {}) => `
   </header>`;
 
 const tintStyle = (s) => `--c1:${s.tint[0]};--c2:${s.tint[1]}`;
+const coverHTML = (s, cls = '') => (s.coverImage
+  ? `<div class="cover ${cls}"><img src="${esc(s.coverImage)}" alt=""></div>`
+  : `<div class="cover ${cls}" style="${tintStyle(s)}"><span>${s.cover}</span></div>`);
 
-// 쪽 그림: 진짜 일러스트(image)가 있으면 그걸, 없으면 배경 + 이모지로 장면을 그려요.
+// 쪽 그림: 그림 파일(image)이 있으면 그걸, 없으면 배경 + 이모지로 장면을 그려요.
 const sceneHTML = (p, cls = '') => {
-  if (p.image) return `<div class="scene ${cls}"><img src="${esc(p.image)}" alt=""></div>`;
+  if (p.image) return `<div class="scene ${cls}"><div class="sc-layer"><img src="${esc(p.image)}" alt=""></div></div>`;
   const items = p.scene.items.map(([emoji, x, y, size, anim], n) => `
     <span class="sc-item${anim ? ` a-${anim}` : ''}" style="left:${x}%;top:${y}%;--s:${size};--n:${n}"><i>${emoji}</i></span>`).join('');
   return `<div class="scene ${cls} bg-${p.scene.bg}" aria-hidden="true"><div class="sc-layer">${items}</div></div>`;
@@ -348,7 +351,7 @@ async function homeView() {
       : n ? `${n}/${pages.length}쪽 녹음했어요` : `${pages.length}쪽 · 약 ${s.minutes}분`;
     return `
       <a class="story-card" href="#/story/${s.id}">
-        <div class="cover" style="${tintStyle(s)}"><span>${s.cover}</span></div>
+        ${coverHTML(s)}
         <div class="story-card-body">
           <div class="story-card-title">${s.title}</div>
           <div class="story-card-meta">${meta}</div>
@@ -407,7 +410,7 @@ async function storyView(id) {
   render(`
     ${topbar({ back: '#/' })}
     <div class="hero">
-      <div class="cover cover-lg" style="${tintStyle(s)}"><span>${s.cover}</span></div>
+      ${coverHTML(s, 'cover-lg')}
       <h1 class="title-lg">${s.title}</h1>
       <p class="sub">${s.desc}</p>
       <div class="stat-row">
@@ -673,7 +676,7 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '' }) {
   const drawStart = () => {
     stage.innerHTML = `
       <div class="listen-start">
-        <div class="cover cover-xl" style="${tintStyle(s)}"><span>${s.cover}</span></div>
+        ${coverHTML(s, 'cover-xl')}
         <p class="eyebrow">${reader}가 읽어주는</p>
         <h1 class="title-xl">${s.title}</h1>
         ${kid ? `<p class="sub">${esc(toOf(kid))}</p>` : ''}

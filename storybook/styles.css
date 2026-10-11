@@ -322,7 +322,9 @@ button:disabled { cursor: default; }
   container-type: size;
   background: linear-gradient(135deg, #FFF1C4, #FFD7B0);
 }
-.scene img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.scene img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 70%; display: block; }
+.cover { overflow: hidden; }
+.cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .scene-xl { height: auto; aspect-ratio: 1; max-height: 46vh; margin-top: 4px; border-radius: 36px; animation: enter .45s var(--ease); }
 .sc-layer { position: absolute; inset: 0; }
 .scene-xl .sc-layer { animation: kenburns 16s ease-in-out infinite alternate; }
