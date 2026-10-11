@@ -4,6 +4,7 @@ import { shareEnabled, uploadShare, fetchShare, publicUrl } from './share.js';
 import * as mine from './mystories.js';
 import qrcode from './vendor/qrcode.js';
 import { payEnabled, startPayment, confirmPayment } from './pay.js';
+import { POLICIES, BUSINESS, POLICY_UPDATED } from './policies.js';
 
 const app = document.getElementById('app');
 const toastEl = document.getElementById('toast');
@@ -268,8 +269,37 @@ function noServerSheet() {
   });
 }
 
+// 손주(14세 미만)의 이름·목소리·얼굴이 담길 수 있어서, 처음 올릴 때 보호자 동의를 확인해요.
+function askUploadConsent(recorded) {
+  if (local.get('uploadConsent')) return Promise.resolve(true);
+  const face = recorded.some((r) => isVideo(r.blob?.type));
+  return new Promise((resolve) => {
+    let decided = false;
+    const done = (v) => { if (!decided) { decided = true; resolve(v); } };
+    const { el } = sheet({
+      icon: '🔒',
+      title: '녹음을 서버에 올려도 될까요?',
+      body: `가족이 들을 수 있도록 아래 내용이 서버에 저장돼요.<span class="consent-list">· ${face ? '목소리와 얼굴 영상' : '목소리'} 녹음<br>· ${kidName() ? `손주 이름(${esc(kidName())})` : '할머니/할아버지 구분'}<br>· 직접 지은 이야기라면 그 글</span>`
+        + `<label class="check consent-check"><input type="checkbox" id="consent-ok"><span>손주가 함께 나오는 경우, 손주의 보호자(부모)가 동의했어요.</span></label>`
+        + '<a class="consent-link" href="#/policy/privacy">개인정보처리방침 보기</a>',
+      secondary: '취소',
+      primary: '동의하고 올리기',
+      onPrimary: () => { local.set('uploadConsent', { at: Date.now() }); done(true); },
+      onSecondary: () => done(false),
+      onDismiss: () => done(false),
+    });
+    const btn = el.querySelector('[data-act="primary"]');
+    const box = el.querySelector('#consent-ok');
+    btn.disabled = true;
+    box.addEventListener('change', () => { btn.disabled = !box.checked; });
+    el.querySelector('.consent-link').addEventListener('click', () => done(false));
+  });
+}
+
 // 녹음을 올리고 공유 ID 를 돌려줘요. 실패하면 다시 시도할지 묻고, 그만두면 null.
 async function uploadWithProgress(story, recorded) {
+  if (!(await askUploadConsent(recorded))) return null;
+  await new Promise((r) => setTimeout(r, 280));
   const total = recorded.length + 1;
   const { el, close } = sheet({
     icon: '☁️',
@@ -434,6 +464,7 @@ async function homeView() {
       <span class="tip-emoji">💡</span>
       <p>조용한 곳에서 휴대폰을 입에서 한 뼘 정도 떨어뜨리고 읽으면 목소리가 깨끗하게 담겨요.</p>
     </div>
+    ${footerHTML()}
   `, 'screen-home');
 }
 
@@ -1279,7 +1310,7 @@ async function orderView(id) {
       <div class="total"><span>결제 금액</span><b id="sum-total"></b></div>
     </div>
     <label class="check"><input type="checkbox" id="o-agree">
-      <span>주문 제작 상품이라 제작이 시작되면 취소할 수 없어요. 배송을 위해 이름·연락처·주소를 모으는 데 동의해요.</span></label>
+      <span>주문 제작 상품이라 제작이 시작되면 취소할 수 없어요(<a href="#/policy/refund">환불 규정</a>). 배송을 위해 이름·연락처·주소를 모으는 데 동의해요(<a href="#/policy/privacy">개인정보처리방침</a>).</span></label>
     <div class="cta-bar"><button class="btn btn-primary" id="pay"></button></div>
   `, 'screen-order');
 
@@ -1333,6 +1364,33 @@ async function orderView(id) {
   });
 }
 
+/* ---------- 약관 · 개인정보처리방침 · 환불 규정 ---------- */
+const footerHTML = () => `
+  <footer class="footer">
+    <nav>
+      <a href="#/about">들려줄게 소개</a>
+      <a href="#/policy/terms">이용약관</a>
+      <a href="#/policy/privacy"><b>개인정보처리방침</b></a>
+      <a href="#/policy/refund">환불 규정</a>
+    </nav>
+    <p>${esc(BUSINESS.name)} · 대표 ${esc(BUSINESS.owner)} · 사업자등록번호 ${esc(BUSINESS.regNo)}<br>
+      통신판매업 ${esc(BUSINESS.mailOrderNo)} · ${esc(BUSINESS.address)}<br>문의 ${esc(BUSINESS.email)}</p>
+  </footer>`;
+
+function policyView(doc) {
+  const d = POLICIES[doc];
+  if (!d) return notFound();
+  render(`
+    ${topbar({ back: history.length > 1 ? 'javascript:history.back()' : '#/', title: d.title })}
+    <article class="policy">
+      <h1 class="title-lg">${d.title}</h1>
+      <p class="sub">시행일 ${POLICY_UPDATED}</p>
+      ${d.sections.map(([h, body]) => `<h2>${esc(h)}</h2><p>${esc(body).replace(/\n/g, '<br>')}</p>`).join('')}
+    </article>
+    ${footerHTML()}
+  `);
+}
+
 function notFound() {
   render(`
     ${topbar({ back: '#/' })}
@@ -1356,6 +1414,7 @@ const routes = [
   [/^#\/book\/([\w-]+)$/, bookView],
   [/^#\/print\/([a-z0-9]+)$/, printView],
   [/^#\/order\/([\w-]+)$/, orderView],
+  [/^#\/policy\/(terms|privacy|refund)$/, policyView],
   [/^#\/new$/, () => editorView()],
   [/^#\/edit\/([\w-]+)$/, editorView],
 ];
@@ -1366,7 +1425,8 @@ async function route() {
   if (/[?&]pay=/.test(location.search)) { await payReturnView(); return; }
   const hash = location.hash || '#/';
   // 공유 링크(#/s/…)는 처음 설정 없이 바로 열려요.
-  if (!profile && hash !== '#/welcome' && !hash.startsWith('#/s/') && !hash.startsWith('#/print/')) {
+  const open = ['#/s/', '#/print/', '#/policy/', '#/about'].some((p) => hash.startsWith(p));
+  if (!profile && hash !== '#/welcome' && !open) {
     location.replace('#/welcome');
     return;
   }

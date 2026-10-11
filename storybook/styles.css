@@ -535,6 +535,18 @@ button:disabled { cursor: default; }
   .book-page { width: 210mm; height: 148mm; aspect-ratio: auto; border-radius: 0; box-shadow: none; break-after: page; }
 }
 
+/* ---------- 약관 · 푸터 · 동의 ---------- */
+.footer { margin-top: 40px; padding: 20px 4px 8px; border-top: 1px solid var(--line); font-size: 13px; color: var(--text-3); line-height: 1.7; }
+.footer nav { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-bottom: 10px; }
+.footer a { color: var(--text-2); }
+.policy h2 { font-size: 18px; font-weight: 700; margin: 26px 0 8px; }
+.policy p { font-size: 16px; line-height: 1.75; color: var(--text-2); }
+.consent-list { display: block; margin: 12px 0 4px; padding: 12px 14px; border-radius: 14px; background: var(--fill); text-align: left; font-size: 15px; line-height: 1.7; }
+.consent-check { text-align: left; margin-top: 12px; }
+.consent-link { display: inline-block; margin-top: 10px; font-size: 14px; color: var(--accent-text); text-decoration: underline; }
+.btn:disabled { opacity: .4; }
+.check a { color: var(--accent-text); text-decoration: underline; }
+
 /* ---------- 시트 · 토스트 ---------- */
 .sheet-backdrop {
   position: fixed; inset: 0; z-index: 40;

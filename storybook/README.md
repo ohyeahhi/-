@@ -20,6 +20,7 @@
   - 서버 연결은 `SETUP-공유.md` 참고 (Supabase 무료 요금제)
 - **그림책 만들기**: 동화 화면의 "📖 그림책으로 만들기" → A5 가로 그림책 미리보기(표지·인사말·쪽마다 그림+글+QR·뒤표지) → "PDF로 저장". QR 을 휴대폰 카메라로 찍으면 그 쪽부터 할머니 목소리(얼굴 영상)로 들어요 (`#/s/<공유ID>/<쪽>`)
 - **그림책 주문·결제**: 주문서(받는 분·주소·권수·동의) → 토스페이먼츠 결제창 → 서버에서 금액 확인 후 승인 (`pay.js`, `supabase/functions/orders`). 인쇄소용 화면 `#/print/<공유ID>`. 설정은 `SETUP-결제.md`
+- **약관·개인정보처리방침·환불 규정** (`#/policy/terms|privacy|refund`, 글은 `policies.js`): 홈 아래쪽과 주문서에서 열려요. 처음 서버에 올릴 때(보내기·QR·주문) 무엇이 올라가는지 보여 주고 **손주 보호자 동의**를 체크해야 올라가요. 출시 전에 `policies.js`의 `[상호]` 같은 사업자 정보를 채우고 법률 검토를 받아야 해요
 - 카카오톡 안에서 열렸을 때 녹음이 막힐 수 있다는 안내와 "다른 브라우저로 열기" 버튼
 - 다크 모드, 홈 화면에 앱처럼 추가(PWA), 한 번 열면 인터넷이 없어도 화면이 떠요
 
@@ -45,6 +46,7 @@ python3 -m http.server 8000
 | `styles.css` | 디자인 (밝은 크림 + 꿀색 노랑, 다크 모드), 쪽 그림 배경과 움직임 |
 | `img/`, `tools/` | 쪽 그림(SVG)과 그림 생성기: `draw_scenes.py`(그림체·처음 캐릭터), `parts2.py`(새 캐릭터), `build_images.py`(쪽별 장면) |
 | `pay.js`, `supabase/` | 그림책 결제(토스페이먼츠)와 주문 서버(Edge Function), 주문 표 SQL |
+| `policies.js` | 약관·개인정보처리방침·환불 규정, 사업자 정보 |
 | `vendor/qrcode.js` | QR코드 만들기 (qrcode-generator, MIT) |
 | `sw.js`, `manifest.webmanifest`, `icons/` | 홈 화면 추가와 오프라인 지원 |
 
