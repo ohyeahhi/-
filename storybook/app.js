@@ -372,7 +372,7 @@ async function recordView(id, idxStr) {
       dock.innerHTML = `
         <div class="done-row">
           <button class="pill" data-act="redo">${I.redo}다시 녹음</button>
-          <button class="pill pill-blue" data-act="play">${I.play}<span>들어보기</span></button>
+          <button class="pill pill-accent" data-act="play">${I.play}<span>들어보기</span></button>
         </div>
         <button class="btn btn-primary full" data-act="next">${last ? '녹음 완성하기' : '다음 쪽으로'}</button>`;
     }

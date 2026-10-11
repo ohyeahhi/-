@@ -1,5 +1,5 @@
 // 앱 화면을 캐시해 두고, 다음에 열 때 바로 뜨게 해요. (stale-while-revalidate)
-const CACHE = 'deullyeojulge-v1';
+const CACHE = 'deullyeojulge-v2';
 const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'stories.js', 'db.js', 'manifest.webmanifest', 'icons/icon.svg'];
 
 self.addEventListener('install', (e) => {
