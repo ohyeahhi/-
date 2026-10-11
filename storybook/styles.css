@@ -44,7 +44,7 @@
     --shadow: none;
     --shadow-up: 0 -1px 0 var(--line);
   }
-  .cover, .art { filter: saturate(.85) brightness(.92); }
+  .cover, .scene { filter: saturate(.9) brightness(.94); }
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -224,12 +224,7 @@ button:disabled { cursor: default; }
 .screen-record { padding-bottom: calc(220px + var(--safe-b)); }
 .stepbar { height: 4px; border-radius: 2px; background: var(--line); margin: 2px 0 16px; overflow: hidden; }
 .stepbar span { display: block; height: 100%; background: var(--accent); border-radius: 2px; transition: width .4s var(--ease); }
-.art {
-  height: clamp(110px, 22vh, 220px); border-radius: 28px;
-  display: grid; place-items: center;
-  background: linear-gradient(135deg, var(--c1), var(--c2));
-}
-.art span { font-size: clamp(56px, 11vh, 92px); letter-spacing: 8px; line-height: 1; }
+/* 쪽 그림은 아래 "장면" 부분에 있어요 */
 .read-text { font-size: 24px; line-height: 1.65; font-weight: 600; margin: 20px 4px 14px; letter-spacing: -0.03em; }
 .hint-card { padding: 18px; border-radius: 18px; background: var(--surface); color: var(--text-2); font-size: 17px; box-shadow: var(--shadow); }
 
@@ -304,8 +299,6 @@ button:disabled { cursor: default; }
 }
 .play-big:active { transform: scale(.94); }
 .play-big svg { width: 40px; height: 40px; margin-left: 4px; }
-.art-xl { height: auto; aspect-ratio: 1; max-height: 46vh; width: 100%; margin-inline: auto; border-radius: 36px; margin-top: 4px; animation: enter .45s var(--ease); }
-.art-xl span { font-size: 120px; }
 .listen-text { font-size: 25px; line-height: 1.65; font-weight: 700; margin: 26px 4px 20px; min-height: 3.3em; }
 .dots { display: flex; justify-content: center; gap: 6px; }
 .dots i { width: 8px; height: 8px; border-radius: 4px; background: var(--line); transition: all .3s var(--ease); }
@@ -321,6 +314,78 @@ button:disabled { cursor: default; }
 .ctl:disabled { opacity: .3; }
 .ctl-main { width: 86px; height: 86px; background: var(--accent); color: var(--accent-ink); box-shadow: 0 12px 30px var(--accent-glow); }
 .ctl-main svg { width: 36px; height: 36px; }
+
+/* ---------- 장면 (쪽 그림) ---------- */
+.scene {
+  position: relative; overflow: hidden;
+  height: clamp(120px, 24vh, 230px); border-radius: 28px;
+  container-type: size;
+  background: linear-gradient(135deg, #FFF1C4, #FFD7B0);
+}
+.scene img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.scene-xl { height: auto; aspect-ratio: 1; max-height: 46vh; margin-top: 4px; border-radius: 36px; animation: enter .45s var(--ease); }
+.sc-layer { position: absolute; inset: 0; }
+.scene-xl .sc-layer { animation: kenburns 16s ease-in-out infinite alternate; }
+.sc-item {
+  position: absolute; transform: translate(-50%, -50%);
+  font-size: calc(var(--s) * 26cqmin); line-height: 1; letter-spacing: 0;
+}
+.sc-item i {
+  display: block; font-style: normal;
+  animation-duration: 2.6s; animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite; animation-direction: alternate;
+  animation-delay: calc(var(--n) * -0.37s);
+}
+
+/* 배경: 위쪽 하늘 + 아래쪽 땅을 겹쳐 그려요 */
+.bg-day      { background: radial-gradient(150% 55% at 50% 120%, #A6DB86 58%, transparent 59%), linear-gradient(#BFE6FF, #FFF4D6 75%); }
+.bg-dusk     { background: radial-gradient(150% 55% at 50% 120%, #B9C97A 58%, transparent 59%), linear-gradient(#FFB08A, #FFE2A0 75%); }
+.bg-night    { background: radial-gradient(150% 50% at 50% 122%, #2F4C3C 58%, transparent 59%), linear-gradient(#1F2753, #4A4E8E 85%); }
+.bg-twilight { background: linear-gradient(100deg, #FFE9A6 0%, #FFCF88 44%, #3E4380 56%, #222A56 100%); }
+.bg-forest   { background: radial-gradient(150% 55% at 50% 120%, #7FC56B 58%, transparent 59%), linear-gradient(#CFEFCB, #F3FBE6 75%); }
+.bg-field    { background: radial-gradient(160% 50% at 50% 120%, #B5E08C 60%, transparent 61%), linear-gradient(#CBEBFF, #FFF8DC 75%); }
+.bg-pond     { background: radial-gradient(46% 20% at 54% 78%, #74C8EE 97%, transparent 100%), radial-gradient(160% 55% at 50% 120%, #9FD47F 58%, transparent 59%), linear-gradient(#D5EFFF, #F2FAE6 75%); }
+.bg-warm     { background: radial-gradient(60% 60% at 50% 50%, #FFF8E1, transparent 70%), linear-gradient(135deg, #FFF1C4, #FFD7B0); }
+
+/* 움직임 */
+.a-bob i     { animation-name: bob; }
+.a-float i   { animation-name: float; animation-duration: 3.2s; }
+.a-sway i    { animation-name: sway; animation-duration: 3.6s; transform-origin: 50% 100%; }
+.a-glow i    { animation-name: glow; animation-duration: 3s; }
+.a-twinkle i { animation-name: twinkle; animation-duration: 1.6s; }
+.a-drift i   { animation-name: drift; animation-duration: 7s; }
+.a-drop i    { animation: drop 2s var(--ease) both, bob 2.6s 2s ease-in-out infinite alternate; }
+.a-lunge i   { animation-name: lunge; animation-duration: 1.4s; }
+.a-sneak i   { animation-name: sneak; animation-duration: 3.4s; }
+.a-hop i     { animation-name: hop; animation-duration: .6s; animation-timing-function: cubic-bezier(.3, 0, .5, 1); }
+.a-run i     { animation-name: run; animation-duration: 1.8s; }
+.a-walk i    { animation-name: walk; animation-duration: 2.4s; }
+.a-flutter i { animation-name: flutter; animation-duration: 1.3s; }
+.a-chop i    { animation-name: chop; animation-duration: .7s; transform-origin: 20% 90%; }
+.a-sink i    { animation: sink 2.6s ease-in infinite; }
+.a-bubble i  { animation: bubble 2.4s ease-out infinite; animation-delay: calc(var(--n) * -0.8s); }
+.a-rise i    { animation: rise 1.8s var(--ease) both, bob 2.6s 1.8s ease-in-out infinite alternate; }
+.a-gold i    { animation-name: float; animation-duration: 3s; filter: sepia(1) saturate(5) hue-rotate(-8deg) brightness(1.15) drop-shadow(0 0 .12em #FFD34D); }
+.a-silver i  { animation-name: float; animation-duration: 3.4s; filter: grayscale(1) brightness(1.35) drop-shadow(0 0 .1em #E6EEF5); }
+
+@keyframes bob     { to { transform: translateY(-6%); } }
+@keyframes float   { from { transform: translateY(4%); } to { transform: translateY(-12%); } }
+@keyframes sway    { from { transform: rotate(-3deg); } to { transform: rotate(3deg); } }
+@keyframes glow    { from { transform: scale(1); filter: drop-shadow(0 0 .04em rgba(255, 210, 80, .5)); } to { transform: scale(1.06); filter: drop-shadow(0 0 .2em rgba(255, 210, 80, .9)); } }
+@keyframes twinkle { from { opacity: .3; transform: scale(.8); } to { opacity: 1; transform: scale(1.1); } }
+@keyframes drift   { from { transform: translateX(-8%); } to { transform: translateX(8%); } }
+@keyframes drop    { from { transform: translateY(-140%); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes lunge   { from { transform: translateX(4%); } to { transform: translateX(-8%) scale(1.05); } }
+@keyframes sneak   { from { transform: translateX(10%); } to { transform: translateX(-6%); } }
+@keyframes hop     { to { transform: translateY(-18%); } }
+@keyframes run     { from { transform: translateX(-40%); } to { transform: translateX(20%) translateY(-6%); } }
+@keyframes walk    { from { transform: translateX(-5%) rotate(-2deg); } to { transform: translateX(5%) rotate(2deg); } }
+@keyframes flutter { from { transform: translate(0, 0) rotate(-8deg); } to { transform: translate(14%, -16%) rotate(8deg); } }
+@keyframes chop    { from { transform: rotate(10deg); } to { transform: rotate(-28deg); } }
+@keyframes sink    { 0% { transform: translateY(-50%); opacity: 1; } 100% { transform: translateY(30%); opacity: .2; } }
+@keyframes bubble  { from { transform: translateY(0) scale(.7); opacity: .9; } to { transform: translateY(-160%) scale(1.1); opacity: 0; } }
+@keyframes rise    { from { transform: translateY(35%); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes kenburns { from { transform: scale(1); } to { transform: scale(1.07) translateY(-1.5%); } }
 
 /* ---------- 시트 · 토스트 ---------- */
 .sheet-backdrop {

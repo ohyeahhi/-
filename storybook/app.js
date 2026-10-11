@@ -47,7 +47,7 @@ const kidCall = () => { const n = kidName(); return !n ? '' : hasBatchim(n) ? `$
 const pagesOf = (story) => [
   {
     intro: true,
-    art: '💌',
+    scene: { bg: 'warm', items: [['💌', 50, 52, 1.35, 'bob'], ['💛', 26, 30, 0.38, 'float'], ['💛', 76, 26, 0.32, 'float'], ['✨', 80, 70, 0.3, 'twinkle'], ['✨', 20, 72, 0.25, 'twinkle']] },
     text: `${kidTo()} 인사를 건네주세요`,
     hint: `예) ${kidCall() ? `${kidCall()}, ` : ''}${who()}야. 오늘은 ‘${story.title}’ 이야기를 들려줄게.`,
   },
@@ -190,6 +190,14 @@ const topbar = ({ back = '', title = '', right = '' } = {}) => `
   </header>`;
 
 const tintStyle = (s) => `--c1:${s.tint[0]};--c2:${s.tint[1]}`;
+
+// 쪽 그림: 진짜 일러스트(image)가 있으면 그걸, 없으면 배경 + 이모지로 장면을 그려요.
+const sceneHTML = (p, cls = '') => {
+  if (p.image) return `<div class="scene ${cls}"><img src="${esc(p.image)}" alt=""></div>`;
+  const items = p.scene.items.map(([emoji, x, y, size, anim], n) => `
+    <span class="sc-item${anim ? ` a-${anim}` : ''}" style="left:${x}%;top:${y}%;--s:${size};--n:${n}"><i>${emoji}</i></span>`).join('');
+  return `<div class="scene ${cls} bg-${p.scene.bg}" aria-hidden="true"><div class="sc-layer">${items}</div></div>`;
+};
 
 function render(html, cls = '') {
   app.innerHTML = `<main class="screen ${cls}">${html}</main>`;
@@ -343,7 +351,7 @@ async function recordView(id, idxStr) {
         <p>카카오톡 안에서는 녹음이 안 될 수 있어요.</p>
         <button class="notice-btn" id="external">다른 브라우저로 열기</button>
       </div>` : ''}
-    <div class="art" style="${tintStyle(s)}"><span>${p.art}</span></div>
+    ${sceneHTML(p)}
     <p class="read-text">${esc(p.text)}</p>
     ${p.intro ? `<div class="hint-card">${esc(p.hint)}</div>` : ''}
     <div class="rec-dock" id="dock" aria-live="polite"></div>
@@ -542,7 +550,7 @@ async function listenView(id) {
   const drawPage = () => {
     const p = list[pos];
     stage.innerHTML = `
-      <div class="art art-xl" style="${tintStyle(s)}"><span>${p.art}</span></div>
+      ${sceneHTML(p, 'scene-xl')}
       <p class="listen-text">${p.intro ? `${who()}의 인사 💌` : esc(p.text)}</p>
       <div class="dots">${list.map((_, j) => `<i class="${j === pos ? 'on' : ''}"></i>`).join('')}</div>
       <div class="controls">
