@@ -865,7 +865,7 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
   let pos = 0;
   let alive = true;
   let advanceTimer = 0;
-  onDispose(() => { alive = false; clearTimeout(advanceTimer); stopAudio(); player.onerror = null; });
+  onDispose(() => { alive = false; clearTimeout(advanceTimer); stopAudio(); player.onerror = null; player.onplaying = null; });
 
   const drawStart = () => {
     stage.innerHTML = `
@@ -914,11 +914,43 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
     if (b) b.innerHTML = playing ? I.pause : I.play;
   };
 
+  // 재생이 안 되는 쪽(기기가 녹음 형식을 못 읽거나, 인터넷이 끊겼을 때)은
+  // 그림과 글을 잠깐 보여 주고 다음 쪽으로 넘어가요.
+  let played = 0;
+  let failed = 0;
+  let warned = false;
+  const failPage = () => {
+    if (!alive || stage.querySelector('.play-fail')) return;
+    failed += 1;
+    setToggle(false);
+    stage.querySelector('.call-row')?.classList.add('cam-off');
+    stage.querySelector('.dots')?.insertAdjacentHTML('beforebegin',
+      `<p class="play-fail" role="status">이 쪽 ${list[pos].video ? '영상을' : '소리를'} 이 휴대폰에서 틀 수 없어요.${pos < list.length - 1 ? ' 그림을 보고 다음 쪽으로 넘어갈게요.' : ''}</p>`);
+    const at = pos;
+    advanceTimer = setTimeout(() => {
+      if (!alive || pos !== at) return;
+      if (pos < list.length - 1) playAt(pos + 1);
+      else drawEnd();
+    }, 6000);
+    if (failed >= 2 && !played && !warned) {
+      warned = true;
+      sheet({
+        icon: '🧭',
+        title: '이 브라우저에서는 재생이 잘 안 돼요',
+        body: inKakao
+          ? '카카오톡 안에서는 녹음이 안 나올 수 있어요.<br>다른 브라우저로 열면 잘 들려요.'
+          : '크롬이나 사파리 최신 버전에서 이 링크를 열어 주세요.',
+        secondary: '닫기',
+        primary: inKakao ? '다른 브라우저로 열기' : '링크 복사하기',
+        onPrimary: inKakao ? openExternal : () => copyText(location.href),
+      });
+    }
+  };
   player.onerror = () => {
     if (!alive || !player.getAttribute('src')) return;
-    setToggle(false);
-    toast('이 쪽 소리를 불러오지 못했어요');
+    failPage();
   };
+  player.onplaying = () => { played += 1; };
 
   async function playAt(j) {
     clearTimeout(advanceTimer);
@@ -936,7 +968,13 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
         else drawEnd();
       }, 900);
     };
-    try { await player.play(); setToggle(true); } catch { setToggle(false); }
+    try {
+      await player.play();
+      setToggle(true);
+    } catch (e) {
+      // 자동 재생이 막힌 건(NotAllowedError) 재생 버튼을 누르면 돼요.
+      if (e?.name === 'NotSupportedError') failPage(); else setToggle(false);
+    }
   }
 
   stage.addEventListener('click', (e) => {
