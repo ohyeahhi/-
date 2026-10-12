@@ -32,6 +32,14 @@ export default async function ({ check, browser, store }) {
   await signedIn(p);
   await p.waitForTimeout(800);
   check('통계 기록에 기관 코드가 붙어요', events(store).some((e) => e.name === 'open' && e.org === 'test-center'));
+  await p.goto(`${APP}#/welcome`);
+  await p.click('#text-size [data-size="big"]');
+  const big = await p.evaluate(() => document.documentElement.classList.contains('big-text') && JSON.parse(localStorage.getItem('bigText')));
+  await p.reload();
+  await p.waitForSelector('#text-size');
+  const kept = await p.evaluate(() => document.documentElement.classList.contains('big-text') && document.documentElement.scrollWidth <= document.documentElement.clientWidth);
+  await p.click('#text-size [data-size="normal"]');
+  check('글씨 크게를 고르면 바로 커지고, 다시 열어도 그대로예요 (옆으로 넘치지 않음)', big && kept && !(await p.evaluate(() => document.documentElement.classList.contains('big-text'))));
   check('오류가 없어요', !p.errors.length, p.errors);
   await p.context().close();
 }

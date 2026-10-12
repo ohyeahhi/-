@@ -692,3 +692,11 @@ button:disabled { cursor: default; }
 @media print {
   .screen-flyer .flyer { width: 210mm; height: 297mm; margin: 0; border-radius: 0; box-shadow: none; aspect-ratio: auto; }
 }
+
+/* 글씨 크기 */
+.seg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 5px; border-radius: 18px; background: var(--fill); }
+.seg button { height: 52px; border-radius: 14px; font-size: 17px; font-weight: 600; color: var(--text-2); }
+.seg button.seg-big { font-size: 21px; }
+.seg button.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+html.big-text body { zoom: 1.15; }
+@media print { html.big-text body { zoom: 1; } }

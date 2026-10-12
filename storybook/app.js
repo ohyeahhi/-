@@ -402,6 +402,12 @@ function welcomeView() {
 
       <label class="label" for="kid">손주 이름 <span class="opt">선택</span></label>
       <input id="kid" class="input" placeholder="예) 하은" maxlength="10" autocomplete="off" value="${esc(kidName())}">
+
+      <span class="label">글씨 크기</span>
+      <div class="seg" role="radiogroup" id="text-size">
+        <button role="radio" data-size="normal">보통</button>
+        <button role="radio" data-size="big" class="seg-big">크게</button>
+      </div>
     </div>
     <div class="cta-bar"><button class="btn btn-primary" id="go">${profile ? '저장하기' : '시작하기'}</button></div>
   `);
@@ -414,6 +420,20 @@ function welcomeView() {
   app.querySelector('.choice-grid').addEventListener('click', (e) => {
     const b = e.target.closest('[data-role]');
     if (b) { role = b.dataset.role; sync(); }
+  });
+  // 글씨 크기: 누르는 순간 화면에 바로 보여요.
+  const sizeSync = () => app.querySelectorAll('#text-size [data-size]').forEach((b) => {
+    const on = b.dataset.size === (local.get('bigText') ? 'big' : 'normal');
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-checked', on);
+  });
+  sizeSync();
+  app.querySelector('#text-size').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-size]');
+    if (!b) return;
+    local.set('bigText', b.dataset.size === 'big');
+    applyTextSize();
+    sizeSync();
   });
   app.querySelector('#go').addEventListener('click', () => {
     if (!profile) track('start', { meta: { role, kid: Boolean(app.querySelector('#kid').value.trim()) } });
@@ -1719,6 +1739,9 @@ async function route() {
   notFound();
 }
 
+// 글씨 크게: 화면 전체를 115%로 키워요. (그림책 인쇄에는 적용하지 않아요)
+function applyTextSize() { document.documentElement.classList.toggle('big-text', Boolean(local.get('bigText'))); }
+applyTextSize();
 // 기관 안내지 QR (…/?org=gangnam-welfare) 로 들어오면 기관 코드를 기억해요. 통계를 기관별로 세는 데만 써요.
 {
   const q = new URLSearchParams(location.search);
