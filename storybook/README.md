@@ -39,6 +39,14 @@ python3 -m http.server 8000
 ```
 마이크는 `https` 주소나 `localhost`에서만 켜져요. 휴대폰으로 시험하려면 GitHub Pages나 Netlify 같은 곳에 올려서 https 주소로 열어주세요.
 
+## 테스트
+```bash
+node tests/run.mjs          # 전체 (약 3분)
+node tests/run.mjs book     # 이름에 book 이 들어간 것만
+```
+앱 서버와 가짜 Supabase·토스 서버(`tests/mock_supabase.py`)를 띄우고, 휴대폰 화면으로 녹음 → 보내기 → 가족이 듣기 → 그림책 주문·결제 → 보관 결제 → 재생 실패 → 약관·소개·기관 안내지까지 눌러 봐요. 마이크·카메라는 크롬의 가짜 장치를 써요. Python 3 와 Playwright(크로미움)가 필요해요 (`npm i -D playwright && npx playwright install chromium`).
+고친 뒤에는 꼭 돌려서 모두 통과하는지 확인해 주세요. 실제 휴대폰(특히 아이폰 사파리) 확인은 따로 해야 해요.
+
 ## 파일
 | 파일 | 역할 |
 |---|---|
@@ -54,6 +62,7 @@ python3 -m http.server 8000
 | `stats.js` | 시범 사용 통계 (무작위 기기 번호, 개인정보 없음) |
 | `policies.js` | 약관·개인정보처리방침·환불 규정, 사업자 정보 |
 | `vendor/qrcode.js` | QR코드 만들기 (qrcode-generator, MIT) |
+| `tests/` | 자동 테스트 (`run.mjs`, 가짜 서버 `mock_supabase.py`) |
 | `sw.js`, `manifest.webmanifest`, `icons/` | 홈 화면 추가와 오프라인 지원 |
 
 ## 다음 단계
