@@ -317,7 +317,7 @@ async function uploadWithProgress(story, recorded) {
         storyId: story.id,
         role: profile?.role || 'grandma',
         kid: kidName(),
-        ...(story.custom ? { custom: { title: story.title, pages: story.pages.map(({ text, seed }) => ({ text, seed })) } } : {}),
+        ...(story.custom ? { custom: { title: story.title, pages: story.pages.map(({ text, seed, noCast }) => ({ text, seed, ...(noCast ? { noCast: true } : {}) })) } } : {}),
       },
       recorded.map(({ i, blob }) => ({ i, blob })),
       (n, t) => { bar.style.width = `${(n / t) * 100}%`; label.textContent = `${n} / ${t}`; },
@@ -1008,8 +1008,8 @@ const MAX_PAGES = 12;
 const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
 
 // 글에서 찾아 그림에 넣은 것들을 작은 꼬리표로 보여 줘요.
-function foundHTML(text) {
-  const d = describe(text);
+function foundHTML(text, noCast = false) {
+  const d = describe(text, { noCast });
   if (!d) return '';
   const tag = (label, words) => (words.length ? `<span class="found-row"><i>${label}</i>${words.map((w) => `<span class="found-chip">${esc(w)}</span>`).join('')}</span>` : '');
   const rows = tag('누가', d.who) + tag('무엇', d.things) + tag('어디', d.where) + tag('언제', d.when) + tag('어떻게', d.doing);
@@ -1044,14 +1044,15 @@ function editorView(editId) {
           <b>${n + 1}번째 장면</b>
           ${state.pages.length > 1 ? `<button class="icon-mini" data-act="del" aria-label="장면 지우기">${I.trash}</button>` : ''}
         </div>
-        <div class="page-art"><img alt="" src="${mine.pageImage(p.text, p.seed)}"></div>
+        <div class="page-art"><img alt="" src="${mine.pageImage(p.text, p.seed, p.noCast)}"></div>
         <textarea class="page-text" rows="3" maxlength="200" placeholder="${n === 0
           ? '예) 옛날 옛날, 할머니가 어렸을 때 우리 집에는 누렁이라는 강아지가 있었단다.'
           : '다음 장면을 적어 주세요'}">${esc(p.text)}</textarea>
-        <div class="page-found" aria-live="polite">${foundHTML(p.text)}</div>
+        <div class="page-found" aria-live="polite">${foundHTML(p.text, p.noCast)}</div>
         <div class="page-tools">
           ${SpeechRec ? `<button class="pill" data-act="dictate">${I.mic}<span>말로 쓰기</span></button>` : ''}
           <button class="pill" data-act="reroll">${I.shuffle}다른 그림</button>
+          <button class="pill${p.noCast ? ' on' : ''}" data-act="nocast" aria-pressed="${Boolean(p.noCast)}">${p.noCast ? '인물 넣기' : '인물 빼기'}</button>
         </div>
       </section>`).join('');
   };
@@ -1063,9 +1064,9 @@ function editorView(editId) {
     timers.set(n, setTimeout(() => {
       const img = pagesEl.querySelector(`[data-n="${n}"] .page-art img`);
       const p = state.pages[n];
-      if (img && p) img.src = mine.pageImage(p.text, p.seed);
+      if (img && p) img.src = mine.pageImage(p.text, p.seed, p.noCast);
       const found = pagesEl.querySelector(`[data-n="${n}"] .page-found`);
-      if (found && p) found.innerHTML = foundHTML(p.text);
+      if (found && p) found.innerHTML = foundHTML(p.text, p.noCast);
     }, 450));
   };
 
@@ -1114,7 +1115,18 @@ function editorView(editId) {
     if (btn.dataset.act === 'reroll') {
       state.pages[n].seed = (state.pages[n].seed || 0) + 1;
       saveDraft();
-      card.querySelector('.page-art img').src = mine.pageImage(state.pages[n].text, state.pages[n].seed);
+      card.querySelector('.page-art img').src = mine.pageImage(state.pages[n].text, state.pages[n].seed, state.pages[n].noCast);
+    } else if (btn.dataset.act === 'nocast') {
+      // 인물 빼기: 글에 누가 나와도 풍경과 물건만 그려요. (할머니가 어릴 적 살던 마을처럼)
+      const p = state.pages[n];
+      p.noCast = !p.noCast;
+      if (!p.noCast) delete p.noCast;
+      saveDraft();
+      btn.classList.toggle('on', Boolean(p.noCast));
+      btn.setAttribute('aria-pressed', String(Boolean(p.noCast)));
+      btn.textContent = p.noCast ? '인물 넣기' : '인물 빼기';
+      card.querySelector('.page-art img').src = mine.pageImage(p.text, p.seed, p.noCast);
+      card.querySelector('.page-found').innerHTML = foundHTML(p.text, p.noCast);
     } else if (btn.dataset.act === 'del') {
       stopDictation();
       state.pages.splice(n, 1);

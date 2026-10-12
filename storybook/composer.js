@@ -212,7 +212,21 @@ function moodNear(t, idx, fallback) {
   return Object.keys(MOOD_WORDS).find((m) => has(win, MOOD_WORDS[m])) || fallback;
 }
 
-export function analyze(text, seed = 0) {
+// "강아지 두 마리", "세 마리 돼지", "돼지 삼형제", "고양이들" → 몇이 나오는지 (최대 5)
+const NUM = { 두: 2, 둘: 2, 2: 2, 세: 3, 셋: 3, 3: 3, 삼: 3, 네: 4, 넷: 4, 4: 4, 다섯: 5, 5: 5, 여러: 3 };
+function countNear(t, idx) {
+  const after = t.slice(idx, idx + 14);
+  const before = t.slice(Math.max(0, idx - 8), idx);
+  if (/쌍둥이\s?$/.test(before)) return 2;
+  let m = after.match(/^\S*?\s?(두|세|네|다섯|여러|[2-5])\s?(마리|명|분|친구)/) || before.match(/(?:^|\s)(두|세|네|다섯|여러|[2-5])\s?(?:마리의?|명의?)?\s?$/);
+  if (m) return NUM[m[1]];
+  if (/^\S*?\s?(삼|세)\s?(형제|자매|남매|쌍둥이)/.test(after)) return 3;
+  if (/^\S*?\s?(형제|자매|쌍둥이|남매|부부)/.test(after)) return 2;
+  if (/^\S*?들(이|은|을|과|도|이랑|아|의|\s|,|\.|$)/.test(after)) return 2;
+  return 1;
+}
+
+export function analyze(text, seed = 0, opts = {}) {
   const r = rng(hashText(text) + seed * 7919);
   // "아기 돼지", "새끼 고양이"의 "아기·새끼"는 꾸미는 말이라 아기 캐릭터로 읽지 않아요.
   const t = text.replace(/\s+/g, ' ')
@@ -229,9 +243,17 @@ export function analyze(text, seed = 0) {
   const action = Object.keys(ACTION_WORDS).find((k) => has(m, ACTION_WORDS[k]));
   let cast = found.map(({ name, idx }) => ({
     name: name === 'kid' ? (r() < 0.5 ? 'boy' : 'girl') : name,
+    kid: name === 'kid',
+    count: countNear(t, idx),
     mood: moodNear(m, idx, mood || (r() < 0.6 ? 'happy' : 'calm')),
   }));
   cast = cast.filter((c, i) => cast.findIndex((d) => d.name === c.name) === i);
+  // 여럿이면 그 수만큼 그려요. 아이는 남자아이·여자아이를 번갈아 그려요.
+  cast = cast.flatMap((c) => Array.from({ length: c.count }, (_, k) => ({
+    name: c.kid && k % 2 ? (c.name === 'boy' ? 'girl' : 'boy') : c.name,
+    mood: c.mood,
+    copy: k,
+  })));
   // "아이들", "손주들", "친구들"이면 둘을 그려요.
   if (has(t, ['아이들', '손주들', '친구들', '애들', '오누이', '남매'])) {
     for (const k of ['boy', 'girl']) if (!cast.some((c) => c.name === k)) cast.push({ name: k, mood: cast.find((c) => c.name === 'boy' || c.name === 'girl')?.mood || mood || 'happy' });
@@ -239,16 +261,16 @@ export function analyze(text, seed = 0) {
   // 쫓기는 쪽은 놀란 얼굴
   if (has(m, ['쫓아', '쫓기', '도망'])) cast.forEach((c, i) => { if (i > 0 && c.mood !== 'cry') c.mood = 'shock'; });
   const sky = cast.filter((c) => CHARACTERS[c.name]?.sky);
-  let ground = cast.filter((c) => !CHARACTERS[c.name]?.sky).slice(0, 3);
+  let ground = cast.filter((c) => !CHARACTERS[c.name]?.sky).slice(0, 5);
   if (seed) for (let i = ground.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [ground[i], ground[j]] = [ground[j], ground[i]]; }
-  // 아무도 안 나오면 이야기를 들려주는 할머니를 넣어요.
-  const defaulted = !ground.length && !sky.length && !!t.trim();
-  if (!ground.length && t.trim()) ground = [{ name: 'grandma', mood: mood || 'happy' }];
+  // 아무도 안 나오면 풍경만 그려요. "인물 빼기"를 고르면 이름이 나와도 풍경만 그려요.
+  const nobody = !ground.length && !sky.length;
   return {
     r,
-    defaulted,
-    ground,
-    sky,
+    nobody,
+    noCast: Boolean(opts.noCast),
+    ground: opts.noCast ? [] : ground,
+    sky: opts.noCast ? [] : sky.slice(0, 3),
     mood,
     action,
     time: firstOf(m, TIME) || 'day',
@@ -286,12 +308,12 @@ function chooseBg(a, seed) {
   return ['day', 'meadow', 'forest'][seed % 3];
 }
 
-export function compose(text, seed = 0) {
+export function compose(text, seed = 0, opts = {}) {
   if (!text.trim()) {
     const bg = BG.warm;
     return svgDoc(bg, [bg.body, put(PROPS.hearts, 400, 320, 1.4), put(PROPS.sparkles, 400, 260, 1.6), put(PROPS.book, 400, 420, 2)]);
   }
-  const a = analyze(text, seed);
+  const a = analyze(text, seed, opts);
   const { r, sky, action, weather, place, things } = a;
   let { ground } = a;
   const kind = chooseBg(a, seed);
@@ -329,15 +351,16 @@ export function compose(text, seed = 0) {
   // 배경 소품: 집·연못·바다의 배가 한쪽을 차지하면 인물은 나머지 자리에 서요.
   const ground_y = kind === 'sea' ? 575 : inside ? 520 : 505;
   let left = 90; let right = cauldron ? 500 : 710;
+  const crowd = ground.length >= 4;
   if (!inside && kind !== 'sea') {
     const houseSide = r() < 0.5 ? 'right' : 'left';
     const tree = night ? 'tree_night' : 'tree';
     const pine = night ? 'pine_night' : 'pine';
     if (place.house) {
-      const x = houseSide === 'right' ? 590 : 210;
+      const x = crowd ? (houseSide === 'right' ? 660 : 140) : houseSide === 'right' ? 590 : 210;
       const h = a.brick ? PROPS.brick_house : a.straw ? PROPS.straw_house : PROPS[night ? 'house_night' : 'house'];
-      back.push(put(h, x, ground_y - 30, 0.9));
-      if (houseSide === 'right') right = 450; else left = 350;
+      back.push(put(h, x, ground_y - 30, crowd ? 0.7 : 0.9));
+      if (houseSide === 'right') right = crowd ? 600 : 450; else left = crowd ? 200 : 350;
     }
     if (place.pond) {
       const px = place.house ? (houseSide === 'right' ? 240 : 560) : 540;
@@ -352,7 +375,7 @@ export function compose(text, seed = 0) {
       treeSide = place.house ? (houseSide === 'right' ? 'left' : 'right') : place.pond ? 'left' : (r() < 0.5 ? 'left' : 'right');
       const tx = treeSide === 'left' ? 150 : 650;
       back.push(fruitTree(fruit, tx, ground_y - 10, night, r));
-      if (treeSide === 'left') left = Math.max(left, 290); else right = Math.min(right, 510);
+      if (treeSide === 'left') left = Math.max(left, crowd ? 200 : 290); else right = Math.min(right, crowd ? 600 : 510);
     }
     const edge = place.forest ? tree : pine;
     if (!(place.house && houseSide === 'left') && treeSide !== 'left') back.push(put(PROPS[edge], 40 + r() * 30, ground_y - 30, place.forest ? 0.8 : 0.95));
@@ -398,25 +421,31 @@ export function compose(text, seed = 0) {
   const hugging = action === 'hug' && n >= 2;
   const spots = ground.map((_, i) => {
     if (n === 1) return (left + right) / 2;
-    if (hugging) return (left + right) / 2 + (i - (n - 1) / 2) * 120;
-    return left + 60 + ((right - left - 120) * i) / (n - 1);
+    if (hugging) return (left + right) / 2 + (i - (n - 1) / 2) * (n > 3 ? 95 : 120);
+    return left + 50 + ((right - left - 100) * i) / (n - 1);
   });
+  // 넷 이상이면 두 줄로 서요: 짝수 번째는 조금 뒤(위)에 작게, 앞줄이 나중에 그려져서 앞에 보여요.
+  const crowdScale = [1, 1, 1, 0.85, 0.74, 0.66][n] || 0.66;
+  const order = ground.map((_, i) => i).sort((i, j) => (n > 3 ? (j % 2) - (i % 2) : 0) || i - j);
   const people = [];
-  ground.forEach((c, i) => {
+  order.forEach((i) => {
+    const c = ground[i];
     const ch = CHARACTERS[c.name];
     const x = spots[i];
-    const y = ground_y + (n > 1 ? r() * 12 : 6);
-    const s = ch.scale * (n === 3 ? 0.85 : 1) * (kind === 'sea' ? 0.85 : 1);
+    const back_ = n > 3 && i % 2 === 1;
+    const y = ground_y + (back_ ? -22 : n > 3 ? 14 : 0) + (n > 1 ? r() * 10 : 6);
+    const s = ch.scale * crowdScale * (back_ ? 0.92 : 1) * (kind === 'sea' ? 0.85 : 1);
     let want = c.mood;
     if (action === 'run' && c.name === 'rabbit') want = 'run';
     if ((action === 'dance' || action === 'sing') && ch.v.cheer && c.mood !== 'cry') want = 'cheer';
     if (c.name === 'sinseon' && (has_('treasure') || has_('axe'))) want = 'gift';
-    const flip = ch.faces === 1 && x > 400;
+    const flip = ch.faces === 1 ? x > 400 : Boolean(c.copy % 2);
     let svg = put(variant(ch, want), x, y, s, flip);
     if (action === 'run' || action === 'dance') svg = wrap('hop', svg);
-    people.push({ x, y, s, h: ch.h * s, name: c.name });
+    people.push({ i, x, y, s, h: ch.h * s, name: c.name });
     front.push(shadow(x, y + 2, 34 + ch.h * s * 0.18), svg);
   });
+  people.sort((p, q) => p.i - q.i);
   const lead = people[0];
 
   // 하는 일
@@ -428,7 +457,7 @@ export function compose(text, seed = 0) {
     if (action === 'run') front.push(put(PROPS.speed, lead.x - 150, lead.y - lead.h * 0.6));
     if (lead && (a.mood === 'shock' || a.mood === 'angry')) front.push(put(PROPS.alarm, lead.x + 40, head + 10));
     if (food) people.forEach((p, i) => front.push(put(PROPS[food], p.x + (p.x > 400 ? -1 : 1) * (26 + p.h * 0.12), p.y - p.h * 0.28, 0.75)));
-    else if (eating && !has_('bowl') && !has_('ricecake') && !has_('noodles') && !has_('dumpling')) people.forEach((p) => front.push(put(PROPS.bowl, p.x + 34, p.y + 44, 0.7)));
+    else if (eating && !['bowl', 'ricecake', 'noodles', 'dumpling', 'cake', 'watermelon', 'honey'].some(has_)) people.forEach((p) => front.push(put(PROPS.bowl, p.x + 34, p.y + 44, 0.7)));
   }
 
   // 글에 나온 물건
@@ -447,7 +476,7 @@ export function compose(text, seed = 0) {
     } else if (k === 'letter' && lead) front.push(put(PROPS.letter, lead.x + 60, lead.y - lead.h * 0.5, 0.9));
     else if (k === 'fish' && !place.pond && kind !== 'sea') front.push(put(PROPS.fish, nextSpot(), 570, 0.9));
     else if (k === 'ricecake') front.push(put(PROPS.basket, nextSpot(), 580, 0.9), put(PROPS.ricecake, frontSpots[(fs - 1) % frontSpots.length], 545, 1));
-    else if (k === food) continue;  // 이미 손에 들었어요
+    else if (k === food && lead) continue;  // 이미 손에 들었어요
     else if (FRUITS.includes(k)) {
       // 나무에 열렸으면 두어 개가 떨어져 있고, 아니면 땅에 소복이 놓여요.
       const x = nextSpot();
@@ -456,6 +485,14 @@ export function compose(text, seed = 0) {
     } else if ((k === 'balloons' || k === 'star_toy' || k === 'bouquet') && lead) {
       front.push(put(PROPS[k], lead.x + (lead.x > 400 ? -1 : 1) * (30 + lead.h * 0.12), lead.y - lead.h * (k === 'balloons' ? 0.3 : 0.25), k === 'balloons' ? 1 : 0.8));
     } else if (k === 'heart_big' && lead) front.push(put(PROPS.heart_big, lead.x, lead.y - lead.h - 20, 0.6));
+    // 아무도 없을 때: 연은 혼자 하늘을 날고, 우산·편지·풍선은 땅에 놓이거나 떠 있어요.
+    else if (!lead && k === 'kite') {
+      const kx = 520 + r() * 120;
+      front.push(`<path d="M${kx - 140} 560Q${kx - 120} 330 ${kx} 200" stroke="#8A6448" stroke-width="2" fill="none"/>`, put(PROPS.kite, kx, 150, 1));
+    } else if (!lead && (k === 'umbrella' || k === 'letter' || k === 'star_toy' || k === 'bouquet')) {
+      front.push(put(PROPS[k], nextSpot(), k === 'umbrella' ? 590 : 575, k === 'umbrella' ? 0.7 : 0.9));
+    } else if (!lead && k === 'balloons') front.push(put(PROPS.balloons, nextSpot(), 520, 1));
+    else if (!lead && k === 'heart_big') front.push(put(PROPS.heart_big, 400, 260, 0.8));
     else if (k === 'bee' || k === 'butterfly_big') front.push(put(PROPS[k], 150 + r() * 500, 230 + r() * 100, 1));
     else if (k === 'clock' && inside) back.push(put(PROPS.clock, 640, 250, 1));
     else if (k === 'egg' || k === 'acorn' || k === 'potato' || k === 'sweet_potato' || k === 'carrot' || k === 'corn') {
@@ -523,16 +560,19 @@ const MOOD_KO = { sleep: '잠', cry: '울음', shock: '놀람', angry: '화남',
 const ACTION_KO = { run: '달리기', sing: '노래', dance: '춤', eat: '먹기', hug: '안기' };
 
 // 글을 읽고 무엇을 그림에 넣었는지, 무엇을 더 적으면 좋은지 알려 줘요.
-export function describe(text) {
+export function describe(text, opts = {}) {
   if (!text.trim()) return null;
-  const a = analyze(text, 0);
-  const who = a.defaulted ? [] : [...a.ground, ...a.sky].map((c) => NAME_KO[c.name]);
+  const a = analyze(text, 0, opts);
+  // 같은 인물이 여럿이면 "강아지 ×2" 처럼 보여 줘요.
+  const counts = new Map();
+  for (const c of [...a.ground, ...a.sky]) counts.set(NAME_KO[c.name], (counts.get(NAME_KO[c.name]) || 0) + 1);
+  const who = a.noCast ? ['인물 없이 풍경만'] : [...counts].map(([k, v]) => (v > 1 ? `${k} ×${v}` : k));
   const things = a.things.map((k) => (FRUITS.includes(k) && a.onTree ? `${NAME_KO[k]}나무` : NAME_KO[k]));
   const where = Object.keys(PLACE_KO).filter((p) => a.place[p]).map((p) => PLACE_KO[p]);
   const when = [a.time === 'night' ? '밤' : a.time === 'dusk' ? '저녁' : '', ...a.weather.map((w) => WEATHER_KO[w])].filter(Boolean);
   const doing = [a.action && ACTION_KO[a.action], a.mood && MOOD_KO[a.mood]].filter(Boolean);
   let tip = '';
-  if (a.defaulted) tip = '누가 나오는지 적으면 그 인물을 그려요 (예: 손녀, 강아지, 곰)';
+  if (a.nobody && !a.noCast) tip = '지금은 풍경만 그려요. 누가 나오는지 적으면 그 인물을 그려요 (예: 손녀, 강아지 두 마리)';
   else if (!where.length) tip = '어디인지 적으면 배경이 바뀌어요 (예: 바닷가, 숲속, 부엌)';
   else if (!things.length) tip = '무엇이 나오는지 적으면 함께 그려요 (예: 사과, 풍선, 자전거)';
   return { who, things, where, when, doing, tip };
