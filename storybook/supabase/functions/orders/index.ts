@@ -1,7 +1,7 @@
 // 그림책 주문·결제 승인 (Supabase Edge Function, 이름: orders)
 //
-//   POST { action: 'create', shareId, storyId, title, qty, name, phone, addr, memo }
-//        → { orderId, amount, orderName }   금액은 여기서 권수로 계산해요.
+//   POST { action: 'create', shareId, storyId, title, qty, gift, card, name, phone, addr, memo }
+//        → { orderId, amount, orderName }   금액은 여기서 권수·선물 포장으로 계산해요.
 //   POST { action: 'confirm', paymentKey, orderId, amount }
 //        → { ok: true, order }               토스에 승인 요청 후 '결제 완료'로 바꿔요.
 //
@@ -9,7 +9,11 @@
 // SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY 는 Supabase 가 자동으로 넣어 줘요.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-const PRICE = 39000;
+// 앱의 pricing.js 와 같은 규칙이에요. 바꿀 때는 둘 다 바꿔요.
+const PRICE_FIRST = 39000;  // 첫 권
+const PRICE_MORE = 29000;   // 두 번째 권부터
+const GIFT_PRICE = 5000;    // 선물 포장 + 카드, 권마다
+const priceOf = (qty: number, gift: boolean) => PRICE_FIRST + PRICE_MORE * (qty - 1) + (gift ? GIFT_PRICE * qty : 0);
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info',
@@ -31,12 +35,15 @@ Deno.serve(async (req) => {
 
   if (body.action === 'create') {
     const qty = Number(body.qty);
+    const gift = body.gift === true;
     const order = {
       share_id: str(body.shareId, 32),
       story_id: str(body.storyId, 40),
       title: str(body.title, 60),
       qty,
-      amount: PRICE * qty,
+      gift,
+      card: gift ? str(body.card, 80) : '',
+      amount: Number.isInteger(qty) ? priceOf(qty, gift) : 0,
       name: str(body.name, 30),
       phone: str(body.phone, 20),
       addr: str(body.addr, 200),
@@ -49,7 +56,7 @@ Deno.serve(async (req) => {
     const orderId = `BOOK-${Date.now().toString(36)}-${crypto.randomUUID().slice(0, 8)}`.toUpperCase();
     const { error } = await db.from('orders').insert({ ...order, order_id: orderId, status: 'pending' });
     if (error) return fail('주문을 저장하지 못했어요', 500, 'DB');
-    const orderName = `${order.title} 그림책${qty > 1 ? ` ${qty}권` : ''}`;
+    const orderName = `${order.title} 그림책${qty > 1 ? ` ${qty}권` : ''}${gift ? ' (선물 포장)' : ''}`;
     return json({ orderId, amount: order.amount, orderName });
   }
 
@@ -91,5 +98,5 @@ Deno.serve(async (req) => {
 
 // 화면에 돌려줄 때는 주소·전화번호를 빼요.
 function publicOrder(o: Record<string, unknown>) {
-  return { orderId: o.order_id, title: o.title, qty: o.qty, amount: o.amount, receiptUrl: o.receipt_url };
+  return { orderId: o.order_id, title: o.title, qty: o.qty, gift: o.gift, amount: o.amount, receiptUrl: o.receipt_url };
 }

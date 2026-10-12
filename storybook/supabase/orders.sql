@@ -8,6 +8,8 @@ create table if not exists public.orders (
   story_id    text not null,
   title       text not null,
   qty         int  not null check (qty between 1 and 10),
+  gift        boolean not null default false,  -- 선물 포장 + 카드
+  card        text,                            -- 카드에 적을 말
   amount      int  not null,
   name        text not null,
   phone       text not null,
@@ -22,3 +24,7 @@ create table if not exists public.orders (
 );
 
 alter table public.orders enable row level security;
+
+-- 이미 표를 만들었다면 아래 두 줄만 실행해요 (선물 포장 칸 더하기).
+alter table public.orders add column if not exists gift boolean not null default false;
+alter table public.orders add column if not exists card text;

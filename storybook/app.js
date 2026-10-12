@@ -7,6 +7,7 @@ import qrcode from './vendor/qrcode.js';
 import { payEnabled, startPayment, confirmPayment } from './pay.js';
 import { POLICIES, BUSINESS, POLICY_UPDATED } from './policies.js';
 import { track, trackOpen } from './stats.js';
+import { PRICE_FIRST, PRICE_MORE, GIFT_PRICE, MAX_QTY, priceOf } from './pricing.js';
 
 const app = document.getElementById('app');
 const toastEl = document.getElementById('toast');
@@ -1330,7 +1331,7 @@ async function payReturnView() {
       <div class="celebrate">
         <div class="celebrate-badge">🎁</div>
         <h1 class="title-xl">주문이 완료됐어요</h1>
-        <p class="sub">‘${esc(order.title)}’ 그림책 ${order.qty}권을<br>정성껏 만들어 7~10일 안에 보내드릴게요.</p>
+        <p class="sub">‘${esc(order.title)}’ 그림책 ${order.qty}권을<br>${order.gift ? '선물 포장해서 ' : ''}정성껏 만들어 7~10일 안에 보내드릴게요.</p>
       </div>
       <div class="order-sum">
         <div><span>주문 번호</span><b>${esc(order.orderId)}</b></div>
@@ -1351,14 +1352,13 @@ async function payReturnView() {
 }
 
 /* ---------- 그림책 주문 ---------- */
-const BOOK_PRICE = 39000;
 const won = (n) => `${n.toLocaleString('ko-KR')}원`;
 
 async function orderView(id) {
   const s = getStory(id);
   if (!s) return notFound();
-  const form = { qty: 1, name: '', phone: '', addr: '', memo: '', ...(local.get('orderForm') || {}) };
-  form.qty = 1;
+  const form = { qty: 1, gift: false, card: '', name: '', phone: '', addr: '', memo: '', ...(local.get('orderForm') || {}) };
+  Object.assign(form, { qty: 1, gift: false, card: '' });
   render(`
     ${topbar({ back: `#/book/${id}`, title: '그림책 주문' })}
     <div class="order-item">
@@ -1366,7 +1366,8 @@ async function orderView(id) {
       <div>
         <div class="story-card-title">${esc(s.title)}</div>
         <div class="story-card-meta">A5 가로 · 양장 · ${s.pages.length + 3}쪽 · QR코드</div>
-        <div class="order-price">${won(BOOK_PRICE)}</div>
+        <div class="order-price">${won(PRICE_FIRST)}</div>
+        <div class="order-deal">두 번째 권부터 ${won(PRICE_MORE)}</div>
       </div>
     </div>
     <label class="label" for="o-name">받는 분</label>
@@ -1377,10 +1378,22 @@ async function orderView(id) {
     <textarea id="o-addr" class="input textarea" rows="2" autocomplete="street-address" placeholder="도로명 주소와 동·호수">${esc(form.addr)}</textarea>
     <span class="label">권수</span>
     <div class="stepper"><button data-q="-1" aria-label="한 권 빼기">−</button><b id="qty">1권</b><button data-q="1" aria-label="한 권 더하기">+</button></div>
+    <p class="order-hint" id="qty-hint">아들네·딸네, 친가·외가에 한 권씩 보내면 좋아요. 두 번째 권부터 ${won(PRICE_FIRST - PRICE_MORE)}씩 싸져요.</p>
+    <label class="gift-card">
+      <input type="checkbox" id="o-gift">
+      <span class="gift-emoji">🎁</span>
+      <span><b>선물 포장 + 카드</b><small>리본 포장에 손글씨 느낌 카드를 넣어 드려요 · 권마다 ${won(GIFT_PRICE)}</small></span>
+    </label>
+    <div id="card-box" hidden>
+      <label class="label" for="o-card">카드에 적을 말 <span class="opt">선택</span></label>
+      <textarea id="o-card" class="input textarea" rows="2" maxlength="80" placeholder="예) 사랑하는 하은아, 할머니 목소리 들으며 꿈나라 가렴"></textarea>
+    </div>
     <label class="label" for="o-memo">남기실 말 <span class="opt">선택</span></label>
     <input id="o-memo" class="input" value="${esc(form.memo)}" placeholder="예) 손주 돌잔치 선물이에요">
     <div class="order-sum">
       <div><span>책 값</span><b id="sum-books"></b></div>
+      <div id="sum-saved-row" hidden><span>여러 권 할인</span><b id="sum-saved"></b></div>
+      <div id="sum-wrap-row" hidden><span>선물 포장</span><b id="sum-wrap"></b></div>
       <div><span>배송비</span><b>무료</b></div>
       <div class="total"><span>결제 금액</span><b id="sum-total"></b></div>
     </div>
@@ -1391,15 +1404,25 @@ async function orderView(id) {
 
   const $ = (q) => app.querySelector(q);
   const sync = () => {
+    const p = priceOf(form);
     $('#qty').textContent = `${form.qty}권`;
-    $('#sum-books').textContent = won(BOOK_PRICE * form.qty);
-    $('#sum-total').textContent = won(BOOK_PRICE * form.qty);
-    $('#pay').textContent = `${won(BOOK_PRICE * form.qty)} 결제하기`;
+    $('#sum-books').textContent = won(PRICE_FIRST * form.qty);
+    $('#sum-saved-row').hidden = !p.saved;
+    $('#sum-saved').textContent = `−${won(p.saved)}`;
+    $('#sum-wrap-row').hidden = !form.gift;
+    $('#sum-wrap').textContent = won(p.wrap);
+    $('#sum-total').textContent = won(p.total);
+    $('#pay').textContent = `${won(p.total)} 결제하기`;
   };
   sync();
   app.querySelector('.stepper').addEventListener('click', (e) => {
     const d = Number(e.target.closest('[data-q]')?.dataset.q || 0);
-    form.qty = Math.min(10, Math.max(1, form.qty + d));
+    form.qty = Math.min(MAX_QTY, Math.max(1, form.qty + d));
+    sync();
+  });
+  $('#o-gift').addEventListener('change', (e) => {
+    form.gift = e.target.checked;
+    $('#card-box').hidden = !form.gift;
     sync();
   });
 
@@ -1409,6 +1432,7 @@ async function orderView(id) {
       phone: $('#o-phone').value.trim(),
       addr: $('#o-addr').value.trim(),
       memo: $('#o-memo').value.trim(),
+      card: form.gift ? $('#o-card').value.trim() : '',
     });
     local.set('orderForm', { name: form.name, phone: form.phone, addr: form.addr });
     if (!form.name || !/^0\d{1,2}-?\d{3,4}-?\d{4}$/.test(form.phone) || form.addr.length < 6) {
@@ -1430,7 +1454,9 @@ async function orderView(id) {
       storyId: s.id,
       title: s.title,
       qty: form.qty,
-      amount: BOOK_PRICE * form.qty,
+      gift: form.gift,
+      card: form.card,
+      amount: priceOf(form).total,
       name: form.name,
       phone: form.phone,
       addr: form.addr,
@@ -1501,7 +1527,7 @@ function aboutView() {
         <div class="about-book-emoji">📖</div>
         <div>
           <b>목소리 그림책으로 간직하기</b>
-          <p>녹음한 동화를 A5 그림책으로 만들어 드려요. 쪽마다 있는 QR을 찍으면 그 쪽부터 할머니 목소리가 나와요. 한 권 ${won(BOOK_PRICE)}, 배송비 무료.</p>
+          <p>녹음한 동화를 A5 그림책으로 만들어 드려요. 쪽마다 있는 QR을 찍으면 그 쪽부터 할머니 목소리가 나와요. 한 권 ${won(PRICE_FIRST)}, 두 번째 권부터 ${won(PRICE_MORE)} · 선물 포장도 돼요. 배송비 무료.</p>
         </div>
       </div>
 
