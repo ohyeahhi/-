@@ -55,5 +55,6 @@ export default async function ({ check }) {
   check('추석 → 보름달 밤 + 잔칫상', ((x) => x.time === 'night' && x.fullMoon && x.extras.includes('feast'))(analyze('추석날 송편을 먹었어요.')));
   const svg = compose('들판에서 연을 날리는데 파랑새가 날아왔어요.');
   check('사람이 없어도 연은 하늘을 날아요', svg.includes('M0-60L40 0L0 60L-40 0Z'));
+  check('"다른 그림"은 좌우를 뒤집거나 가까이 당겨요', compose('할머니가 웃었어요.', 1).includes('scale(-1 1)') && compose('할머니가 웃었어요.', 2).includes('scale(1.14)') && !compose('할머니가 웃었어요.', 0).includes('transform="translate(800'));
   check('같은 글 + 같은 번호면 같은 그림', compose('밤에 손녀가 웃었어요.', 2) === compose('밤에 손녀가 웃었어요.', 2));
 }

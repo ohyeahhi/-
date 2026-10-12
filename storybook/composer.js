@@ -593,7 +593,16 @@ export function compose(text, seed = 0, opts = {}) {
   }
 
   if (EMO[a.scene]?.scene === 'fear') front.push(PROPS.fear_vignette);  // 무서운 장면은 가장자리가 어두워져요
-  return svgDoc(bg, [...out, ...back, ...front]);
+  // "다른 그림"을 누를 때마다(seed) 구도가 바뀌어요: 홀수면 좌우를 뒤집고, 두 번에 한 번씩 가까이 당겨요.
+  // seed 0 은 처음 그림 그대로예요. (이미 보낸 이야기는 바뀌지 않아요)
+  const mirror = seed % 2 === 1;
+  const zoom = [1, 1.14, 1.26, 1.08][Math.floor(seed / 2) % 4];
+  const frame = [
+    mirror ? 'translate(800 0) scale(-1 1)' : '',
+    zoom !== 1 ? `translate(400 ${inside ? 560 : 600}) scale(${zoom}) translate(-400 -${inside ? 560 : 600})` : '',
+  ].filter(Boolean).join(' ');
+  const parts = [...out, ...back, ...front];
+  return svgDoc(bg, frame ? [`<g transform="${frame}">${parts.join('')}</g>`] : parts);
 }
 
 // 상황 소품 크기: 옆에 서는 큰 것 / 땅에 놓는 것
