@@ -2,6 +2,7 @@ import { STORIES, getStory as getBuiltin } from './stories.js';
 import * as db from './db.js';
 import { shareEnabled, uploadShare, fetchShare, publicUrl } from './share.js';
 import * as mine from './mystories.js';
+import { describe } from './composer.js';
 import qrcode from './vendor/qrcode.js';
 import { payEnabled, startPayment, confirmPayment } from './pay.js';
 import { POLICIES, BUSINESS, POLICY_UPDATED } from './policies.js';
@@ -997,6 +998,15 @@ const DRAFT = 'storyDraft';
 const MAX_PAGES = 12;
 const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
 
+// 글에서 찾아 그림에 넣은 것들을 작은 꼬리표로 보여 줘요.
+function foundHTML(text) {
+  const d = describe(text);
+  if (!d) return '';
+  const tag = (label, words) => (words.length ? `<span class="found-row"><i>${label}</i>${words.map((w) => `<span class="found-chip">${esc(w)}</span>`).join('')}</span>` : '');
+  const rows = tag('누가', d.who) + tag('무엇', d.things) + tag('어디', d.where) + tag('언제', d.when) + tag('어떻게', d.doing);
+  return (rows ? `<p class="found-title">그림에 넣은 것</p>${rows}` : '') + (d.tip ? `<p class="found-tip">💡 ${esc(d.tip)}</p>` : '');
+}
+
 function editorView(editId) {
   const raw = editId ? mine.getRaw(editId) : null;
   if (editId && !raw) return notFound();
@@ -1029,6 +1039,7 @@ function editorView(editId) {
         <textarea class="page-text" rows="3" maxlength="200" placeholder="${n === 0
           ? '예) 옛날 옛날, 할머니가 어렸을 때 우리 집에는 누렁이라는 강아지가 있었단다.'
           : '다음 장면을 적어 주세요'}">${esc(p.text)}</textarea>
+        <div class="page-found" aria-live="polite">${foundHTML(p.text)}</div>
         <div class="page-tools">
           ${SpeechRec ? `<button class="pill" data-act="dictate">${I.mic}<span>말로 쓰기</span></button>` : ''}
           <button class="pill" data-act="reroll">${I.shuffle}다른 그림</button>
@@ -1044,6 +1055,8 @@ function editorView(editId) {
       const img = pagesEl.querySelector(`[data-n="${n}"] .page-art img`);
       const p = state.pages[n];
       if (img && p) img.src = mine.pageImage(p.text, p.seed);
+      const found = pagesEl.querySelector(`[data-n="${n}"] .page-found`);
+      if (found && p) found.innerHTML = foundHTML(p.text);
     }, 450));
   };
 

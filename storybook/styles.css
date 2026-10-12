@@ -619,3 +619,12 @@ button:disabled { cursor: default; }
   background: var(--accent-weak); color: var(--accent-text); font-size: 15px; font-weight: 600; line-height: 1.5;
 }
 .call-row.cam-off .call-cam { display: none; }
+
+/* 이야기 쓰기: 그림에 넣은 것 */
+.page-found { margin-top: 10px; display: grid; gap: 6px; }
+.page-found:empty { display: none; }
+.found-title { font-size: 13px; font-weight: 600; color: var(--text-3); }
+.found-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.found-row i { font-style: normal; font-size: 13px; color: var(--text-3); min-width: 40px; }
+.found-chip { padding: 3px 10px; border-radius: 999px; background: var(--accent-weak); color: var(--accent-text); font-size: 14px; font-weight: 600; }
+.found-tip { font-size: 14px; line-height: 1.5; color: var(--text-2); }

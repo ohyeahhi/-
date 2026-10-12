@@ -242,9 +242,11 @@ export function analyze(text, seed = 0) {
   let ground = cast.filter((c) => !CHARACTERS[c.name]?.sky).slice(0, 3);
   if (seed) for (let i = ground.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [ground[i], ground[j]] = [ground[j], ground[i]]; }
   // 아무도 안 나오면 이야기를 들려주는 할머니를 넣어요.
+  const defaulted = !ground.length && !sky.length && !!t.trim();
   if (!ground.length && t.trim()) ground = [{ name: 'grandma', mood: mood || 'happy' }];
   return {
     r,
+    defaulted,
     ground,
     sky,
     mood,
@@ -495,3 +497,43 @@ const svgDoc = (bg, parts) =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600"><style>${STYLE}</style><defs>${bg.defs}</defs>${parts.join('')}</svg>`;
 
 export const svgDataUrl = (svg) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+
+// ---------- 그림에 들어간 것 (이야기 쓰는 화면에 보여 줘요) ----------
+const NAME_KO = {
+  grandma: '할머니', grandpa: '할아버지', sinseon: '산신령', goblin: '도깨비', mom: '엄마', dad: '아빠', baby: '아기',
+  girl: '여자아이', boy: '남자아이', tiger: '호랑이', wolf: '늑대', rabbit: '토끼', turtle: '거북이', dog: '강아지',
+  cat: '고양이', pig: '돼지', sheep: '양', ant: '개미', grasshopper: '베짱이', squirrel: '다람쥐', chestnut: '알밤',
+  swallow: '제비', bird: '새', frog: '개구리', chick: '병아리', hen: '닭', duck: '오리', cow: '소', bear: '곰',
+  fox: '여우', deer: '사슴', mouse: '생쥐', monkey: '원숭이', elephant: '코끼리', owl: '부엉이',
+  apple: '사과', persimmon: '감', tangerine: '귤', peach: '복숭아', pear: '배', grapes: '포도', strawberry: '딸기',
+  banana: '바나나', watermelon: '수박', corn: '옥수수', carrot: '당근', radish: '무', sweet_potato: '고구마',
+  potato: '감자', cabbage: '배추', mushroom: '버섯', acorn: '도토리', egg: '달걀', bread: '빵', lollipop: '막대사탕',
+  candy: '사탕', icecream: '아이스크림', cookie: '과자', bee: '꿀벌', honey: '꿀', milk: '우유', dumpling: '만두',
+  noodles: '국수', fish: '물고기', boat: '배', umbrella: '우산', kite: '연', cake: '케이크', book: '책', letter: '편지',
+  treasure: '보물', ricecake: '떡', basket: '바구니', bowl: '밥그릇', gourd: '박', rice: '볏단', axe: '도끼',
+  wood: '나뭇짐', cauldron: '가마솥', rock: '바위', snowman: '눈사람', balloons: '풍선', teddy: '곰인형', doll: '인형',
+  ball: '공', bicycle: '자전거', car: '자동차', train: '기차', airplane: '비행기', hat: '모자', bouquet: '꽃다발',
+  gift: '선물', lantern: '등불', candle: '촛불', clock: '시계', bucket: '양동이', shovel: '삽', watering_can: '물뿌리개',
+  sled: '썰매', shell: '조개', star_toy: '별', drum: '북', flower_pot: '화분', blanket: '담요', heart_big: '하트',
+  butterfly_big: '나비',
+};
+const PLACE_KO = { kitchen: '부엌', room: '방', sea: '바다', pond: '물가', field: '논밭', house: '집', forest: '숲', meadow: '들판' };
+const WEATHER_KO = { rain: '비', snow: '눈', rainbow: '무지개', spring: '봄', autumn: '가을' };
+const MOOD_KO = { sleep: '잠', cry: '울음', shock: '놀람', angry: '화남', happy: '웃음' };
+const ACTION_KO = { run: '달리기', sing: '노래', dance: '춤', eat: '먹기', hug: '안기' };
+
+// 글을 읽고 무엇을 그림에 넣었는지, 무엇을 더 적으면 좋은지 알려 줘요.
+export function describe(text) {
+  if (!text.trim()) return null;
+  const a = analyze(text, 0);
+  const who = a.defaulted ? [] : [...a.ground, ...a.sky].map((c) => NAME_KO[c.name]);
+  const things = a.things.map((k) => (FRUITS.includes(k) && a.onTree ? `${NAME_KO[k]}나무` : NAME_KO[k]));
+  const where = Object.keys(PLACE_KO).filter((p) => a.place[p]).map((p) => PLACE_KO[p]);
+  const when = [a.time === 'night' ? '밤' : a.time === 'dusk' ? '저녁' : '', ...a.weather.map((w) => WEATHER_KO[w])].filter(Boolean);
+  const doing = [a.action && ACTION_KO[a.action], a.mood && MOOD_KO[a.mood]].filter(Boolean);
+  let tip = '';
+  if (a.defaulted) tip = '누가 나오는지 적으면 그 인물을 그려요 (예: 손녀, 강아지, 곰)';
+  else if (!where.length) tip = '어디인지 적으면 배경이 바뀌어요 (예: 바닷가, 숲속, 부엌)';
+  else if (!things.length) tip = '무엇이 나오는지 적으면 함께 그려요 (예: 사과, 풍선, 자전거)';
+  return { who, things, where, when, doing, tip };
+}
