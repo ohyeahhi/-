@@ -6,6 +6,7 @@
 // 부품은 img/parts.js (tools/build_images.py 가 만들어요). 서버 없이 휴대폰에서 바로 그려져요.
 // 같은 글 + 같은 seed 면 언제나 같은 그림이 나와요 (공유받은 가족도 똑같이 봐요).
 import { STYLE, BG, CHARACTERS, PROPS } from './img/parts.js';
+import { EMOTIONS, SITUATIONS } from './scenes.js';
 
 // ---------- 낱말표 ----------
 // 한 글자짜리(해·달·물·별·눈·비·양·배·박)는 다른 말 속에 섞여 있기 쉬워서, 붙는 말까지 함께 찾아요.
@@ -47,22 +48,14 @@ const CHAR_WORDS = [
   ['elephant', ['코끼리']],
   ['owl', ['부엉이', '올빼미']],
 ];
-// 감정: 위에 있는 것부터 찾아요. ("좋아해"는 기쁨보다 사랑으로)
-const MOOD_WORDS = {
-  sleep: ['잠이', '잠을', '잠들', '자고', '잤', '쿨쿨', '졸려', '졸았', '졸음', '꾸벅', '드르렁', '꿈나라'],
-  sad: ['슬프', '슬펐', '슬퍼', '슬픈', '속상', '서운', '서러', '서럽', '눈물', '울었', '울고', '울며', '우는', '울음', '엉엉', '훌쩍', '흑흑', '마음이 아파', '가슴이 아파'],
-  lonely: ['외로', '외롭', '쓸쓸', '혼자 남', '보고 싶', '보고싶', '그리워', '그리운', '그립'],
-  scared: ['무서', '무섭', '겁이', '겁을', '겁나', '덜덜', '벌벌', '떨었', '떨며', '오싹', '으스스'],
-  surprised: ['깜짝', '놀라', '놀랐', '어이쿠', '어머나', '세상에'],
-  angry: ['화가', '화를', '화났', '화내', '혼내', '버럭', '심술', '씩씩거', '부글부글', '욕심'],
-  worried: ['걱정', '근심', '불안', '조마조마', '안절부절', '어쩌지', '어떡하'],
-  shy: ['부끄', '수줍', '쑥스', '창피'],
-  love: ['사랑', '좋아해', '좋아했', '아껴', '소중', '포근'],
-  happy: ['웃', '기뻐', '기쁜', '기뻤', '신나', '신났', '신이', '좋아', '즐거', '행복', '깔깔', '하하', '호호', '반가', '고마워', '뿌듯'],
-};
-// 감정 → 얼굴 (캐릭터마다 그려 둔 얼굴: happy · calm · shock · cry · sleep · angry)
-const FACE = { sad: 'cry', lonely: 'cry', scared: 'shock', surprised: 'shock', worried: 'calm', shy: 'happy', love: 'happy' };
-const GLOOMY = ['sad', 'lonely'];
+// 감정과 상황 낱말표는 scenes.js 에 있어요.
+const EMO = Object.fromEntries(EMOTIONS.map(([k, ko, e]) => [k, { ko, ...e }]));
+const MOOD_WORDS = Object.fromEntries(EMOTIONS.map(([k, , e]) => [k, e.words]));
+const FACE = Object.fromEntries(EMOTIONS.map(([k, , e]) => [k, e.face]));
+const GLOOMY = EMOTIONS.filter(([, , e]) => e.scene === 'gloom').map(([k]) => k);
+const WARM = EMOTIONS.filter(([, , e]) => e.scene === 'warm').map(([k]) => k);
+const SIT = Object.fromEntries(SITUATIONS.map(([k, ko, , r]) => [k, { ko, ...r }]));
+const SIT_WORDS = SITUATIONS.map(([k, , words]) => [k, words]);
 const ACTION_WORDS = {
   run: ['달리', '달려', '뛰어', '뛰었', '뛰놀', '쫓아', '도망'],
   sing: ['노래', '부르며', '흥얼', '피리', '장구'],
@@ -246,10 +239,16 @@ export function analyze(text, seed = 0, opts = {}) {
     .replace(/모자라|모자란|모자랐/g, '부족')
     .replace(/아이스크림/g, '얼음과자');
   const masked = {};
-  const found = findAll(t, CHAR_WORDS, masked);
-  const m = masked.text;  // 캐릭터 이름을 지운 글: 표정·날씨·장소·물건은 여기서 찾아요
-  const mood = Object.keys(MOOD_WORDS).find((k) => has(m, MOOD_WORDS[k]));
-  const action = Object.keys(ACTION_WORDS).find((k) => has(m, ACTION_WORDS[k]));
+  // "무지개가", "조개를", "베개를" 속 "개가·개를"을 강아지로 읽지 않게 잠깐 바꿔 두고 찾아요.
+  const NOT_DOG = /(무지|조|베|안|지우|날|덮|솔|번|부|무)개/g;
+  const found = findAll(t.replace(NOT_DOG, '$1갯'), CHAR_WORDS, masked);
+  const m = masked.text.replace(/(무지|조|베|안|지우|날|덮|솔|번|부|무)갯/g, '$1개');  // 캐릭터 이름을 지운 글: 표정·날씨·장소·물건은 여기서 찾아요
+  // 상황: 글에 먼저 나온 두 가지까지 (소풍, 추석, 운동회…)
+  const sits = findAll(t, SIT_WORDS).slice(0, 2).map((x) => ({ key: x.name, ...SIT[x.name] }));
+  const pick = (f) => sits.map((x) => x[f]).find(Boolean);
+  // 감정은 글에 쓴 말이 먼저, 없으면 상황의 분위기
+  const mood = Object.keys(MOOD_WORDS).find((k) => has(m, MOOD_WORDS[k])) || pick('mood');
+  const action = Object.keys(ACTION_WORDS).find((k) => has(m, ACTION_WORDS[k])) || pick('action');
   let cast = found.map(({ name, idx }) => ({
     name: name === 'kid' ? (r() < 0.5 ? 'boy' : 'girl') : name,
     kid: name === 'kid',
@@ -267,17 +266,25 @@ export function analyze(text, seed = 0, opts = {}) {
   if (has(t, ['아이들', '손주들', '친구들', '애들', '오누이', '남매'])) {
     for (const k of ['boy', 'girl']) if (!cast.some((c) => c.name === k)) cast.push({ name: k, mood: cast.find((c) => c.name === 'boy' || c.name === 'girl')?.mood || mood || 'happy' });
   }
+  // "온 가족", "식구들"이면 할머니·할아버지·엄마·아빠·손주를 함께 그려요.
+  if (has(t, ['가족', '식구'])) {
+    for (const k of ['grandma', 'grandpa', 'mom', 'dad', r() < 0.5 ? 'boy' : 'girl']) {
+      if (!cast.some((c) => c.name === k)) cast.push({ name: k, mood: mood || 'happy' });
+    }
+  }
   // 쫓기는 쪽은 놀란 얼굴
   if (has(m, ['쫓아', '쫓기', '도망'])) cast.forEach((c, i) => { if (i > 0 && !GLOOMY.includes(c.mood)) c.mood = 'scared'; });
   const sky = cast.filter((c) => CHARACTERS[c.name]?.sky);
   let ground = cast.filter((c) => !CHARACTERS[c.name]?.sky).slice(0, 5);
+  // 아무도 이름이 안 나왔는데 상황에 어울리는 인물이 있으면 넣어요. (농장 → 소·닭, 자장가 → 할머니·아기)
+  if (!ground.length && pick('cast')) ground = pick('cast').map((name) => ({ name, mood: mood || 'happy' }));
   if (seed) for (let i = ground.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [ground[i], ground[j]] = [ground[j], ground[i]]; }
   // 아무도 안 나오면 풍경만 그려요. "인물 빼기"를 고르면 이름이 나와도 풍경만 그려요.
   const nobody = !ground.length && !sky.length;
   // 장면 분위기: 기쁜 인물과 슬픈 인물이 함께 있으면 하늘은 그대로 둬요.
   const moods = cast.map((c) => c.mood);
-  const scene = (GLOOMY.includes(mood) && moods.some((x) => x === 'happy' || x === 'love'))
-    || ((mood === 'happy' || mood === 'love') && moods.some((x) => GLOOMY.includes(x))) ? null : mood;
+  const scene = (GLOOMY.includes(mood) && moods.some((x) => WARM.includes(x)))
+    || (WARM.includes(mood) && moods.some((x) => GLOOMY.includes(x))) ? null : mood;
   return {
     r,
     nobody,
@@ -287,13 +294,15 @@ export function analyze(text, seed = 0, opts = {}) {
     mood,
     scene,
     action,
-    time: firstOf(m, TIME) || 'day',
-    weather: Object.keys(WEATHER).filter((w) => has(m, WEATHER[w])),
-    place: Object.fromEntries(Object.keys(PLACE).map((p) => [p, has(m, PLACE[p])])),
-    things: findAll(m, THING_WORDS).map((x) => x.name),
+    time: firstOf(m, TIME) || pick('time') || 'day',
+    weather: [...new Set([...Object.keys(WEATHER).filter((w) => has(m, WEATHER[w])), ...sits.map((x) => x.weather).filter(Boolean)])],
+    place: Object.fromEntries(Object.keys(PLACE).map((p) => [p, has(m, PLACE[p]) || sits.some((x) => x.place === p)])),
+    things: [...new Set([...findAll(m, THING_WORDS).map((x) => x.name), ...sits.flatMap((x) => x.things || [])])],
+    extras: [...new Set(sits.flatMap((x) => x.extras || []))],
+    situations: sits.map((x) => x.key),
     // "사과나무", "나무에서 감을 땄어요", "주렁주렁 열렸어요"
     onTree: has(m, ['나무', '열렸', '열린', '주렁', '따 먹', '따서', '땄', '따러', '따고']),
-    fullMoon: has(m, ['보름달', '둥근 달', '달님']),
+    fullMoon: has(m, ['보름달', '둥근 달', '달님']) || sits.some((x) => x.moon),
     straw: has(m, ['초가', '오두막', '움막', '지푸라기']),
     brick: has(m, ['벽돌']),
   };
@@ -355,7 +364,7 @@ export function compose(text, seed = 0, opts = {}) {
       back.push(put(PROPS.cloud_rain, 60 + r() * 100, 50, 1.4), put(PROPS.cloud_rain, 360 + r() * 120, 30, 1.6), put(PROPS.cloud_rain, 620, 60, 1.2));
     } else {
       if (!['day', 'dusk', 'winter'].includes(kind)) back.push(put(PROPS.sun, r() < 0.5 ? 660 : 130, 100));
-      if (a.scene === 'happy' || a.scene === 'love') back.push(PROPS.warm_glow);
+      if (WARM.includes(a.scene)) back.push(PROPS.warm_glow);
       back.push(put(PROPS.cloud, 60 + r() * 140, 70 + r() * 40), put(PROPS.cloud, 420 + r() * 200, 50 + r() * 40, 0.8));
       if (r() < 0.5 && !sky.length) back.push(put(PROPS.birds, 280 + r() * 160, 140));
     }
@@ -392,6 +401,17 @@ export function compose(text, seed = 0, opts = {}) {
       back.push(fruitTree(fruit, tx, ground_y - 10, night, r));
       if (treeSide === 'left') left = Math.max(left, crowd ? 200 : 290); else right = Math.min(right, crowd ? 600 : 510);
     }
+    // 상황의 큰 소품(텐트·학교·좌판·그네·빨랫줄·장독대·산…)은 집·나무가 없는 쪽에 서요.
+    const mark = a.extras.find((k) => k in LANDMARK);
+    if (mark) {
+      const taken = [place.house && houseSide, treeSide, place.pond && !place.house && 'right'].filter(Boolean);
+      const sideM = !taken.includes('left') ? 'left' : !taken.includes('right') ? 'right' : '';
+      if (sideM) {
+        back.push(put(PROPS[mark], sideM === 'left' ? 170 : 630, ground_y - 4, LANDMARK[mark]));
+        if (sideM === 'left') left = Math.max(left, crowd ? 220 : 310); else right = Math.min(right, crowd ? 580 : 490);
+        treeSide = treeSide || sideM;
+      }
+    }
     const edge = place.forest ? tree : pine;
     if (!(place.house && houseSide === 'left') && treeSide !== 'left') back.push(put(PROPS[edge], 40 + r() * 30, ground_y - 30, place.forest ? 0.8 : 0.95));
     if (!(place.house && houseSide === 'right') && !place.pond && treeSide !== 'right') back.push(put(PROPS[edge], 740 + r() * 30, ground_y - 34, place.forest ? 0.75 : 0.9));
@@ -403,6 +423,15 @@ export function compose(text, seed = 0, opts = {}) {
     if (has_('fish')) back.push(put(PROPS.fish, 300, 450, 1), put(PROPS.fish2, 420, 480, 0.8));
   }
 
+  // 하늘과 땅을 덮는 상황 소품
+  const ex = (k) => a.extras.includes(k);
+  if (ex('fireworks') && !inside) back.push(put(PROPS.fireworks, 400, 150));
+  if (ex('shooting_star') && !inside) back.push(put(PROPS.shooting_star, 520, 120));
+  if (ex('bunting')) back.push(put(PROPS.bunting, 400, inside ? 40 : 56));
+  if (ex('flower_field') && !inside) back.push(put(PROPS.flower_field, 400, ground_y + 30));
+  if (ex('seedlings') && !inside) back.push(put(PROPS.seedlings, 400, ground_y + 26));
+  if (inside && ex('xmas_tree')) { back.push(put(PROPS.xmas_tree, 660, ground_y + 20, 0.8)); right = Math.min(right, 520); }
+  if (inside && ex('bathtub')) { back.push(put(PROPS.bathtub, 250, ground_y + 50, 1.1)); left = Math.max(left, 400); }
   if (has_('airplane') && !inside) back.push(put(PROPS.airplane, 250 + r() * 300, 150 + r() * 40, 0.9));
   // 큰 탈것은 인물 뒤 땅에 서요.
   const vehicle = ['train', 'car', 'bicycle'].find(has_);
@@ -457,7 +486,7 @@ export function compose(text, seed = 0, opts = {}) {
     const flip = ch.faces === 1 ? x > 400 : Boolean(c.copy % 2);
     let svg = put(variant(ch, want), x, y, s, flip);
     if (action === 'run' || action === 'dance') svg = wrap('hop', svg);
-    else if (c.mood === 'scared') svg = wrap('shiver', svg);  // 무서우면 덜덜 떨어요
+    else if (EMO[c.mood]?.motion) svg = wrap(EMO[c.mood].motion === 'shiver' ? 'shiver' : 'hop', svg);  // 무서우면 덜덜, 신나면 깡충
     people.push({ i, x, y, s, h: ch.h * s, name: c.name, mood: c.mood });
     front.push(shadow(x, y + 2, 34 + ch.h * s * 0.18), svg);
   });
@@ -468,7 +497,6 @@ export function compose(text, seed = 0, opts = {}) {
   if (lead) {
     const head = lead.y - lead.h;
     if (action === 'sing' || action === 'dance') front.push(put(PROPS.notes, lead.x + 30, head + 20));
-    if (a.mood === 'sleep' && !inside) front.push(put(PROPS.zz, lead.x + 30, head + 30));
     if (hugging) front.push(put(PROPS.hearts, (spots[0] + spots[1]) / 2, head - 10));
     if (action === 'run') front.push(put(PROPS.speed, lead.x - 150, lead.y - lead.h * 0.6));
     // 감정 표시: 인물마다 머리 위·옆에 (슬픔 구름, 느낌표, 김, 땀, 빗금, 하트)
@@ -476,13 +504,17 @@ export function compose(text, seed = 0, opts = {}) {
       const top = p.y - p.h;
       const k = Math.min(1, 0.55 + p.s * 0.4);
       const side = p.x > 400 ? -1 : 1;
-      if (p.mood === 'sad') front.push(put(PROPS.sad_cloud, p.x, top - 8, k * 1.25));
-      else if (p.mood === 'surprised') front.push(put(PROPS.exclaim, p.x + side * 34, top + 4, k));
-      else if (p.mood === 'angry') front.push(put(PROPS.steam, p.x, top + 2, k));
-      else if (p.mood === 'scared') front.push(put(PROPS.sweat, p.x + side * 30, top + 30, k));
-      else if (p.mood === 'worried') front.push(put(PROPS.sweat, p.x + side * 30, top + 30, k), put(PROPS.question, p.x - side * 30, top + 6, k));
-      else if (p.mood === 'shy') front.push(put(PROPS.shy_lines, p.x + side * 36, top + 44, k));
-      else if (p.mood === 'love') front.push(put(PROPS.hearts, p.x, top - 4, k));
+      for (const [sign, at] of EMO[p.mood]?.signs || []) {
+        const [x, y, z] = {
+          top: [p.x, top - 6, sign === 'sad_cloud' ? k * 1.25 : k],
+          side: [p.x + side * 32, top + 24, k],
+          cheek: [p.x + side * 36, top + 44, k],
+          belly: [p.x + side * 28, p.y - p.h * 0.35, k],
+        }[at];
+        // 땀방울과 물음표가 같은 쪽에 겹치지 않게 물음표는 반대쪽
+        const flip = sign === 'question' && (EMO[p.mood].signs.length > 1);
+        if (PROPS[sign]) front.push(put(PROPS[sign], flip ? p.x - side * 30 : x, flip ? top + 6 : y, z));
+      }
     }
     if (food) people.forEach((p, i) => front.push(put(PROPS[food], p.x + (p.x > 400 ? -1 : 1) * (26 + p.h * 0.12), p.y - p.h * 0.28, 0.75)));
     else if (eating && !['bowl', 'ricecake', 'noodles', 'dumpling', 'cake', 'watermelon', 'honey'].some(has_)) people.forEach((p) => front.push(put(PROPS.bowl, p.x + 34, p.y + 44, 0.7)));
@@ -533,6 +565,12 @@ export function compose(text, seed = 0, opts = {}) {
     }
   }
 
+  // 땅에 놓는 상황 소품 (모닥불·잔칫상·선물 더미·모래성·구급상자·사진기), 비눗방울은 공중에
+  for (const k of a.extras) {
+    if (k in GROUND_EXTRA && !(inside && k === 'sandcastle')) front.push(put(PROPS[k], nextSpot(), 588, GROUND_EXTRA[k]));
+    else if (k === 'bubbles') front.push(put(PROPS.bubbles, lead ? lead.x + 60 : 400, lead ? lead.y - lead.h - 10 : 300, 1));
+  }
+
   // 날씨·계절은 맨 앞에
   if (raining) front.push(PROPS.rain);
   if (GLOOMY.includes(a.scene)) back.unshift(PROPS.gloom);  // 하늘이 잿빛으로 (인물은 그대로 밝게)
@@ -545,12 +583,16 @@ export function compose(text, seed = 0, opts = {}) {
       const pick = r();
       front.push(put(pick < 0.3 ? PROPS.tuft : pick < 0.55 ? PROPS.flower : pick < 0.8 ? PROPS.flower_pink : PROPS.flower_yellow, x, y));
     }
-    if (!night && !raining && !GLOOMY.includes(a.scene) && a.scene !== 'scared' && (place.meadow || place.forest || weather.includes('spring'))) front.push(put(PROPS[r() < 0.5 ? 'butterfly' : 'butterfly_y'], 200 + r() * 400, 260 + r() * 80));
+    if (!night && !raining && !GLOOMY.includes(a.scene) && EMO[a.scene]?.scene !== 'fear' && (place.meadow || place.forest || weather.includes('spring'))) front.push(put(PROPS[r() < 0.5 ? 'butterfly' : 'butterfly_y'], 200 + r() * 400, 260 + r() * 80));
   }
 
-  if (a.scene === 'scared') front.push(PROPS.fear_vignette);  // 무서운 장면은 가장자리가 어두워져요
+  if (EMO[a.scene]?.scene === 'fear') front.push(PROPS.fear_vignette);  // 무서운 장면은 가장자리가 어두워져요
   return svgDoc(bg, [...out, ...back, ...front]);
 }
+
+// 상황 소품 크기: 옆에 서는 큰 것 / 땅에 놓는 것
+const LANDMARK = { tent: 0.9, school: 0.72, stall: 0.85, swing: 0.9, laundry: 0.9, xmas_tree: 0.8, jangdok: 0.8, mountain_flag: 1, bench: 0.8 };
+const GROUND_EXTRA = { campfire: 1, feast: 0.9, gift_pile: 0.9, sandcastle: 0.9, first_aid: 0.9, camera: 0.8 };
 
 // 둥근 나무에 과일을 달아요. (나무 그림의 잎 부분은 대략 가운데 (0,-230), 반지름 130)
 const FRUIT_SPOTS = [[-80, -210], [-30, -255], [35, -215], [80, -250], [-55, -290], [15, -305], [70, -185], [-100, -245], [0, -180]];
@@ -586,7 +628,6 @@ const NAME_KO = {
 };
 const PLACE_KO = { kitchen: '부엌', room: '방', sea: '바다', pond: '물가', field: '논밭', house: '집', forest: '숲', meadow: '들판' };
 const WEATHER_KO = { rain: '비', snow: '눈', rainbow: '무지개', spring: '봄', autumn: '가을' };
-const MOOD_KO = { sleep: '잠', sad: '슬픔', lonely: '외로움', scared: '무서움', surprised: '놀람', angry: '화남', worried: '걱정', shy: '부끄러움', love: '사랑', happy: '기쁨' };
 const ACTION_KO = { run: '달리기', sing: '노래', dance: '춤', eat: '먹기', hug: '안기' };
 
 // 글을 읽고 무엇을 그림에 넣었는지, 무엇을 더 적으면 좋은지 알려 줘요.
@@ -600,10 +641,13 @@ export function describe(text, opts = {}) {
   const things = a.things.map((k) => (FRUITS.includes(k) && a.onTree ? `${NAME_KO[k]}나무` : NAME_KO[k]));
   const where = Object.keys(PLACE_KO).filter((p) => a.place[p]).map((p) => PLACE_KO[p]);
   const when = [a.time === 'night' ? '밤' : a.time === 'dusk' ? '저녁' : '', ...a.weather.map((w) => WEATHER_KO[w])].filter(Boolean);
-  const doing = [a.action && ACTION_KO[a.action], a.mood && MOOD_KO[a.mood]].filter(Boolean);
+  // 인물마다 감정이 다르면 모두 보여 줘요 (기쁨, 슬픔)
+  const feelings = a.mood ? [...new Set([a.mood, ...a.ground.map((c) => c.mood)].filter((k) => EMO[k] && k !== 'calm'))].map((k) => EMO[k].ko) : [];
+  const doing = [a.action && ACTION_KO[a.action], ...feelings].filter(Boolean);
+  const situations = a.situations.map((k) => SIT[k].ko);
   let tip = '';
   if (a.nobody && !a.noCast) tip = '지금은 풍경만 그려요. 누가 나오는지 적으면 그 인물을 그려요 (예: 손녀, 강아지 두 마리)';
   else if (!where.length) tip = '어디인지 적으면 배경이 바뀌어요 (예: 바닷가, 숲속, 부엌)';
   else if (!things.length) tip = '무엇이 나오는지 적으면 함께 그려요 (예: 사과, 풍선, 자전거)';
-  return { who, things, where, when, doing, tip };
+  return { who, things, where, when, doing, situations, tip };
 }

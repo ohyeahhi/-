@@ -1,5 +1,6 @@
 // 글 → 그림 조립 (브라우저 없이): 낱말 찾기, 뜻이 둘인 말, 인물 수
 import { analyze, describe, compose } from '../composer.js';
+import { EMOTIONS, SITUATIONS } from '../scenes.js';
 
 export default async function ({ check }) {
   const who = (t, o) => describe(t, o).who.join(', ');
@@ -25,6 +26,29 @@ export default async function ({ check }) {
   check('걱정·부끄러움·사랑·놀람·화남', ['걱정했어요', '부끄러웠어요', '사랑해요', '깜짝 놀랐어요', '화가 났어요'].map((w) => analyze(`할머니가 ${w}.`).mood).join() === 'worried,shy,love,surprised,angry');
   check('웃는 토끼와 우는 거북이: 각자 다른 얼굴, 하늘은 그대로', mood('토끼는 깔깔 웃었고 거북이는 엉엉 울었어요.') === 'happy,sad' && analyze('토끼는 깔깔 웃었고 거북이는 엉엉 울었어요.').scene === null);
   check('"졸졸 흐르는 시냇물"은 졸음이 아니에요', analyze('졸졸 흐르는 시냇물 옆에서 고양이가 놀았어요.').mood !== 'sleep');
+  // 상황 100가지: 낱말마다 그 상황으로 읽고, 그림이 오류 없이 나와요.
+  const sitMiss = [];
+  for (const [key, , words] of SITUATIONS) {
+    for (const w of words) {
+      const txt = `할머니가 ${w}`;
+      try { if (!analyze(txt).situations.includes(key)) sitMiss.push(`${key}:${w}`); compose(txt); } catch (e) { sitMiss.push(`${key}:${w} 오류 ${e.message}`); }
+    }
+  }
+  check(`상황 ${SITUATIONS.length}가지 (낱말 ${SITUATIONS.reduce((n, x) => n + x[2].length, 0)}개)를 모두 알아봐요`, SITUATIONS.length >= 100 && !sitMiss.length, sitMiss.slice(0, 8));
+  const emoMiss = [];
+  for (const [key, , e] of EMOTIONS) {
+    for (const w of e.words) {
+      const txt = `할머니가 ${w}`;
+      try { compose(txt); } catch (err) { emoMiss.push(`${key}:${w} 오류`); }
+      if (!Object.values(analyze(txt)).length) emoMiss.push(key);
+    }
+    const got = analyze(`할머니가 ${e.words[0]}`).mood;
+    if (got !== key) emoMiss.push(`${key}:${e.words[0]}→${got}`);
+  }
+  check(`감정 ${EMOTIONS.length}가지 (표현 ${EMOTIONS.reduce((n, x) => n + x[2].words.length, 0)}개)를 그려요`, !emoMiss.length, emoMiss.slice(0, 8));
+  check('"의사 선생님"은 학교가 아니라 병원', analyze('의사 선생님을 만났어요.').situations[0] === 'hospital');
+  check('"온 가족이 모여" → 다섯 식구', analyze('추석날 온 가족이 모여 송편을 먹었어요.').ground.length === 5);
+  check('추석 → 보름달 밤 + 잔칫상', ((x) => x.time === 'night' && x.fullMoon && x.extras.includes('feast'))(analyze('추석날 송편을 먹었어요.')));
   const svg = compose('들판에서 연을 날리는데 파랑새가 날아왔어요.');
   check('사람이 없어도 연은 하늘을 날아요', svg.includes('M0-60L40 0L0 60L-40 0Z'));
   check('같은 글 + 같은 번호면 같은 그림', compose('밤에 손녀가 웃었어요.', 2) === compose('밤에 손녀가 웃었어요.', 2));

@@ -1024,7 +1024,7 @@ function foundHTML(text, noCast = false) {
   const d = describe(text, { noCast });
   if (!d) return '';
   const tag = (label, words) => (words.length ? `<span class="found-row"><i>${label}</i>${words.map((w) => `<span class="found-chip">${esc(w)}</span>`).join('')}</span>` : '');
-  const rows = tag('누가', d.who) + tag('무엇', d.things) + tag('어디', d.where) + tag('언제', d.when) + tag('어떻게', d.doing);
+  const rows = tag('상황', d.situations) + tag('누가', d.who) + tag('무엇', d.things) + tag('어디', d.where) + tag('언제', d.when) + tag('마음·몸짓', d.doing);
   return (rows ? `<p class="found-title">그림에 넣은 것</p>${rows}` : '') + (d.tip ? `<p class="found-tip">💡 ${esc(d.tip)}</p>` : '');
 }
 
@@ -1039,7 +1039,7 @@ function editorView(editId) {
   render(`
     ${topbar({ back: editId ? `#/story/${editId}` : '#/', title: editId ? '이야기 고치기' : '새 이야기' })}
     <h1 class="title-lg">${editId ? '이야기를 고쳐 보세요' : `${who()}가 지은 이야기를<br>들려주세요`}</h1>
-    <p class="sub">장면마다 두세 문장씩 적으면 글에 맞는 그림이 저절로 그려져요. 누가(할머니·손녀·강아지·곰·오리…), 어디서(집·숲·바다·부엌…), 언제(밤·비 오는 날·겨울…), 무엇을(사과를 따 먹었다·풍선을 들고·자전거를 타고…), 어떤 마음이었는지(슬펐다·무서웠다·보고 싶었다·부끄러웠다…) 적을수록 그림이 자세해져요.</p>
+    <p class="sub">장면마다 두세 문장씩 적으면 글에 맞는 그림이 저절로 그려져요. 누가(할머니·손녀·강아지·곰·오리…), 어디서(집·숲·바다·부엌…), 언제(밤·비 오는 날·겨울…), 무엇을(사과를 따 먹었다·풍선을 들고·자전거를 타고…), 어떤 마음이었는지(슬펐다·무서웠다·보고 싶었다·뿌듯했다…), 무슨 날이었는지(추석·김장·운동회·캠핑·장날…) 적을수록 그림이 자세해져요.</p>
     <label class="label" for="st-title">제목</label>
     <input id="st-title" class="input" maxlength="30" placeholder="예) 할머니 어릴 적 개울가" value="${esc(state.title)}">
     <div id="pages"></div>

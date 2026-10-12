@@ -1,6 +1,6 @@
 // 앱 화면을 캐시해 두고, 다음에 열 때 바로 뜨게 해요. (네트워크 우선, 오프라인이면 캐시)
-const CACHE = 'deullyeojulge-v25';
-const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'stories.js', 'db.js', 'share.js', 'config.js', 'composer.js', 'mystories.js', 'pay.js', 'pricing.js', 'policies.js', 'stats.js', 'vendor/qrcode.js', 'img/parts.js', 'manifest.webmanifest', 'icons/icon.svg', 'fonts/pretendard/pretendardvariable-dynamic-subset.css'];
+const CACHE = 'deullyeojulge-v26';
+const SHELL = ['./', 'index.html', 'styles.css', 'app.js', 'stories.js', 'db.js', 'share.js', 'config.js', 'composer.js', 'scenes.js', 'mystories.js', 'pay.js', 'pricing.js', 'policies.js', 'stats.js', 'vendor/qrcode.js', 'img/parts.js', 'manifest.webmanifest', 'icons/icon.svg', 'fonts/pretendard/pretendardvariable-dynamic-subset.css'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
