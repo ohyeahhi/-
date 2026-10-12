@@ -468,6 +468,64 @@ FRUITS = {'apple': apple, 'persimmon': persimmon, 'tangerine': tangerine, 'peach
           'grapes': grapes, 'strawberry': strawberry, 'banana': banana}
 
 
+# ---------- 감정 표시 (머리 위·옆에 붙여요. 가운데 아래가 (0,0)) ----------
+def sad_cloud():
+    """슬픔: 머리 위 작은 비구름과 떨어지는 빗방울."""
+    drops = ''.join(put(anim('fall', f'<path d="M0 0q4 7 0 11q-4-4 0-11z" fill="#7FA8E0"/>', -i * .8), x, -8)
+                    for i, x in enumerate((-16, 2, 18)))
+    return (anim('bob', '<path d="M-34-20C-40-34-26-46-14-40C-10-56 14-58 20-42C34-46 42-30 34-20Z" fill="#B9C3D6"/>'
+                 '<path d="M-24-26q6 4 12 0M4-26q6 4 12 0" stroke="#7C879C" stroke-width="2.5" fill="none" stroke-linecap="round" transform="rotate(180 -6 -26)"/>')
+            + drops)
+
+
+def tears():
+    """눈물 두 줄기 (얼굴 양옆)."""
+    return (anim('rise', '<path d="M-18 0q6 10 0 16q-6-6 0-16z" fill="#8FD0F2"/>')
+            + anim('rise', '<path d="M18 4q6 10 0 16q-6-6 0-16z" fill="#8FD0F2"/>', -1.2))
+
+
+def exclaim():
+    """놀람: 느낌표 두 개."""
+    return anim('glow', ''.join(f'<g transform="translate({x} 0) rotate({r})"><rect x="-4" y="-40" width="8" height="26" rx="4" fill="#E4573D"/>'
+                                f'<circle cy="-6" r="4.5" fill="#E4573D"/></g>' for x, r in ((-10, -12), (10, 12))))
+
+
+def steam():
+    """화남: 머리 위로 피어오르는 김."""
+    return ''.join(put(anim('smoke', '<path d="M0 0c-8-8 8-14 0-22c-6-6 4-12 0-18" stroke="#F08A7A" stroke-width="5" fill="none" stroke-linecap="round"/>', -i * 1.4), x, 0)
+                   for i, x in enumerate((-18, 18)))
+
+
+def sweat():
+    """걱정·무서움: 이마의 땀방울."""
+    return anim('fall', '<path d="M0-22q12 14 0 22q-12-8 0-22z" fill="#9FD3F5" stroke="#7FB8E6" stroke-width="2"/>'
+                        '<path d="M-3-10q-2 4 1 7" stroke="#FFFFFF" stroke-width="2" fill="none" stroke-linecap="round"/>')
+
+
+def shy_lines():
+    """부끄러움: 볼 옆 빗금."""
+    return ''.join(f'<path d="M{x} -6l6-12" stroke="#FF8FA3" stroke-width="3.5" stroke-linecap="round"/>' for x in (-8, 0, 8))
+
+
+def gloom():
+    """슬프거나 외로운 장면: 하늘을 덮는 잿빛과 푸른 그늘."""
+    return ('<defs><linearGradient id="gloomsky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8F9AB3" stop-opacity=".55"/>'
+            '<stop offset=".6" stop-color="#8F9AB3" stop-opacity=".12"/><stop offset="1" stop-color="#5B6B95" stop-opacity=".1"/></linearGradient></defs>'
+            '<rect width="800" height="600" fill="url(#gloomsky)"/>')
+
+
+def fear_vignette():
+    """무서운 장면: 가장자리가 어두워져요."""
+    return ('<defs><radialGradient id="fearv" cx=".5" cy=".55" r=".75"><stop offset=".55" stop-color="#1E1A3A" stop-opacity="0"/>'
+            '<stop offset="1" stop-color="#1E1A3A" stop-opacity=".55"/></radialGradient></defs><rect width="800" height="600" fill="url(#fearv)"/>')
+
+
+def warm_glow():
+    """기쁜 장면: 따뜻한 빛."""
+    return ('<defs><radialGradient id="joyv" cx=".5" cy=".35" r=".7"><stop offset="0" stop-color="#FFE7A8" stop-opacity=".35"/>'
+            '<stop offset="1" stop-color="#FFE7A8" stop-opacity="0"/></radialGradient></defs><rect width="800" height="600" fill="url(#joyv)"/>')
+
+
 def props():
     """composer.js 가 쓰는 부품 (이름 → svg)."""
     p = {k: fn() for k, fn in FRUITS.items()}
@@ -480,7 +538,9 @@ def props():
         'train': train(), 'airplane': airplane(), 'hat': hat(), 'bouquet': bouquet(), 'gift': gift(), 'lantern': lantern(),
         'candle': candle(), 'clock': clock(), 'bucket': bucket(), 'shovel': shovel(), 'watering_can': watering_can(),
         'sled': sled(), 'shell': shell(), 'star_toy': star_toy(), 'drum': drum(), 'flower_pot': flower_pot(),
-        'blanket': blanket(), 'heart_big': heart_big(), 'stars_sky': stars_sky(), 'butterfly_big': butterfly_big(), 'bee': bee(),
+        'blanket': blanket(), 'heart_big': heart_big(),
+        'sad_cloud': sad_cloud(), 'tears': tears(), 'exclaim': exclaim(), 'steam': steam(), 'sweat': sweat(), 'shy_lines': shy_lines(),
+        'gloom': gloom(), 'fear_vignette': fear_vignette(), 'warm_glow': warm_glow(), 'stars_sky': stars_sky(), 'butterfly_big': butterfly_big(), 'bee': bee(),
     })
     return p
 
