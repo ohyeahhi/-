@@ -1634,6 +1634,36 @@ async function keepView(shareId) {
   });
 }
 
+/* ---------- 기관(복지관·경로당) 안내지: A4 한 장, 큰 글씨 + QR ---------- */
+function flyerView(org) {
+  const url = `${appBase()}?org=${org}`;
+  const steps = [
+    ['📱', '휴대폰 카메라로 아래 QR을 찍어요', '앱을 깔지 않아도 돼요. 가입도 없어요.'],
+    ['📖', '동화를 하나 골라요', '해님 달님, 흥부와 놀부… 13편이 있어요. 직접 지은 이야기도 돼요.'],
+    ['🎙️', '그림을 보며 한 쪽씩 읽어요', '빨간 버튼을 누르고 읽은 뒤, 한 번 더 누르면 끝이에요.'],
+    ['💌', '손주에게 보내요', '카톡으로 링크가 가요. 손주는 그림을 보며 할머니·할아버지 목소리로 들어요.'],
+  ];
+  render(`
+    <div class="no-print flyer-tools">
+      <p class="sub">A4 세로로 인쇄해서 나눠 주세요. 기관 코드: <b>${esc(org)}</b></p>
+      <button class="btn btn-primary" id="flyer-print">인쇄하기 · PDF로 저장</button>
+    </div>
+    <article class="flyer">
+      <p class="flyer-place">________________ 와 함께하는</p>
+      <h1>손주에게<br><em>내 목소리로</em> 동화를 들려주세요</h1>
+      <ol>${steps.map(([e, h, p]) => `<li><span>${e}</span><div><b>${h}</b><p>${p}</p></div></li>`).join('')}</ol>
+      <div class="flyer-qr">${qrSvg(url)}<p>여기를 휴대폰 카메라로 찍어 주세요</p></div>
+      <p class="flyer-foot">궁금한 점은 담당 선생님께 물어보세요 · 담당: ____________ ☎ ____________</p>
+    </article>
+  `, 'screen-flyer');
+  // 이 화면에서만 A4 세로로 인쇄해요. (그림책은 A5 가로)
+  const page = document.createElement('style');
+  page.textContent = '@media print { @page { size: A4 portrait; margin: 0; } }';
+  document.head.append(page);
+  onDispose(() => page.remove());
+  app.querySelector('#flyer-print').addEventListener('click', () => window.print());
+}
+
 function notFound() {
   render(`
     ${topbar({ back: '#/' })}
@@ -1660,6 +1690,7 @@ const routes = [
   [/^#\/policy\/(terms|privacy|refund)$/, policyView],
   [/^#\/about$/, aboutView],
   [/^#\/keep\/([a-z0-9]{12})$/, keepView],
+  [/^#\/flyer\/([a-z0-9-]{2,20})$/, flyerView],
   [/^#\/new$/, () => editorView()],
   [/^#\/edit\/([\w-]+)$/, editorView],
 ];
@@ -1670,7 +1701,7 @@ async function route() {
   if (/[?&]pay=/.test(location.search)) { await payReturnView(); return; }
   const hash = location.hash || '#/';
   // 공유 링크(#/s/…)는 처음 설정 없이 바로 열려요.
-  const open = ['#/s/', '#/print/', '#/policy/', '#/about', '#/keep/'].some((p) => hash.startsWith(p));
+  const open = ['#/s/', '#/print/', '#/policy/', '#/about', '#/keep/', '#/flyer/'].some((p) => hash.startsWith(p));
   if (!profile && hash !== '#/welcome' && !open) {
     location.replace('#/welcome');
     return;
@@ -1686,6 +1717,16 @@ async function route() {
   notFound();
 }
 
+// 기관 안내지 QR (…/?org=gangnam-welfare) 로 들어오면 기관 코드를 기억해요. 통계를 기관별로 세는 데만 써요.
+{
+  const q = new URLSearchParams(location.search);
+  const org = (q.get('org') || '').toLowerCase();
+  if (/^[a-z0-9-]{2,20}$/.test(org)) local.set('org', org);
+  if (q.has('org')) {
+    q.delete('org');
+    history.replaceState(null, '', `${location.pathname}${q.toString() ? `?${q}` : ''}${location.hash}`);
+  }
+}
 window.addEventListener('hashchange', route);
 route();
 trackOpen();

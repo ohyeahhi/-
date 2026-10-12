@@ -1,5 +1,6 @@
 // 시범 사용 통계: 몇 명이 녹음하고, 보내고, 가족이 들었는지만 세요. (supabase/events.sql)
 // 이름·연락처·녹음 내용은 보내지 않아요. 기기는 앱이 처음 열릴 때 만든 무작위 번호로만 구분해요.
+// 복지관 같은 기관 안내지(QR)로 들어왔으면 기관 코드(org)를 붙여서, 기관별 참여 결과를 따로 셀 수 있어요.
 // 통계가 실패해도 앱은 그대로 움직여요.
 import { CONFIG } from './config.js';
 
@@ -23,8 +24,11 @@ export function track(name, { story, shareId, n, meta } = {}) {
   const key = CONFIG.supabaseAnonKey;
   const headers = { apikey: key, 'Content-Type': 'application/json', Prefer: 'return=minimal' };
   if (key.startsWith('eyJ')) headers.Authorization = `Bearer ${key}`;
+  let org = null;
+  try { org = JSON.parse(localStorage.getItem('org')); } catch { /* 사생활 보호 모드 */ }
   const body = JSON.stringify({
     name,
+    org,
     device: deviceId(),
     story: story ?? null,
     share_id: shareId ?? null,

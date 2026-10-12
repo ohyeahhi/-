@@ -9,8 +9,10 @@ create table if not exists public.events (
   story      text,
   share_id   text,
   n          int,
-  meta       jsonb
+  meta       jsonb,
+  org        text          -- 기관 코드 (복지관 안내지 QR 로 들어온 경우)
 );
+alter table public.events add column if not exists org text;  -- 예전에 표를 만들었다면
 
 alter table public.events enable row level security;
 
@@ -24,6 +26,7 @@ create policy "anon can add events" on public.events
     and (story is null or length(story) <= 40)
     and (share_id is null or share_id ~ '^[a-z0-9]{12}$')
     and (meta is null or length(meta::text) <= 300)
+    and (org is null or org ~ '^[a-z0-9-]{2,20}$')
   );
 
 create index if not exists events_at on public.events (at);
@@ -49,6 +52,18 @@ create index if not exists events_name on public.events (name);
 --        count(*) filter (where exists (select 1 from public.events e where e.device = f.device
 --                         and e.name = 'record' and e.at > f.d0 + interval '7 days')) as 일주일_뒤에도
 -- from first f;
+--
+-- 5) 기관(복지관)별 참여 결과: 참여 어르신 기기 수, 녹음한 쪽 수, 완성한 동화, 가족이 들은 횟수
+-- select org,
+--        count(distinct device) filter (where name = 'record')   as 참여_어르신,
+--        count(*)               filter (where name = 'record')   as 녹음한_쪽,
+--        count(*)               filter (where name = 'complete') as 완성한_동화,
+--        count(*)               filter (where name = 'share')    as 가족에게_보냄
+-- from public.events where org is not null group by org;
+-- (가족이 들은 횟수는 받는 가족 휴대폰에 기관 코드가 없어서, share_id 로 이어 봐요)
+-- select e.org, count(l.*) as 가족_재생
+-- from public.events e join public.events l on l.share_id = e.share_id and l.name = 'listen'
+-- where e.name = 'share' and e.org is not null group by e.org;
 --
 -- 4) 받은 가족이 직접 만들어 보기로 넘어간 수 (입소문)
 -- select count(*) filter (where name = 'invite') as 만들어_보기, count(*) filter (where name = 'send_parents') as 부모님께_보내기
