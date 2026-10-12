@@ -648,6 +648,135 @@ add(S, 10, '여우와 신 포도 10: 함께 나누어 먹는 포도', 'meadow',
     day_sky(660) + vine(560, 520, 1) + who(Q.fox('happy'), 260, 525, 1.3, sh=40) + who(P.squirrel(flag=False), 400, 530, 1.1, flip=True, sh=28)
     + put(Q.grapes(), 330, 560, .9) + hearts(330, 340))
 
+
+# ===== 견우와 직녀 · 콩쥐 팥쥐에 쓰는 도우미 =====
+def jiknyeo(mood='happy'):
+    """직녀: 보랏빛 치마."""
+    return P.recolor(mom('down', mood), {'#E4738A': '#9C8FD9', '#D05E77': '#7F72C0'})
+
+
+def gyeonwoo(mood='happy', pose='down'):
+    return P.farmer(False, pose, mood)
+
+
+def loom(x, y, s=1):
+    """베틀: 나무 틀에 실이 걸려 있어요."""
+    threads = ''.join(f'<path d="M{xx} -150V-40" stroke="#C9B6F2" stroke-width="2"/>' for xx in range(-60, 64, 10))
+    return put('<path d="M-80 0V-170M80 0V-170M-90-170H90M-80-40H80" stroke="#9C6B45" stroke-width="10" stroke-linecap="round"/>'
+               + threads + '<rect x="-64" y="-110" width="128" height="40" fill="#B9A7E8" opacity=".9"/>'
+               + '<path d="M-64-96h128M-64-84h128" stroke="#FFFFFF" stroke-width="2" opacity=".6"/>', x, y, s)
+
+
+def milky_way():
+    band = '<path d="M-20 260C200 180 600 120 820 40V120C600 200 200 260-20 340Z" fill="#B9C3F0" opacity=".25"/>'
+    dots = ''.join(anim('twinkle', f'<circle cx="{x}" cy="{y}" r="{r}" fill="#FFF6D6"/>', -(i % 5) * .4)
+                   for i, (x, y, r) in enumerate(((60, 290, 3), (140, 260, 2), (230, 240, 3), (300, 215, 2), (380, 200, 3), (450, 175, 2),
+                                                  (520, 160, 3), (600, 140, 2), (680, 110, 3), (750, 90, 2), (200, 290, 2), (420, 230, 2), (640, 170, 2))))
+    return band + dots
+
+
+def magpie(x, y, s=1, flip=False):
+    b = ('<path d="M-6 0C-40-26-50-6-42 4C-28 0-14 4-6 6Z" fill="#2E3440"/><ellipse rx="20" ry="13" fill="#2E3440"/>'
+         '<ellipse cx="-4" cy="4" rx="12" ry="7" fill="#FFFFFF"/><path d="M18-2l14 4-14 4z" fill="#3A3436"/>'
+         '<path d="M-20 2l-24 8" stroke="#2E3440" stroke-width="6" stroke-linecap="round"/><circle cx="10" cy="-4" r="2.5" fill="#FFFFFF"/>')
+    return put(anim('flutter', b), x, y, s, flip)
+
+
+def magpie_bridge():
+    pts = [(160 + i * 50, 300 - 60 * (1 - ((i - 5) / 5) ** 2)) for i in range(11)]
+    return ''.join(magpie(x, y, .9, flip=i % 2 == 1) for i, (x, y) in enumerate(pts))
+
+
+def patjwi(mood='smug'):
+    """팥쥐: 분홍 저고리."""
+    return kid(False, 'down', mood).replace('#FFD66B', '#FF9AA8')
+
+
+def stepmom(mood='angry'):
+    return P.recolor(mom('down', mood), {'#E4738A': '#7A5C8E', '#D05E77': '#5E4672'})
+
+
+def toad(mood='happy'):
+    return Q.frog(mood).replace('#8CCB8A', '#B59A62').replace('#E9F5DC', '#E9DDBE')
+
+
+def broken_jar(x, y, s=1):
+    return P.jar(x, y, s) + put('<path d="M-6-40l8-6 6 8-4 8-8-2z" fill="#2A1C14"/>', x, y, s)
+
+
+def flower_shoe(x, y, s=1):
+    return put('<path d="M-30 0C-34-14-20-22 0-22C20-22 34-12 30 0Z" fill="#FF8FA3"/>'
+               '<path d="M-24-4C-18-14 18-14 24-4" stroke="#FFFFFF" stroke-width="3" fill="none"/>'
+               '<circle cx="0" cy="-16" r="5" fill="#FFE27A"/><circle cx="-7" cy="-16" r="3" fill="#FFFFFF"/><circle cx="7" cy="-16" r="3" fill="#FFFFFF"/>', x, y, s)
+
+
+def sparrow(x, y, s=1, flip=False):
+    b = ('<ellipse rx="16" ry="12" fill="#B07A50"/><circle cx="12" cy="-8" r="9" fill="#B07A50"/><path d="M20-8l8 3-8 3z" fill="#F2A33C"/>'
+         '<ellipse cx="-2" cy="2" rx="9" ry="6" fill="#E8C9A0"/><circle cx="14" cy="-10" r="2" fill="#2B2416"/><path d="M-14 0l-12 4" stroke="#8A5A3B" stroke-width="5" stroke-linecap="round"/>')
+    return put(anim('bob', b), x, y, s, flip)
+
+
+# ===== 견우와 직녀 =====
+S = 'gyeonwoo'
+add(S, 1, '견우와 직녀 1: 베 짜는 직녀', 'twilight',
+    milky_way() + cloud(150, 420, 1.6) + cloud(560, 430, 1.4) + loom(330, 470, 1.1) + who(jiknyeo('happy'), 500, 480, .85, sh=0))
+add(S, 2, '견우와 직녀 2: 소를 모는 견우', 'meadow',
+    day_sky(660) + who(gyeonwoo('happy'), 300, 505, .85) + who(Q.cow('happy'), 500, 520, 1.3, sh=60) + ground_deco(100, 700))
+add(S, 3, '견우와 직녀 3: 첫눈에 반한 두 사람', 'meadow',
+    day_sky(660) + who(gyeonwoo('love'), 320, 505, .85) + who(jiknyeo('love'), 480, 505, .85, flip=True) + hearts(400, 220) + ground_deco(100, 700))
+add(S, 4, '견우와 직녀 4: 일을 잊은 두 사람', 'meadow',
+    day_sky(660) + who(gyeonwoo('excited'), 280, 505, .85) + who(jiknyeo('excited'), 420, 505, .85) + loom(650, 520, .7)
+    + who(Q.cow('tired'), 120, 540, .9, sh=40) + put(R.thought_dots(), 120, 420, 1))
+add(S, 5, '견우와 직녀 5: 화가 난 옥황상제', 'twilight',
+    cloud(160, 440, 1.6) + cloud(600, 440, 1.6) + put(sinseon(), 400, 470, .95) + put(Q.steam(), 400, 190, 1.4))
+add(S, 6, '견우와 직녀 6: 은하수 양쪽으로', 'night',
+    stars([(80, 70, 7), (700, 60, 6)]) + milky_way() + who(jiknyeo('sad'), 160, 505, .8) + who(gyeonwoo('sad'), 640, 505, .8, flip=True))
+add(S, 7, '견우와 직녀 7: 눈물로 보낸 날들', 'night',
+    stars([(80, 70, 7), (700, 60, 6)]) + milky_way() + who(jiknyeo('cry'), 160, 505, .8) + who(gyeonwoo('cry'), 640, 505, .8, flip=True)
+    + put(Q.sad_cloud(), 160, 250, 1.2) + put(Q.sad_cloud(), 640, 250, 1.2))
+add(S, 8, '견우와 직녀 8: 까치와 까마귀가 모였어요', 'night',
+    stars([(80, 70, 7), (700, 60, 6)]) + milky_way() + magpie(200, 160, 1.1) + magpie(320, 120, 1, True) + magpie(480, 150, 1.1)
+    + magpie(600, 110, 1, True) + who(jiknyeo('worried'), 160, 505, .8) + who(gyeonwoo('worried'), 640, 505, .8, flip=True))
+add(S, 9, '견우와 직녀 9: 오작교에서 만난 두 사람', 'night',
+    stars([(80, 70, 7), (700, 60, 6)]) + milky_way() + magpie_bridge() + put(jiknyeo('love'), 360, 290, .5) + put(gyeonwoo('love'), 440, 290, .5, flip=True)
+    + hearts(400, 120))
+add(S, 10, '견우와 직녀 10: 칠석날 내리는 비', 'night',
+    stars([(80, 70, 7), (700, 60, 6)]) + P.rain() + who(jiknyeo('happy'), 330, 505, .85) + who(gyeonwoo('happy'), 470, 505, .85, flip=True)
+    + hearts(400, 240))
+
+# ===== 콩쥐 팥쥐 =====
+S = 'kongjwi'
+add(S, 1, '콩쥐 팥쥐 1: 마음씨 고운 콩쥐', 'day',
+    day_sky() + house(620, 470, .85) + who(kid(False, 'down', 'calm'), 200, 520, 1.1) + who(stepmom('smug'), 330, 505, .85)
+    + who(patjwi('smug'), 450, 520, 1.1, flip=True))
+add(S, 2, '콩쥐 팥쥐 2: 일만 하는 콩쥐', 'day',
+    day_sky() + house(620, 470, .85) + who(kid(False, 'down', 'tired'), 240, 520, 1.1) + put(Q.bucket(), 300, 545, .9) + put(Q.sweat(), 280, 370, 1)
+    + anim('hop', who(patjwi('excited'), 440, 520, 1.1, flip=True)) + put(Q.ball(), 500, 560, .8))
+add(S, 3, '콩쥐 팥쥐 3: 밑 빠진 독', 'day',
+    cloud(120, 80) + house(640, 470, .8) + broken_jar(400, 545, 1.5) + who(kid(False, 'down', 'cry'), 220, 520, 1.1)
+    + put(anim('fall', '<path d="M0 0q6 9 0 14q-6-5 0-14z" fill="#8FD0F2"/>'), 395, 560))
+add(S, 4, '콩쥐 팥쥐 4: 구멍을 막아 준 두꺼비', 'day',
+    day_sky() + house(640, 470, .8) + broken_jar(400, 545, 1.5) + put(toad('happy'), 400, 590, .8) + who(kid(False, 'down', 'shock'), 220, 520, 1.1)
+    + put(Q.exclaim(), 250, 370, 1))
+add(S, 5, '콩쥐 팥쥐 5: 밭을 갈아 준 소', 'paddy',
+    day_sky() + who(kid(False, 'down', 'tired'), 230, 525, 1.1) + put(Q.shovel(), 280, 560, .7) + who(Q.cow('happy'), 500, 530, 1.3, sh=60)
+    + hearts(500, 300))
+add(S, 6, '콩쥐 팥쥐 6: 벼를 골라 준 참새들', 'day',
+    day_sky() + house(640, 470, .8) + P.rice_stack(340, 560, 4, .8) + sparrow(300, 520) + sparrow(360, 510, 1, True) + sparrow(420, 525)
+    + sparrow(260, 540, .9, True) + who(kid(False, 'down', 'love'), 160, 520, 1.1))
+add(S, 7, '콩쥐 팥쥐 7: 잔치에 가다 잃어버린 꽃신', 'dusk',
+    pond(520, 525, 230, 55) + flower_shoe(560, 515, 1) + anim('hop', who(kid(False, 'down', 'shock'), 260, 525, 1.1)) + put(Q.exclaim(), 290, 370, 1))
+add(S, 8, '콩쥐 팥쥐 8: 꽃신을 주운 원님', 'day',
+    day_sky() + pond(560, 525, 230, 55) + who(P.traveler(True, 'down', 'calm'), 300, 505, .85) + flower_shoe(380, 520, 1.2)
+    + question(320, 230))
+add(S, 9, '콩쥐 팥쥐 9: 꽃신의 주인', 'day',
+    put(R.bunting(), 400, 56) + house(640, 470, .8) + who(kid(False, 'down', 'shy'), 300, 520, 1.1) + flower_shoe(300, 548, .8)
+    + stars_colored([(260, 380, 10), (340, 370, 8)], '#FFD84A') + who(P.traveler(True, 'down', 'happy'), 160, 505, .8)
+    + who(patjwi('shock'), 470, 520, 1, flip=True) + who(stepmom('shock'), 560, 505, .8, flip=True))
+add(S, 10, '콩쥐 팥쥐 10: 고운 마음은 꼭 돌아와요', 'meadow',
+    day_sky(660) + who(kid(False, 'down', 'love'), 400, 520, 1.2) + who(Q.cow('happy'), 620, 530, 1.1, sh=50) + put(toad('happy'), 230, 545, .8)
+    + sparrow(300, 300) + sparrow(500, 280, 1, True) + hearts(400, 300) + ground_deco(100, 720))
+
 PAGES['intro'] = OLD['intro']
 
 

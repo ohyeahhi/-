@@ -1574,7 +1574,7 @@ function aboutView() {
         ${steps.map(([e, h, p], i) => `<li><span class="about-step-emoji">${e}</span><div><b>${i + 1}. ${h}</b><p>${p}</p></div></li>`).join('')}
       </ol>
 
-      <h2 class="section-label">동화 17편, 직접 그린 그림</h2>
+      <h2 class="section-label">동화 19편, 직접 그린 그림</h2>
       <div class="about-gallery">
         ${samples.map((n) => `<div class="scene"><img src="img/${n}.svg" alt="" loading="lazy"></div>`).join('')}
       </div>
@@ -1661,7 +1661,7 @@ function flyerView(org) {
   const url = `${appBase()}?org=${org}`;
   const steps = [
     ['📱', '휴대폰 카메라로 아래 QR을 찍어요', '앱을 깔지 않아도 돼요. 가입도 없어요.'],
-    ['📖', '동화를 하나 골라요', '해님 달님, 흥부와 놀부… 17편이 있어요. 직접 지은 이야기도 돼요.'],
+    ['📖', '동화를 하나 골라요', '해님 달님, 흥부와 놀부… 19편이 있어요. 직접 지은 이야기도 돼요.'],
     ['🎙️', '그림을 보며 한 쪽씩 읽어요', '빨간 버튼을 누르고 읽은 뒤, 한 번 더 누르면 끝이에요.'],
     ['💌', '손주에게 보내요', '카톡으로 링크가 가요. 손주는 그림을 보며 할머니·할아버지 목소리로 들어요.'],
   ];
