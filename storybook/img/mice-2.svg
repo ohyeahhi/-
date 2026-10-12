@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">
+<!-- 시골쥐와 서울쥐 2: 놀러 온 서울쥐 -->
+<style>
+.a{transform-box:fill-box}
+.bob{animation:bob 2.6s ease-in-out infinite alternate;transform-box:fill-box}
+.bob2{animation:bob 3.2s ease-in-out infinite alternate;animation-delay:-1.1s;transform-box:fill-box}
+.breathe{animation:breathe 2.8s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:50% 100%}
+.sway{animation:sway 4.5s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:50% 100%}
+.drift{animation:drift 11s ease-in-out infinite alternate}
+.drift2{animation:drift 14s ease-in-out infinite alternate-reverse}
+.wag{animation:wag 1.7s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:0% 100%}
+.paw{animation:paw 1.3s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:100% 100%}
+.twinkle{animation:twinkle 1.9s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:50% 50%}
+.glow{animation:glow 3.2s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:50% 50%}
+.float{animation:float 3.4s ease-in-out infinite alternate;transform-box:fill-box}
+.rise{animation:rise 3.6s ease-out infinite;transform-box:fill-box}
+.smoke{animation:smoke 4.5s ease-out infinite;transform-box:fill-box;transform-origin:50% 100%}
+.hop{animation:hop .55s cubic-bezier(.3,0,.5,1) infinite alternate;transform-box:fill-box}
+.chop{animation:chop .9s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:85% 90%}
+.knock{animation:knock .5s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:100% 100%}
+.ear{animation:ear 2.2s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:50% 100%}
+.ripple{animation:ripple 2.6s ease-out infinite;transform-box:fill-box;transform-origin:50% 50%}
+.dangle{animation:dangle 3s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:50% 0%}
+.flutter{animation:flutter 1.6s ease-in-out infinite alternate;transform-box:fill-box}
+@keyframes bob{to{transform:translateY(-5px)}}
+@keyframes breathe{to{transform:scale(1.015,1.03)}}
+@keyframes sway{from{transform:rotate(-1.6deg)}to{transform:rotate(1.6deg)}}
+@keyframes drift{from{transform:translateX(-18px)}to{transform:translateX(18px)}}
+@keyframes wag{from{transform:rotate(-6deg)}to{transform:rotate(8deg)}}
+@keyframes paw{from{transform:rotate(-5deg)}to{transform:rotate(7deg)}}
+@keyframes twinkle{from{opacity:.35;transform:scale(.8)}to{opacity:1;transform:scale(1.1)}}
+@keyframes glow{from{transform:scale(1)}to{transform:scale(1.05)}}
+@keyframes float{from{transform:translateY(4px)}to{transform:translateY(-8px)}}
+@keyframes rise{0%{transform:translateY(0);opacity:0}20%{opacity:1}100%{transform:translateY(-40px);opacity:0}}
+@keyframes smoke{0%{transform:translateY(0) scale(.6);opacity:0}30%{opacity:.8}100%{transform:translateY(-50px) scale(1.4);opacity:0}}
+@keyframes hop{to{transform:translateY(-14px)}}
+@keyframes chop{from{transform:rotate(12deg)}to{transform:rotate(-22deg)}}
+@keyframes knock{from{transform:rotate(-8deg)}to{transform:rotate(10deg)}}
+@keyframes ear{from{transform:rotate(-4deg)}to{transform:rotate(5deg)}}
+@keyframes ripple{0%{transform:scale(.4);opacity:.9}100%{transform:scale(1.5);opacity:0}}
+@keyframes dangle{from{transform:rotate(-2.5deg)}to{transform:rotate(2.5deg)}}
+@keyframes flutter{from{transform:translate(0,0) rotate(-8deg)}to{transform:translate(14px,-12px) rotate(8deg)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+
+.shiver{animation:shiver .18s linear infinite alternate;transform-box:fill-box}
+.spin{animation:spin 6s linear infinite;transform-box:fill-box;transform-origin:50% 50%}
+.fall{animation:fall 3.2s ease-in infinite;transform-box:fill-box}
+.blow{animation:blow 1.4s ease-out infinite;transform-box:fill-box}
+.snow{animation:snow 6s linear infinite;transform-box:fill-box}
+.puff{animation:puff 1.4s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:50% 50%}
+@keyframes shiver{from{transform:translateX(-1.5px)}to{transform:translateX(1.5px)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fall{0%{transform:translateY(-10px) rotate(0)}100%{transform:translateY(30px) rotate(25deg)}}
+@keyframes blow{0%{transform:translateX(-10px);opacity:0}30%{opacity:1}100%{transform:translateX(40px);opacity:0}}
+@keyframes snow{0%{transform:translateY(-30px)}100%{transform:translateY(60px)}}
+@keyframes puff{from{transform:scale(1)}to{transform:scale(1.06)}}
+</style>
+<defs><linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C9EAFF"/><stop offset="0.7" stop-color="#FFF8DC"/></linearGradient><radialGradient id="glow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#FFF3C4" stop-opacity=".95"/><stop offset="1" stop-color="#FFF3C4" stop-opacity="0"/></radialGradient><radialGradient id="moonglow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#FFF6D0" stop-opacity=".55"/><stop offset="1" stop-color="#FFF6D0" stop-opacity="0"/></radialGradient><radialGradient id="ropeglow" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#FFE9A0" stop-opacity=".7"/><stop offset="1" stop-color="#FFE9A0" stop-opacity="0"/></radialGradient></defs>
+<rect width="800" height="600" fill="url(#sky)"/><path d="M0 380C120 330 220 318 330 350S540 320 660 334 770 352 800 356V600H0Z" fill="#BFE0B5"/><path d="M0 448C150 420 300 424 420 440S680 434 800 426V600H0Z" fill="#A8D57F"/><g transform="translate(660 100) scale(1 1)"><circle r="105.6" fill="url(#glow)"/><g class="glow"><circle r="44" fill="#FFD66B"/><circle r="36.96" fill="#FFE08A"/></g></g><g class="drift"><g transform="translate(80 90) scale(1 1)"><path d="M0 0a26 26 0 0 1 48-12a20 20 0 0 1 34 14a16 16 0 0 1 2 30H6a20 20 0 0 1-6-32z" fill="#FFF6E6" opacity=".9"/></g></g><g class="drift" style="animation-delay:-5s"><g transform="translate(430 60) scale(0.8 0.8)"><path d="M0 0a26 26 0 0 1 48-12a20 20 0 0 1 34 14a16 16 0 0 1 2 30H6a20 20 0 0 1-6-32z" fill="#FFF6E6" opacity=".9"/></g></g><g class="drift2"><g transform="translate(250 140) scale(1 1)"><g stroke="#B9746A" stroke-width="4" stroke-linecap="round" fill="none"><path d="M0 0q10-10 20 0q10-10 20 0"/><path d="M52-22q8-8 16 0q8-8 16 0"/></g></g></g><g transform="translate(660 470) scale(0.85 0.85)"><g class="sway"><path d="M-16 0C-12-60-14-120-6-180H6C14-120 12-60 16 0Z" fill="#8A5A3B"/><path d="M-4-120Q-40-150-62-150" stroke="#8A5A3B" stroke-width="12" stroke-linecap="round" fill="none"/><circle cx="-70" cy="-210" r="62" fill="#5E9B5C"/><circle cx="66" cy="-214" r="64" fill="#5E9B5C"/><circle cx="0" cy="-262" r="80" fill="#6DAD68"/><circle cx="-40" cy="-190" r="52" fill="#6DAD68"/><circle cx="44" cy="-188" r="50" fill="#6DAD68"/><circle cx="-22" cy="-290" r="44" fill="#7DBE73"/><circle cx="34" cy="-262" r="36" fill="#7DBE73" opacity=".9"/></g></g><path d="M0 540C220 520 520 500 800 480V510C520 530 220 560 0 580Z" fill="#EDD39E"/><ellipse cx="300" cy="527" rx="54.400000000000006" ry="12" fill="#3A2A1A" opacity="0.14"/><g transform="translate(300 525) scale(1.6 1.6)"><g class="bob"><path d="M30-10C60-10 60-30 70-34" stroke="#F2A6B4" stroke-width="4" fill="none" stroke-linecap="round"/><ellipse cy="-22" rx="32" ry="22" fill="#B8B4C2"/><circle cx="-14" cy="-56" r="13" fill="#B8B4C2"/><circle cx="14" cy="-56" r="13" fill="#B8B4C2"/><circle cx="-14" cy="-56" r="7" fill="#FFC4CF"/><circle cx="14" cy="-56" r="7" fill="#FFC4CF"/><circle cy="-36" r="20" fill="#B8B4C2"/><circle cy="-28" r="4" fill="#FF8FA3"/><g transform="translate(0 -40) scale(0.8 0.8)"><path d="M-7 -6l2 4 4 2-4 2-2 4-2-4-4-2 4-2z" fill="#3A2A22"/><path d="M7 -6l2 4 4 2-4 2-2 4-2-4-4-2 4-2z" fill="#3A2A22"/><circle cx="-15" cy="10" r="5.5" fill="#FF9AA8" opacity=".55"/><circle cx="15" cy="10" r="5.5" fill="#FF9AA8" opacity=".55"/></g></g></g><ellipse cx="480" cy="522" rx="54.400000000000006" ry="12" fill="#3A2A1A" opacity="0.14"/><g transform="translate(480 520) scale(-1.6 1.6)"><g class="bob"><path d="M30-10C60-10 60-30 70-34" stroke="#F2A6B4" stroke-width="4" fill="none" stroke-linecap="round"/><ellipse cy="-22" rx="32" ry="22" fill="#C9A27E"/><circle cx="-14" cy="-56" r="13" fill="#C9A27E"/><circle cx="14" cy="-56" r="13" fill="#C9A27E"/><circle cx="-14" cy="-56" r="7" fill="#FFC4CF"/><circle cx="14" cy="-56" r="7" fill="#FFC4CF"/><circle cy="-36" r="20" fill="#C9A27E"/><circle cy="-28" r="4" fill="#FF8FA3"/><g transform="translate(0 -40) scale(0.8 0.8)"><path d="M-12 0q5-6 10 0M2 0q5-6 10 0" stroke="#3A2A22" stroke-width="3.2" fill="none" stroke-linecap="round"/><circle cx="-15" cy="10" r="5.5" fill="#FF9AA8" opacity=".55"/><circle cx="15" cy="10" r="5.5" fill="#FF9AA8" opacity=".55"/></g></g><path d="M-10-14l10 5 10-5v10l-10-5-10 5z" fill="#E4573D"/></g><g transform="translate(360 380) scale(1 1)"><g class="rise" style="animation-delay:0.0s"><path d="M0 6C-14-4-12-18 0-12C12-18 14-4 0 6Z" fill="#FF8FA3"/></g></g><g transform="translate(410 360) scale(1 1)"><g class="rise" style="animation-delay:-1.1s"><path d="M0 6C-14-4-12-18 0-12C12-18 14-4 0 6Z" fill="#FF8FA3"/></g></g><g transform="translate(390 340) scale(1 1)"><g class="rise" style="animation-delay:-2.2s"><path d="M0 6C-14-4-12-18 0-12C12-18 14-4 0 6Z" fill="#FF8FA3"/></g></g><g transform="translate(90 545) scale(1 1)"><circle cx="0" cy="-6" r="5" fill="#FFF6E6"/><circle cx="6" cy="0" r="5" fill="#FFF6E6"/><circle cx="0" cy="6" r="5" fill="#FFF6E6"/><circle cx="-6" cy="0" r="5" fill="#FFF6E6"/><circle r="4" fill="#FFC93C"/></g><g transform="translate(740 560) scale(1 1)"><path d="M-14 0Q-12-16-4-22M0 0Q0-20 4-28M12 0Q12-14 18-20" stroke="#7FA552" stroke-width="5" stroke-linecap="round" fill="none"/></g>
+</svg>

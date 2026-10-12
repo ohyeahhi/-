@@ -480,6 +480,174 @@ add(S, 10, '아기 돼지 삼형제 10: 벽돌집에서 오순도순', 'meadow',
     day_sky() + P.brick_house(560, 500, .95) + anim('hop', who(P.pig(scarf=PIG[1]), 160, 530, 1, sh=40))
     + who(P.pig(scarf=PIG[2]), 270, 530, 1, sh=40) + anim('hop', who(P.pig(scarf=PIG[3]), 380, 530, 1, sh=40)) + hearts(270, 300))
 
+
+# ===== 새 동화에 쓰는 작은 도우미 =====
+def jara(mood='happy'):
+    """별주부 자라: 거북이 그림을 갈색으로."""
+    return ds.turtle(mood).replace('#7DB86A', '#9A8F5B').replace('#5E9A50', '#7C7244').replace('#A8D58A', '#C9C99A')
+
+
+def gold_egg(x, y, s=1):
+    e = Q.egg().replace('#FFF8EC', '#FFD84A').replace('#E5DCCB', '#E8B830')
+    return put(anim('glow', e) + stars_colored([(-26, -40, 7), (24, -48, 6)], '#FFE27A'), x, y, s)
+
+
+def city_mouse(mood='happy'):
+    """서울쥐: 갈색 털에 빨간 나비넥타이."""
+    return (Q.mouse(mood).replace('#B8B4C2', '#C9A27E')
+            + '<path d="M-10-14l10 5 10-5v10l-10-5-10 5z" fill="#E4573D"/>')
+
+
+def crown(x, y, s=1):
+    return put('<path d="M-30 0L-34-34L-16-16L0-40L16-16L34-34L30 0Z" fill="#FFD84A" stroke="#E0A419" stroke-width="3"/>'
+               '<circle cy="-10" r="5" fill="#E4573D"/>', x, y, s)
+
+
+def king(mood='sick'):
+    """용왕: 왕관 쓴 할아버지."""
+    return P.old_man(mood) + crown(0, -214, .9)
+
+
+def vine(x, y, s=1):
+    """포도 덩굴: 시렁 위로 늘어진 포도송이."""
+    bunches = ''.join(put(Q.grapes(), bx, by, .9) for bx, by in ((-90, -150), (-20, -140), (60, -150), (120, -138)))
+    frame = ('<path d="M-150 0V-210M150 0V-210" stroke="#8A5A3B" stroke-width="10" stroke-linecap="round"/>'
+             '<path d="M-170-210H170" stroke="#8A5A3B" stroke-width="10" stroke-linecap="round"/>'
+             + ''.join(f'<ellipse cx="{lx}" cy="{ly}" rx="34" ry="20" fill="{c}"/>' for lx, ly, c in
+                       ((-140, -214, '#6DAD68'), (-80, -222, '#5E9B5C'), (-10, -214, '#7DBE73'), (60, -222, '#6DAD68'), (130, -214, '#5E9B5C'))))
+    return put(frame + bunches, x, y, s)
+
+
+def sea_bubbles():
+    return R.bubbles().replace('#E8F4FF', '#DFF3FF')
+
+
+# ===== 시골쥐와 서울쥐 =====
+S = 'mice'
+add(S, 1, '시골쥐와 서울쥐 1: 들판의 시골쥐', 'meadow',
+    day_sky(660) + round_tree(620, 470, .9) + who(Q.mouse('happy'), 330, 520, 1.6, sh=34)
+    + put(Q.acorn(), 430, 540, 1.1) + put(Q.acorn(), 470, 548, .9) + put(Q.corn(), 250, 545, .9) + ground_deco(100, 180, 720))
+add(S, 2, '시골쥐와 서울쥐 2: 놀러 온 서울쥐', 'meadow',
+    day_sky(660) + round_tree(660, 470, .85) + PATH_LR + who(Q.mouse('excited'), 300, 525, 1.6, sh=34)
+    + who(city_mouse('happy'), 480, 520, 1.6, flip=True, sh=34) + hearts(390, 380) + ground_deco(90, 740))
+add(S, 3, '시골쥐와 서울쥐 3: 도토리와 옥수수 밥상', 'paddy',
+    day_sky(660) + who(Q.mouse('happy'), 260, 525, 1.6, sh=34) + who(city_mouse('smug'), 520, 525, 1.6, flip=True, sh=34)
+    + put(Q.acorn(), 380, 555, 1.1) + put(Q.corn(), 410, 560, .9) + put(Q.acorn(), 440, 552, .9))
+add(S, 4, '시골쥐와 서울쥐 4: 서울 구경 가는 길', 'dusk',
+    PATH_LR + anim('hop', who(Q.mouse('excited'), 300, 535, 1.4, sh=30)) + anim('hop', who(city_mouse('happy'), 420, 525, 1.4, sh=30))
+    + put(R.bench(), 640, 500, .8) + birds(300, 140))
+add(S, 5, '시골쥐와 서울쥐 5: 잔칫상 위의 맛있는 음식', 'room',
+    put(R.feast(), 400, 520, 1.6) + who(Q.mouse('excited'), 300, 452, 1.1, sh=24) + who(city_mouse('happy'), 500, 452, 1.1, flip=True, sh=24)
+    + put(P.cake(), 400, 440, .7) + put(Q.cookie(), 230, 448, .8))
+add(S, 6, '시골쥐와 서울쥐 6: 앗, 고양이다!', 'room',
+    put(R.feast(), 300, 520, 1.3) + put(Q.exclaim(), 300, 360, 1.3) + who(Q.mouse('shock'), 250, 466, 1.1, sh=24)
+    + who(city_mouse('shock'), 350, 466, 1.1, flip=True, sh=24) + who(ds.cat('determined'), 620, 515, 1.6, sh=50))
+add(S, 7, '시골쥐와 서울쥐 7: 항아리 뒤에 숨은 쥐들', 'kitchen',
+    P.jar(330, 540, 1.3) + put(anim('shiver', Q.mouse('shock')), 410, 540, 1.2) + put(Q.sweat(), 440, 470, 1)
+    + put(Q.mouse('sad'), 250, 545, 1.1, flip=True) + who(ds.cat('calm'), 640, 520, 1.3, sh=40) + question(600, 280))
+add(S, 8, '시골쥐와 서울쥐 8: "늘 있는 일이야"', 'room',
+    night_sky(660) + who(city_mouse('calm'), 300, 520, 1.6, sh=34) + who(Q.mouse('worried'), 480, 520, 1.6, flip=True, sh=34)
+    + put(Q.sweat(), 520, 410, 1) + put(R.thought_dots(), 300, 410, 1))
+add(S, 9, '시골쥐와 서울쥐 9: 집으로 돌아가는 시골쥐', 'dusk',
+    PATH_LR + who(Q.mouse('happy'), 420, 515, 1.5, sh=32) + put(P.basket(0, 0, .7, full=False), 470, 505, 1)
+    + who(city_mouse('calm'), 160, 530, 1.2, flip=True, sh=26) + birds(560, 160))
+add(S, 10, '시골쥐와 서울쥐 10: 마음 편한 우리 집', 'meadow',
+    day_sky(660) + round_tree(620, 470, .9) + who(Q.mouse('love'), 340, 520, 1.7, sh=36) + put(Q.corn(), 400, 560, .9)
+    + put(Q.acorn(), 270, 552, 1) + hearts(340, 330) + ground_deco(100, 180, 700, 760) + butterfly(200, 300))
+
+# ===== 황금알을 낳는 닭 =====
+S = 'golden-hen'
+add(S, 1, '황금알을 낳는 닭 1: 가난한 농부 부부', 'day',
+    day_sky() + house(600, 470, .85) + who(P.farmer(True, 'down', 'calm'), 220, 505, .85) + who(mom('down', 'calm'), 360, 505, .85)
+    + who(Q.hen('happy'), 470, 520, 1, sh=36) + ground_deco(120, 720))
+add(S, 2, '황금알을 낳는 닭 2: 반짝반짝 황금알', 'dusk',
+    house(620, 470, .85) + who(Q.hen('happy'), 330, 520, 1.3, sh=44) + gold_egg(430, 545, 1.4)
+    + who(P.farmer(True, 'down', 'shock'), 170, 505, .8) + put(Q.exclaim(), 200, 270, 1.2))
+add(S, 3, '황금알을 낳는 닭 3: 기뻐하는 부부', 'room',
+    who(P.farmer(True, 'cheer', 'excited'), 280, 505, .85) + who(mom('down', 'excited'), 500, 505, .85) + gold_egg(390, 380, 1.6)
+    + stars_colored([(330, 280, 12), (450, 300, 10), (390, 240, 8)], '#FFD84A'))
+add(S, 4, '황금알을 낳는 닭 4: 장에 내다 판 황금알', 'day',
+    day_sky() + put(R.stall(), 560, 505, 1.2) + gold_egg(560, 455, 1) + who(P.farmer(True, 'down', 'happy'), 300, 505, .85)
+    + who(P.villager(False, 'happy'), 720, 505, .8))
+add(S, 5, '황금알을 낳는 닭 5: 하루 한 알씩', 'day',
+    day_sky() + house(600, 470, .85) + who(Q.hen('happy'), 330, 520, 1.2, sh=40) + gold_egg(410, 548, 1)
+    + P.treasure(220, 560, .8) + ground_deco(120, 720))
+add(S, 6, '황금알을 낳는 닭 6: 욕심이 생긴 농부', 'night',
+    night_sky(140) + house(620, 470, .85) + who(P.farmer(True, 'down', 'smug'), 340, 505, .85) + put(R.thought_dots(), 380, 230, 1.4)
+    + gold_egg(330, 200, .7) + gold_egg(380, 190, .7) + gold_egg(430, 200, .7))
+add(S, 7, '황금알을 낳는 닭 7: "한꺼번에 다 꺼내자!"', 'day',
+    cloud(120, 80) + house(620, 470, .85) + who(P.farmer(True, 'down', 'angry'), 280, 505, .85) + put(Q.steam(), 280, 240, 1.2)
+    + who(Q.hen('worried'), 470, 520, 1.2, flip=True, sh=40) + put(Q.sweat(), 500, 420, 1))
+add(S, 8, '황금알을 낳는 닭 8: 훨훨 도망간 닭', 'day',
+    cloud(120, 80) + house(620, 470, .85) + who(P.farmer(True, 'down', 'shock'), 260, 505, .85)
+    + put(anim('float', Q.hen('shock')), 520, 260, 1.1, flip=True) + ''.join(put(anim('fall', '<ellipse rx="6" ry="12" fill="#FFFFFF" stroke="#EDE3D2" stroke-width="2"/>', -i * .7), x, y)
+                                                                     for i, (x, y) in enumerate(((460, 330), (420, 380), (500, 400)))))
+add(S, 9, '황금알을 낳는 닭 9: 텅 빈 둥지', 'dusk',
+    house(620, 470, .85) + who(P.farmer(True, 'down', 'sad'), 270, 505, .85) + who(mom('down', 'sad'), 420, 505, .85)
+    + P.basket(520, 560, .8, full=False) + put(Q.sad_cloud(), 340, 200, 1.4))
+add(S, 10, '황금알을 낳는 닭 10: 다시 부지런히', 'paddy',
+    day_sky() + who(P.farmer(True, 'chop', 'determined'), 260, 505, .85) + who(mom('down', 'happy'), 420, 505, .85)
+    + put(Q.shovel(), 340, 560, .7) + who(Q.hen('happy'), 600, 525, 1, flip=True, sh=34) + put(Q.egg(), 650, 548, .9) + hearts(600, 380))
+
+# ===== 토끼와 자라 (별주부전) =====
+S = 'rabbit-jara'
+add(S, 1, '토끼와 자라 1: 병이 난 용왕님', 'sea',
+    P.bed(420, 560, 1.05, who=put(king('sick'), -92, 70, .78)) + put(R.bandage(), 352, 418, 1) + put(sea_bubbles(), 200, 300)
+    + put(P.fish('#7FB8E6'), 140, 460, .9) + put(P.fish(), 700, 420, .8))
+add(S, 2, '토끼와 자라 2: "제가 다녀오겠습니다"', 'sea',
+    who(king('worried'), 260, 560, .75) + who(jara('determined'), 480, 575, 1.3, sh=50) + put(R.flame(), 540, 470, 1.2)
+    + put(sea_bubbles(), 650, 320) + put(P.fish('#7FB8E6'), 700, 470, .8))
+add(S, 3, '토끼와 자라 3: 뭍으로 올라온 자라', 'meadow',
+    day_sky(660) + pond(560, 520, 260, 60) + who(jara('happy'), 330, 530, 1.2, sh=50) + round_tree(90, 470, .8) + ground_deco(160, 720))
+add(S, 4, '토끼와 자라 4: 숲속의 토끼', 'forest',
+    pine(70, 470, 1) + round_tree(720, 470, .8) + who(rabbit('stand', 'happy'), 300, 520, 1.2, sh=44)
+    + who(jara('happy'), 500, 530, 1.1, flip=True, sh=46) + question(320, 260))
+add(S, 5, '토끼와 자라 5: 용궁 구경 가자!', 'meadow',
+    day_sky(660) + who(rabbit('stand', 'excited'), 300, 520, 1.2, sh=44)
+    + stars_colored([(260, 300, 12), (340, 280, 10)], '#FFD84A') + who(jara('happy'), 500, 530, 1.1, flip=True, sh=46) + ground_deco(120, 720))
+add(S, 6, '토끼와 자라 6: 자라 등에 업혀 바닷속으로', 'sea',
+    put(jara('happy'), 400, 470, 1.5) + put(rabbit('stand', 'excited'), 400, 420, .8) + put(sea_bubbles(), 400, 300)
+    + put(P.fish(), 160, 430, .9) + put(P.fish('#FF9AA8'), 660, 440, .8))
+add(S, 7, '토끼와 자라 7: "토끼의 간이 약이래요"', 'sea',
+    who(king('sick'), 230, 560, .7) + who(rabbit('stand', 'shock'), 480, 575, 1.1, sh=40) + put(Q.exclaim(), 520, 340, 1.3)
+    + put(Q.sweat(), 440, 380, 1) + who(jara('worried'), 650, 580, 1, flip=True, sh=40))
+add(S, 8, '토끼와 자라 8: 꾀를 낸 토끼', 'sea',
+    who(rabbit('point', 'smug'), 380, 575, 1.1, sh=40) + put(R.thought_dots(), 380, 330, 1.3) + who(king('worried'), 620, 560, .7)
+    + put(sea_bubbles(), 160, 300))
+add(S, 9, '토끼와 자라 9: 다시 뭍으로', 'meadow',
+    day_sky(660) + pond(560, 520, 260, 60) + who(jara('sad'), 470, 535, 1.1, sh=46) + anim('hop', who(rabbit('run', 'happy'), 230, 520, 1.1, sh=40))
+    + put(Q.sad_cloud(), 470, 400, 1))
+add(S, 10, '토끼와 자라 10: 지혜로 살아난 토끼', 'forest',
+    pine(70, 470, 1) + round_tree(700, 470, .85) + who(rabbit('stand', 'happy'), 380, 520, 1.3, sh=46) + hearts(380, 280)
+    + ground_deco(160, 560, 620) + butterfly(240, 300))
+
+# ===== 여우와 신 포도 =====
+S = 'fox-grapes'
+add(S, 1, '여우와 신 포도 1: 배고픈 여우', 'forest',
+    pine(70, 470, 1) + round_tree(720, 470, .8) + who(Q.fox('tired'), 380, 520, 1.5, sh=46) + put(R.rumble(), 400, 470, 1.4)
+    + put(R.thought_dots(), 380, 260, 1.2) + ground_deco(160, 600))
+add(S, 2, '여우와 신 포도 2: 주렁주렁 포도송이', 'meadow',
+    day_sky(660) + vine(520, 520, 1.1) + who(Q.fox('excited'), 220, 520, 1.4, sh=44) + stars_colored([(200, 300, 12), (250, 290, 9)], '#FFD84A'))
+add(S, 3, '여우와 신 포도 3: 폴짝!', 'meadow',
+    day_sky(660) + vine(520, 520, 1.1) + put(anim('hop', Q.fox('determined')), 460, 430, 1.3) + shadow(460, 525, 50))
+add(S, 4, '여우와 신 포도 4: 바위 위에서 다시 폴짝!', 'meadow',
+    day_sky(660) + vine(520, 520, 1.1) + P.rock(380, 540, .9) + put(anim('hop', Q.fox('determined')), 390, 400, 1.2) + put(R.flame(), 440, 260, 1))
+add(S, 5, '여우와 신 포도 5: 도와줄까?', 'meadow',
+    day_sky(660) + vine(560, 520, 1) + who(Q.fox('smug'), 260, 520, 1.4, sh=44) + who(P.squirrel(flag=False), 420, 530, 1.2, flip=True, sh=30)
+    + question(440, 360))
+add(S, 6, '여우와 신 포도 6: 쿵! 엉덩방아', 'meadow',
+    day_sky(660) + vine(560, 520, 1) + who(Q.fox('shock'), 330, 525, 1.4, sh=44) + stars_colored([(300, 330, 12), (360, 310, 10), (330, 290, 8)], '#FFD84A'))
+add(S, 7, '여우와 신 포도 7: 지쳐 버린 여우', 'dusk',
+    vine(560, 520, 1) + who(Q.fox('tired'), 300, 525, 1.4, sh=44) + put(R.puff(), 360, 380, 1.4) + put(Q.sweat(), 340, 330, 1))
+add(S, 8, '여우와 신 포도 8: "저 포도는 분명 실 거야"', 'dusk',
+    vine(600, 520, .95) + who(Q.fox('angry'), 280, 525, 1.4, sh=44) + put(R.green_wiggle(), 280, 300, 1.4))
+add(S, 9, '여우와 신 포도 9: 달콤하다고 노래하는 새', 'meadow',
+    day_sky(660) + vine(520, 520, 1.1) + put(anim('float', P.bluebird()), 470, 250, 1.4) + put(P.notes(0, 0), 540, 200, 1)
+    + who(Q.fox('shy'), 220, 525, 1.4, sh=44) + put(Q.shy_lines(), 260, 380, 1.2))
+add(S, 10, '여우와 신 포도 10: 함께 나누어 먹는 포도', 'meadow',
+    day_sky(660) + vine(560, 520, 1) + who(Q.fox('happy'), 260, 525, 1.3, sh=40) + who(P.squirrel(flag=False), 400, 530, 1.1, flip=True, sh=28)
+    + put(Q.grapes(), 330, 560, .9) + hearts(330, 340))
+
 PAGES['intro'] = OLD['intro']
 
 

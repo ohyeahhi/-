@@ -1,6 +1,10 @@
 // 글 → 그림 조립 (브라우저 없이): 낱말 찾기, 뜻이 둘인 말, 인물 수
 import { analyze, describe, compose } from '../composer.js';
 import { EMOTIONS, SITUATIONS } from '../scenes.js';
+import { STORIES } from '../stories.js';
+import fs from 'node:fs';
+import path from 'node:path';
+import { ROOT } from './harness.mjs';
 
 export default async function ({ check }) {
   const who = (t, o) => describe(t, o).who.join(', ');
@@ -56,5 +60,7 @@ export default async function ({ check }) {
   const svg = compose('들판에서 연을 날리는데 파랑새가 날아왔어요.');
   check('사람이 없어도 연은 하늘을 날아요', svg.includes('M0-60L40 0L0 60L-40 0Z'));
   check('"다른 그림"은 좌우를 뒤집거나 가까이 당겨요', compose('할머니가 웃었어요.', 1).includes('scale(-1 1)') && compose('할머니가 웃었어요.', 2).includes('scale(1.14)') && !compose('할머니가 웃었어요.', 0).includes('transform="translate(800'));
+  const missing = STORIES.flatMap((s) => s.pages.map((p) => p.image).filter((img) => !fs.existsSync(path.join(ROOT, img))));
+  check(`동화 ${STORIES.length}편, 편마다 10쪽, 그림 파일이 모두 있어요`, STORIES.length >= 17 && STORIES.every((s) => s.pages.length === 10) && !missing.length, missing.slice(0, 5));
   check('같은 글 + 같은 번호면 같은 그림', compose('밤에 손녀가 웃었어요.', 2) === compose('밤에 손녀가 웃었어요.', 2));
 }
