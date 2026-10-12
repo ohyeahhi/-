@@ -1,5 +1,5 @@
 // 가족에게 보내기: 녹음 → 보호자 동의 → 링크 → 다른 휴대폰(카카오톡)에서 듣기
-import { APP, phone, signedIn, recordPages, consent, shot } from './harness.mjs';
+import { APP, API, phone, signedIn, recordPages, consent, shot } from './harness.mjs';
 
 export default async function ({ check, browser, store }) {
   const g = await phone(browser, { perms: ['microphone', 'clipboard-read', 'clipboard-write'] });
@@ -37,6 +37,8 @@ export default async function ({ check, browser, store }) {
   check('끝 화면에 "오래 간직하기"와 "우리 가족도 만들어 보기"가 있어요', (await m.$('.keep-link')) && (await m.$('[data-act="invite"]')));
   check('받은 가족 휴대폰에 오류가 없어요', !m.errors.length, m.errors);
 
+  const stray = await m.evaluate(async (api) => (await fetch(`${api}/storage/v1/object/shares/free-hosting/evil.html`, { method: 'POST', headers: { apikey: 'sb_publishable_test', 'content-type': 'text/html' }, body: '<script>1</script>' })).status, API);
+  check('앱이 쓰지 않는 이름으로는 올릴 수 없어요', stray === 403, stray);
   await m.goto(`${APP}#/s/aaaaaaaaaaaa`);
   await m.waitForSelector('.title-lg');
   check('없는 링크는 안내가 나와요', (await m.textContent('.title-lg')).includes('열 수 없어요'));

@@ -20,11 +20,8 @@ Supabase 무료 요금제로 시작할 수 있고, 15분 정도 걸려요.
 
 ## 3. 올리기 권한 주기
 **SQL Editor**에서 아래를 실행해요. 누구나 *올리기만* 할 수 있고, 목록 보기·고치기·지우기는 못 해요.
-```sql
-create policy "가족 공유: 올리기만 허용"
-on storage.objects for insert to anon
-with check (bucket_id = 'shares');
-```
+`supabase/storage.sql` 내용을 붙여 넣고 **Run** 해요. 앱이 쓰는 모양의 파일 이름(공유 ID 12자/쪽 번호.m4a 등)만 올릴 수 있어서, 남이 아무 파일이나 올려 두는 저장소로 쓸 수 없어요.
+> 예전에 `with check (bucket_id = 'shares')` 만 있는 규칙을 만들었다면, 이 파일을 실행하면 새 규칙으로 바뀌어요.
 
 ## 4. 앱에 연결하기
 **Project Settings → API Keys**에서 두 값을 복사해 `config.js`에 넣어요.

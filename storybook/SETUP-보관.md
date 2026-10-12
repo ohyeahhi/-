@@ -15,6 +15,9 @@ Supabase → SQL Editor 에 `supabase/keeps.sql` 을 붙여 넣고 **Run**.
 그 다음 orders 함수를 **다시 배포**해요 (보관 상품이 들어간 새 코드).
 
 ## 2. 기간 끝난 녹음 지우기 (cleanup 함수)
+이 함수는 하루 한 번 세 가지를 정리해요: ① 보관 기간이 끝난 녹음 ② 공유 ID 모양이 아닌 곳에 올라온 파일 ③ 하루 넘게 결제되지 않은 주문 (이름·전화·주소가 남지 않게).
+돈 내고 보관한 녹음은 keeps 표를 끝까지 읽어서 확인한 뒤에만 남은 기간을 계산해요.
+
 1. Edge Functions → **Deploy a new function** → 이름 `cleanup` → `supabase/functions/cleanup/index.ts` 내용을 붙여 넣고 배포. **Verify JWT 는 꺼요.**
 2. Edge Functions → **Secrets** 에 `CLEANUP_TOKEN` 을 추가해요. 값은 아무도 모르는 긴 글자 (예: 비밀번호 생성기로 만든 32자).
 3. 먼저 **지우지 않고 목록만** 확인해요. 터미널이나 Supabase 의 함수 테스트 화면에서:

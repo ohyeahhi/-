@@ -29,6 +29,8 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 const fail = (message: string, status = 400, code = 'BAD_REQUEST') => json({ message, code }, status);
 
+// 주문 번호: 추측할 수 없게 무작위 128비트 (토스 규칙: 6~64자, 영문·숫자·-·_)
+const newOrderId = (kind: string) => `${kind}-${crypto.randomUUID().replaceAll('-', '').toUpperCase()}`;
 const str = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 
 Deno.serve(async (req) => {
@@ -51,7 +53,7 @@ Deno.serve(async (req) => {
     if (!SHARE_RE.test(shareId)) return fail('링크가 올바르지 않아요');
     const { data: files } = await db.storage.from('shares').list(shareId, { limit: 1 });
     if (!files?.length) return fail('녹음을 찾을 수 없어요', 404, 'NOT_FOUND');
-    const orderId = `KEEP-${Date.now().toString(36)}-${crypto.randomUUID().slice(0, 8)}`.toUpperCase();
+    const orderId = newOrderId('KEEP');
     const { error } = await db.from('orders').insert({
       order_id: orderId, kind: 'keep', share_id: shareId, story_id: str(body.storyId, 40) || 'unknown',
       title: '목소리 10년 보관', qty: 1, amount: KEEP_PRICE, status: 'pending',
@@ -80,7 +82,7 @@ Deno.serve(async (req) => {
     if (!Number.isInteger(qty) || qty < 1 || qty > 10) return fail('권수를 확인해 주세요');
     if (!order.name || !/^0\d{1,2}-?\d{3,4}-?\d{4}$/.test(order.phone) || order.addr.length < 6) return fail('받는 분 정보를 확인해 주세요');
 
-    const orderId = `BOOK-${Date.now().toString(36)}-${crypto.randomUUID().slice(0, 8)}`.toUpperCase();
+    const orderId = newOrderId('BOOK');
     const { error } = await db.from('orders').insert({ ...order, order_id: orderId, status: 'pending' });
     if (error) return fail('주문을 저장하지 못했어요', 500, 'DB');
     const orderName = `${order.title} 그림책${qty > 1 ? ` ${qty}권` : ''}${gift ? ' (선물 포장)' : ''}`;
@@ -96,6 +98,8 @@ Deno.serve(async (req) => {
     // 돌아온 금액이 처음 만든 주문 금액과 다르면 승인하지 않아요.
     if (order.amount !== amount) return fail('결제 금액이 주문과 달라요', 400, 'AMOUNT_MISMATCH');
     if (order.status === 'paid') return json({ ok: true, order: publicOrder(order) });
+    // 결제를 기다리는 주문만 승인해요. (실패·배송된 주문을 다시 바꾸지 않게)
+    if (order.status !== 'pending') return fail('이미 처리된 주문이에요', 409, 'NOT_PENDING');
 
     const secret = Deno.env.get('TOSS_SECRET_KEY');
     if (!secret) return fail('결제 비밀 키가 설정되지 않았어요', 500, 'NO_SECRET');
@@ -106,7 +110,13 @@ Deno.serve(async (req) => {
     });
     const payment = await res.json();
     if (!res.ok) {
-      await db.from('orders').update({ status: 'failed' }).eq('order_id', orderId);
+      // 두 창에서 동시에 승인하면 뒤의 요청은 '이미 처리됨'을 받아요. 그때는 앞의 결과를 그대로 돌려줘요.
+      if (payment.code === 'ALREADY_PROCESSED_PAYMENT') {
+        const { data: now } = await db.from('orders').select('*').eq('order_id', orderId).maybeSingle();
+        if (now?.status === 'paid') return json({ ok: true, order: publicOrder(now) });
+      } else {
+        await db.from('orders').update({ status: 'failed' }).eq('order_id', orderId).eq('status', 'pending');
+      }
       return fail(payment.message || '결제를 승인하지 못했어요', 400, payment.code || 'TOSS');
     }
     const update = {
@@ -116,7 +126,7 @@ Deno.serve(async (req) => {
       receipt_url: payment.receipt?.url ?? null,
       paid_at: new Date().toISOString(),
     };
-    await db.from('orders').update(update).eq('order_id', orderId);
+    await db.from('orders').update(update).eq('order_id', orderId).eq('status', 'pending');
     // 보관을 샀거나 그림책을 샀으면 그 녹음은 결제한 날부터 10년 보관해요. (이미 더 길면 그대로)
     const until = new Date();
     until.setFullYear(until.getFullYear() + KEEP_YEARS);

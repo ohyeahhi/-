@@ -42,6 +42,7 @@ export default async function ({ check, browser }) {
   await p.goto(`${APP}?pay=success&paymentKey=x&orderId=NOPE&amount=1`);
   await p.waitForSelector('.celebrate h1');
   check('없는 주문·조작된 금액은 승인하지 않아요', (await p.textContent('.celebrate h1')).includes('확인하지 못했어요'));
+  check('결제 뒤에는 받는 분 정보가 기기에 남지 않아요', (await p.evaluate(() => localStorage.getItem('orderForm'))) === 'null');
   check('할머니 휴대폰에 오류가 없어요', !p.errors.length, p.errors);
 
   const m = await phone(browser, { toss: true, perms: [] });

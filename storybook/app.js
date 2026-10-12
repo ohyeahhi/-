@@ -1339,6 +1339,8 @@ async function payReturnView() {
   try {
     const { order } = await confirmPayment({ paymentKey: q.get('paymentKey'), orderId: q.get('orderId'), amount: q.get('amount') });
     local.set('pendingOrder', null);
+    // 복지관처럼 여럿이 쓰는 기기에 이름·전화·주소가 남지 않게 지워요.
+    local.set('orderForm', null);
     track('paid', { n: order.qty, meta: { kind: order.kind || 'book' } });
     if (order.kind === 'keep') {
       const until = new Date();

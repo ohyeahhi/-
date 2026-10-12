@@ -40,6 +40,7 @@ class H(http.server.BaseHTTPRequestHandler):
             if body.get('action') == 'confirm':
                 o = ORDERS.get(body.get('orderId'))
                 if not o: return reply(404, {'message': '주문을 찾을 수 없어요'})
+                if o['status'] == 'paid': return reply(200, {'ok': True, 'order': {'orderId': body['orderId'], 'kind': o.get('kind', 'book'), 'shareId': o.get('shareId'), 'gift': o.get('gift'), 'title': o['title'], 'qty': o['qty'], 'amount': o['amount'], 'receiptUrl': None}})
                 if o['amount'] != body.get('amount'): return reply(400, {'message': '결제 금액이 주문과 달라요', 'code': 'AMOUNT_MISMATCH'})
                 o['status'] = 'paid'
                 if o.get('shareId'): KEEPS[o['shareId']] = (datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) + datetime.timedelta(days=3652)).isoformat() + 'Z'
@@ -49,7 +50,8 @@ class H(http.server.BaseHTTPRequestHandler):
         if not self.path.startswith(pre): return self.err(404)
         if self.headers.get('apikey') != KEY: return self.err(401)
         rel = self.path[len(pre):]
-        if '..' in rel: return self.err(400)
+        # supabase/storage.sql 과 같은 규칙: 앱이 쓰는 이름만 올릴 수 있어요.
+        if not __import__('re').fullmatch(r'[a-z0-9]{12}/(manifest\.json|[0-9]{1,2}\.(m4a|mp4|webm|ogg))', rel): return self.err(403)
         dest = os.path.join(ROOT, rel)
         if os.path.exists(dest): return self.err(409)  # insert only
         os.makedirs(os.path.dirname(dest), exist_ok=True)
