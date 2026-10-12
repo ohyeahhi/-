@@ -381,7 +381,9 @@ export function compose(text, seed = 0, opts = {}) {
   // 배경 소품: 집·연못·바다의 배가 한쪽을 차지하면 인물은 나머지 자리에 서요.
   const ground_y = kind === 'sea' ? 575 : inside ? 520 : 505;
   let left = 90; let right = cauldron ? 500 : 710;
-  const crowd = ground.length >= 4;
+  // 인물이 많거나, 집·과일나무·큰 소품이 양쪽을 차지해서 자리가 좁으면 소품을 작게 가장자리로 보내요.
+  const sideProps = [place.house, fruit && a.onTree, a.extras.some((k) => k in LANDMARK), place.pond].filter(Boolean).length;
+  const crowd = ground.length >= 4 || (ground.length >= 2 && sideProps >= 2);
   if (!inside && kind !== 'sea') {
     const houseSide = r() < 0.5 ? 'right' : 'left';
     const tree = night ? 'tree_night' : 'tree';
