@@ -31,6 +31,8 @@
 
 녹음은 **이 기기 안(IndexedDB)** 에 저장되고, "보내기"를 누를 때만 서버(Supabase Storage)에 올라가요.
 
+> **출시 준비는 [`LAUNCH.md`](LAUNCH.md) 한 장에 순서대로 정리돼 있어요.**
+
 ## 실행하기
 ```bash
 cd storybook
