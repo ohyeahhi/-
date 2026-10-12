@@ -313,7 +313,13 @@ const put = (svg, x, y, s = 1, flip = false) =>
   `<g transform="translate(${x.toFixed(1)} ${y.toFixed(1)}) scale(${(flip ? -s : s).toFixed(3)} ${s.toFixed(3)})">${svg}</g>`;
 const wrap = (cls, svg) => `<g class="${cls}">${svg}</g>`;
 const shadow = (x, y, rx) => `<ellipse cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" rx="${rx.toFixed(1)}" ry="12" fill="#3A2A1A" opacity=".14"/>`;
-const variant = (c, want) => c.v[want] || c.v[{ angry: 'calm', sleep: 'calm', cry: 'calm', shock: 'calm', run: 'happy', cheer: 'happy' }[want]] || c.v.happy || Object.values(c.v)[0];
+// 캐릭터에 그 얼굴이 없으면 가까운 얼굴로 차례로 내려가요. (슬픔 → 울음 → 보통)
+const FACE_FALLBACK = { sad: 'cry', worried: 'calm', love: 'happy', excited: 'happy', tired: 'sleep', sick: 'cry', shy: 'happy', smug: 'happy',
+  angry: 'calm', sleep: 'calm', cry: 'calm', shock: 'calm', run: 'happy', cheer: 'happy' };
+const variant = (c, want) => {
+  for (let w = want, i = 0; w && i < 4; w = FACE_FALLBACK[w], i++) if (c.v[w]) return c.v[w];
+  return c.v.happy || Object.values(c.v)[0];
+};
 
 function chooseBg(a, seed) {
   const { place, weather, time } = a;

@@ -547,7 +547,7 @@ def props():
 
 def characters():
     """작은 동물 캐릭터: 표정마다 그림."""
-    moods = ('happy', 'calm', 'shock', 'cry', 'sleep', 'angry')
+    moods = ('happy', 'calm', 'shock', 'cry', 'sleep', 'angry', 'sad', 'worried', 'love', 'excited', 'tired', 'sick', 'shy', 'smug')
     face_of = {'angry': 'determined'}
 
     def v(fn, only=moods):

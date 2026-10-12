@@ -2,33 +2,35 @@
 //
 // 감정: 글에 나온 마음을 얼굴(캐릭터마다 그려 둔 6가지) + 머리 위 표시 + 몸짓 + 장면 분위기로 그려요.
 //   위에 있는 감정부터 찾아요. ("마음이 아파"는 아픔보다 슬픔, "좋아해"는 기쁨보다 사랑)
-//   face: happy · calm · shock · cry · sleep · angry
+//   face: happy · calm · shock · cry · sleep · angry · sad · worried · love · excited · tired · sick · shy · smug
+//         (그 얼굴이 없는 캐릭터는 가까운 얼굴로: composer.js FACE_FALLBACK)
 //   signs: [부품 이름, 자리] 자리 = top(머리 위) · side(머리 옆) · cheek(볼 옆) · belly(배)
 //   motion: shiver(덜덜) · hop(깡충)    scene: gloom(잿빛 하늘) · fear(어두운 가장자리) · warm(따뜻한 빛)
 export const EMOTIONS = [
   ['sleep', '잠', { face: 'sleep', signs: [['zz', 'side']], words: ['잠이', '잠을', '잠들', '자고', '잤', '쿨쿨', '졸려', '졸았', '졸음', '꾸벅', '드르렁', '꿈나라', '새근새근'] }],
-  ['sad', '슬픔', { face: 'cry', signs: [['sad_cloud', 'top']], scene: 'gloom', words: ['슬프', '슬펐', '슬퍼', '슬픈', '속상', '서러', '서럽', '눈물', '울었', '울고', '울며', '우는', '울음', '엉엉', '훌쩍', '흑흑', '마음이 아파', '가슴이 아파', '목이 메', '비통', '애통', '울먹', '눈시울'] }],
-  ['sick', '아픔', { face: 'cry', signs: [['bandage', 'side']], words: ['아파', '아프', '아팠', '감기', '열이 나', '열이 펄펄', '기침', '콜록', '배탈', '다쳤', '다쳐', '넘어져'] }],
-  ['lonely', '외로움', { face: 'cry', scene: 'gloom', words: ['외로', '외롭', '쓸쓸', '혼자 남', '홀로', '보고 싶', '보고싶', '그리워', '그리운', '그립', '허전'] }],
-  ['disappointed', '실망', { face: 'calm', signs: [['gloom_line', 'top']], scene: 'gloom', words: ['실망', '서운', '아쉬', '허탈', '시무룩', '풀이 죽', '기운이 없', '맥이 빠'] }],
-  ['sorry', '미안함', { face: 'cry', signs: [['sweat', 'side']], words: ['미안', '죄송', '잘못했', '반성', '뉘우'] }],
+  ['crying', '울음', { face: 'cry', signs: [['sad_cloud', 'top']], scene: 'gloom', words: ['눈물', '울었', '울고', '울며', '우는', '울음', '엉엉', '훌쩍', '흑흑', '울먹', '눈시울', '펑펑 울'] }],
+  ['sad', '슬픔', { face: 'sad', signs: [['sad_cloud', 'top']], scene: 'gloom', words: ['슬프', '슬펐', '슬퍼', '슬픈', '속상', '서러', '서럽', '마음이 아파', '가슴이 아파', '목이 메', '비통', '애통', '울적'] }],
+  ['sick', '아픔', { face: 'sick', signs: [['bandage', 'side']], words: ['아파', '아프', '아팠', '감기', '열이 나', '열이 펄펄', '기침', '콜록', '배탈', '다쳤', '다쳐', '넘어져'] }],
+  ['lonely', '외로움', { face: 'sad', scene: 'gloom', words: ['외로', '외롭', '쓸쓸', '혼자 남', '홀로', '보고 싶', '보고싶', '그리워', '그리운', '그립', '허전'] }],
+  ['disappointed', '실망', { face: 'sad', signs: [['gloom_line', 'top']], scene: 'gloom', words: ['실망', '서운', '아쉬', '허탈', '시무룩', '풀이 죽', '기운이 없', '맥이 빠'] }],
+  ['sorry', '미안함', { face: 'worried', signs: [['sweat', 'side']], words: ['미안', '죄송', '잘못했', '반성', '뉘우'] }],
   ['scared', '무서움', { face: 'shock', signs: [['sweat', 'side']], motion: 'shiver', scene: 'fear', words: ['무서', '무섭', '겁이', '겁을', '겁나', '덜덜', '벌벌', '떨었', '떨며', '오싹', '으스스', '소름', '섬뜩', '두려', '깜깜해서'] }],
   ['flustered', '당황', { face: 'shock', signs: [['swirl', 'top'], ['sweat', 'side']], words: ['당황', '허둥', '어리둥절', '어지러', '어질어질', '정신이 없', '안절부절못'] }],
   ['surprised', '놀람', { face: 'shock', signs: [['exclaim', 'side']], words: ['깜짝', '놀라', '놀랐', '어이쿠', '어머나', '세상에', '화들짝', '눈이 휘둥그레', '헉'] }],
   ['angry', '화남', { face: 'angry', signs: [['steam', 'top']], words: ['화가', '화를', '화났', '화내', '혼내', '혼났', '버럭', '심술', '씩씩거', '부글부글', '욕심', '짜증', '약이 올', '분하', '억울'] }],
-  ['jealous', '샘', { face: 'angry', signs: [['green_wiggle', 'top']], words: ['질투', '샘이 나', '샘을 내', '샘났', '부러워', '부러웠', '시샘'] }],
-  ['worried', '걱정', { face: 'calm', signs: [['sweat', 'side'], ['question', 'top']], words: ['걱정', '근심', '불안', '조마조마', '안절부절', '어쩌지', '어떡하', '마음을 졸', '애가 탔'] }],
+  ['jealous', '샘', { face: 'smug', signs: [['green_wiggle', 'top']], words: ['질투', '샘이 나', '샘을 내', '샘났', '부러워', '부러웠', '시샘'] }],
+  ['worried', '걱정', { face: 'worried', signs: [['sweat', 'side'], ['question', 'top']], words: ['걱정', '근심', '불안', '조마조마', '안절부절', '어쩌지', '어떡하', '마음을 졸', '애가 탔'] }],
   ['curious', '궁금함', { face: 'calm', signs: [['question', 'side']], words: ['궁금', '신기', '이상하다', '갸우뚱', '알고 싶', '무엇일까', '뭘까'] }],
-  ['bored', '심심함', { face: 'calm', signs: [['thought_dots', 'top']], words: ['심심', '지루', '따분', '할 일이 없'] }],
-  ['shy', '부끄러움', { face: 'happy', signs: [['shy_lines', 'cheek']], words: ['부끄', '수줍', '쑥스', '창피', '얼굴이 빨개', '볼이 빨개'] }],
+  ['bored', '심심함', { face: 'tired', signs: [['thought_dots', 'top']], words: ['심심', '지루', '따분', '할 일이 없'] }],
+  ['shy', '부끄러움', { face: 'shy', signs: [['shy_lines', 'cheek']], words: ['부끄', '수줍', '쑥스', '창피', '얼굴이 빨개', '볼이 빨개'] }],
   ['moved', '감동', { face: 'cry', signs: [['sparkles', 'top']], scene: 'warm', words: ['감동', '뭉클', '벅차', '찡했', '찡해', '고마워서 울'] }],
-  ['love', '사랑', { face: 'happy', signs: [['hearts', 'top']], scene: 'warm', words: ['사랑', '좋아해', '좋아했', '아껴', '소중', '예뻐', '귀여워', '어여쁘', '다정'] }],
-  ['thankful', '고마움', { face: 'happy', signs: [['hearts', 'top']], scene: 'warm', words: ['고마워', '고마웠', '고맙', '감사'] }],
-  ['proud', '뿌듯함', { face: 'happy', signs: [['sparkles', 'top']], scene: 'warm', words: ['뿌듯', '자랑', '장하', '대견', '으쓱', '칭찬'] }],
-  ['excited', '신남', { face: 'happy', signs: [['sparkles', 'top']], motion: 'hop', scene: 'warm', words: ['신나', '신났', '신이', '설레', '설렜', '두근', '들떠', '들뜬', '야호', '만세', '신바람'] }],
+  ['love', '사랑', { face: 'love', signs: [['hearts', 'top']], scene: 'warm', words: ['사랑', '좋아해', '좋아했', '아껴', '소중', '예뻐', '귀여워', '어여쁘', '다정'] }],
+  ['thankful', '고마움', { face: 'love', signs: [['hearts', 'top']], scene: 'warm', words: ['고마워', '고마웠', '고맙', '감사'] }],
+  ['proud', '뿌듯함', { face: 'smug', signs: [['sparkles', 'top']], scene: 'warm', words: ['뿌듯', '자랑', '장하', '대견', '으쓱', '칭찬'] }],
+  ['excited', '신남', { face: 'excited', signs: [['sparkles', 'top']], motion: 'hop', scene: 'warm', words: ['신나', '신났', '신이', '설레', '설렜', '두근', '들떠', '들뜬', '야호', '만세', '신바람'] }],
   ['relieved', '안심', { face: 'calm', signs: [['puff', 'side']], words: ['안심', '다행', '휴우', '한숨 돌', '마음이 놓', '편안', '포근', '따뜻'] }],
-  ['tired', '피곤함', { face: 'sleep', signs: [['puff', 'side'], ['sweat', 'side']], words: ['피곤', '지쳐', '지쳤', '힘들', '녹초', '고단', '헉헉', '숨이 차'] }],
-  ['hungry', '배고픔', { face: 'calm', signs: [['rumble', 'belly'], ['thought_dots', 'top']], words: ['속고파', '속고프', '꼬르륵', '출출', '허기'] }],
+  ['tired', '피곤함', { face: 'tired', signs: [['puff', 'side'], ['sweat', 'side']], words: ['피곤', '지쳐', '지쳤', '힘들', '녹초', '고단', '헉헉', '숨이 차'] }],
+  ['hungry', '배고픔', { face: 'tired', signs: [['rumble', 'belly'], ['thought_dots', 'top']], words: ['속고파', '속고프', '꼬르륵', '출출', '허기'] }],
   ['determined', '용기', { face: 'angry', signs: [['flame', 'side']], words: ['용기', '힘내', '힘을 내', '결심', '다짐', '이겨 내', '이겨내', '포기하지 않', '씩씩하게', '끝까지'] }],
   ['calm', '평온', { face: 'calm', words: ['평화', '고요', '조용히', '한가', '느긋', '여유'] }],
   ['happy', '기쁨', { face: 'happy', scene: 'warm', words: ['웃', '기뻐', '기쁜', '기뻤', '좋아', '즐거', '행복', '깔깔', '하하', '호호', '반가', '반갑', '활짝', '싱글벙글', '방긋'] }],

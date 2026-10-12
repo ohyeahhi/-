@@ -304,6 +304,37 @@ def face(kind, ex=10, ey=0, eye_r=4.5, mouth_y=14, cheek=True, look=(0, 0), no_m
         eyes = (f'<circle cx="-{ex}" cy="{ey}" r="{eye_r}" fill="{INK}"/><circle cx="{ex}" cy="{ey}" r="{eye_r}" fill="{INK}"/>'
                 f'<path d="M-{ex+6} {ey-9}l10 3M{ex+6} {ey-9}l-10 3" stroke="{INK}" stroke-width="3" stroke-linecap="round"/>')
         mouth = f'<path d="M-5 {mouth_y}h10" stroke="{INK}" stroke-width="3" stroke-linecap="round"/>'
+    elif kind == 'sad':      # 슬픔: 처진 눈썹 + 작은 눈 + 내려간 입 (눈물 없이)
+        eyes = (f'<circle cx="-{ex}" cy="{ey+1}" r="{eye_r-1}" fill="{INK}"/><circle cx="{ex}" cy="{ey+1}" r="{eye_r-1}" fill="{INK}"/>'
+                f'<path d="M-{ex+6} {ey-6}l10-4M{ex+6} {ey-6}l-10-4" stroke="{INK}" stroke-width="2.6" stroke-linecap="round"/>')
+        mouth = f'<path d="M-6 {mouth_y+2}q6-6 12 0" stroke="{INK}" stroke-width="3" fill="none" stroke-linecap="round"/>'
+    elif kind == 'worried':  # 걱정: 八자 눈썹 + 물결 입
+        eyes = (f'<circle cx="-{ex}" cy="{ey}" r="{eye_r-.5}" fill="{INK}"/><circle cx="{ex}" cy="{ey}" r="{eye_r-.5}" fill="{INK}"/>'
+                f'<path d="M-{ex+6} {ey-6}l10-4M{ex+6} {ey-6}l-10-4" stroke="{INK}" stroke-width="2.6" stroke-linecap="round"/>')
+        mouth = f'<path d="M-7 {mouth_y}q3.5-4 7 0t7 0" stroke="{INK}" stroke-width="2.8" fill="none" stroke-linecap="round"/>'
+    elif kind == 'love':     # 사랑: 하트 눈 + 활짝 웃는 입
+        heart = lambda x: f'<path d="M{x} {ey+5}c-7-5-7-11-3-11c2 0 3 1 3 3c0-2 1-3 3-3c4 0 4 6-3 11z" fill="#E4573D"/>'
+        eyes = heart(-ex) + heart(ex)
+        mouth = f'<path d="M-7 {mouth_y-3}q7 9 14 0z" fill="#E8707E" stroke="{INK}" stroke-width="2.5" stroke-linejoin="round"/>'
+    elif kind == 'excited':  # 신남: 반짝 눈 + 크게 벌린 입
+        star = lambda x: f'<path d="M{x} {ey-6}l2 4 4 2-4 2-2 4-2-4-4-2 4-2z" fill="{INK}"/>'
+        eyes = star(-ex) + star(ex)
+        mouth = f'<path d="M-8 {mouth_y-4}q8 13 16 0z" fill="#E8707E" stroke="{INK}" stroke-width="2.5" stroke-linejoin="round"/>'
+    elif kind == 'tired':    # 피곤: 반쯤 감긴 눈 + 작은 입
+        eyes = (f'<path d="M-{ex+5} {ey}h10M{ex-5} {ey}h10" stroke="{INK}" stroke-width="3" stroke-linecap="round"/>'
+                f'<path d="M-{ex+4} {ey}q4 4 8 0M{ex-4} {ey}q4 4 8 0" fill="{INK}"/>')
+        mouth = f'<path d="M-4 {mouth_y}h8" stroke="{INK}" stroke-width="3" stroke-linecap="round"/>'
+    elif kind == 'sick':     # 아픔: 처진 눈 + 물결 입 + 창백한 볼
+        eyes = (f'<path d="M-{ex+5} {ey-2}l10 3M{ex+5} {ey-2}l-10 3" stroke="{INK}" stroke-width="3" stroke-linecap="round"/>')
+        mouth = f'<path d="M-7 {mouth_y+1}q3.5-4 7 0t7 0" stroke="{INK}" stroke-width="2.8" fill="none" stroke-linecap="round"/>'
+        cheek = False
+        mouth += (f'<circle cx="-{ex+8}" cy="{ey+10}" r="5.5" fill="#B7D8A8" opacity=".6"/>'
+                  f'<circle cx="{ex+8}" cy="{ey+10}" r="5.5" fill="#B7D8A8" opacity=".6"/>')
+    elif kind == 'shy':      # 부끄러움: 감은 눈웃음 + 진한 볼 + 작은 입
+        eyes = (f'<path d="M-{ex+5} {ey}q5-5 10 0M{ex-5} {ey}q5-5 10 0" stroke="{INK}" stroke-width="3" fill="none" stroke-linecap="round"/>')
+        mouth = (f'<path d="M-4 {mouth_y}q4 3 8 0" stroke="{INK}" stroke-width="2.8" fill="none" stroke-linecap="round"/>'
+                 f'<ellipse cx="-{ex+8}" cy="{ey+10}" rx="8" ry="5.5" fill="#FF7F95" opacity=".75"/>'
+                 f'<ellipse cx="{ex+8}" cy="{ey+10}" rx="8" ry="5.5" fill="#FF7F95" opacity=".75"/>')
     else:                    # calm: 동그란 눈 + 미소
         eyes = (f'<circle cx="{-ex+lx}" cy="{ey+ly}" r="{eye_r}" fill="{INK}"/>'
                 f'<circle cx="{ex+lx}" cy="{ey+ly}" r="{eye_r}" fill="{INK}"/>')

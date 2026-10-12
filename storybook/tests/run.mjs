@@ -23,7 +23,7 @@ try {
       const mod = await import(`./${f}`);
       await mod.default({ check: s.check, browser, store: servers.store });
     } catch (e) {
-      s.check('끝까지 실행돼요', false, e.message.split('\n').filter((l) => /Error|Timeout|waiting for/.test(l)).slice(0, 2).join(' | ').replace(/\x1b\[[0-9;]*m/g, ''));
+      s.check('끝까지 실행돼요', false, e.message.split('\n').filter((l) => /Error|Timeout|waiting for/.test(l)).slice(0, 2).join(' | ').replace(/\x1b\[[0-9;]*m/g, '') || e.message.split('\n')[0]);
     }
     console.log(`  (${((Date.now() - t0) / 1000).toFixed(1)}초)`);
     all.push(s);

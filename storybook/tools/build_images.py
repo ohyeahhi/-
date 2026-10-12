@@ -489,7 +489,7 @@ PAGES['intro'] = OLD['intro']
 def export_parts_v2():
     import json
     G = ds.grandma
-    people_moods = ('happy', 'calm', 'shock', 'cry', 'sleep', 'angry')
+    people_moods = ('happy', 'calm', 'shock', 'cry', 'sleep', 'angry', 'sad', 'worried', 'love', 'excited', 'tired', 'sick', 'shy', 'smug')
     face_of = {'angry': 'determined'}
 
     def moods(fn):

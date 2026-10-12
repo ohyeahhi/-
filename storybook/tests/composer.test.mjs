@@ -24,7 +24,7 @@ export default async function ({ check }) {
   check('"보고 싶었어요" → 외로움', analyze('할머니는 손주가 보고 싶었어요.').mood === 'lonely');
   check('"무서워서 덜덜" → 무서움 (떨림)', mood('토끼는 무서워서 덜덜 떨었어요.') === 'scared' && compose('토끼는 무서워서 덜덜 떨었어요.').includes('class="shiver"'));
   check('걱정·부끄러움·사랑·놀람·화남', ['걱정했어요', '부끄러웠어요', '사랑해요', '깜짝 놀랐어요', '화가 났어요'].map((w) => analyze(`할머니가 ${w}.`).mood).join() === 'worried,shy,love,surprised,angry');
-  check('웃는 토끼와 우는 거북이: 각자 다른 얼굴, 하늘은 그대로', mood('토끼는 깔깔 웃었고 거북이는 엉엉 울었어요.') === 'happy,sad' && analyze('토끼는 깔깔 웃었고 거북이는 엉엉 울었어요.').scene === null);
+  check('웃는 토끼와 우는 거북이: 각자 다른 얼굴, 하늘은 그대로', mood('토끼는 깔깔 웃었고 거북이는 엉엉 울었어요.') === 'happy,crying' && analyze('토끼는 깔깔 웃었고 거북이는 엉엉 울었어요.').scene === null);
   check('"졸졸 흐르는 시냇물"은 졸음이 아니에요', analyze('졸졸 흐르는 시냇물 옆에서 고양이가 놀았어요.').mood !== 'sleep');
   // 상황 100가지: 낱말마다 그 상황으로 읽고, 그림이 오류 없이 나와요.
   const sitMiss = [];
@@ -46,6 +46,10 @@ export default async function ({ check }) {
     if (got !== key) emoMiss.push(`${key}:${e.words[0]}→${got}`);
   }
   check(`감정 ${EMOTIONS.length}가지 (표현 ${EMOTIONS.reduce((n, x) => n + x[2].words.length, 0)}개)를 그려요`, !emoMiss.length, emoMiss.slice(0, 8));
+  const faceOf = (txt) => compose(txt);
+  check('걱정하면 八자 눈썹 얼굴', faceOf('엄마는 걱정했어요.').includes('q3.5-4 7 0t7 0'));
+  check('사랑하면 하트 눈', faceOf('할머니는 손주를 사랑해요.').includes('c-7-5-7-11-3-11'));
+  check('엉엉 울면 눈물 얼굴, 슬프면 눈물 없는 얼굴', analyze('엉엉 울었어요.').mood === 'crying' && analyze('너무 슬펐어요.').mood === 'sad');
   check('"의사 선생님"은 학교가 아니라 병원', analyze('의사 선생님을 만났어요.').situations[0] === 'hospital');
   check('"온 가족이 모여" → 다섯 식구', analyze('추석날 온 가족이 모여 송편을 먹었어요.').ground.length === 5);
   check('추석 → 보름달 밤 + 잔칫상', ((x) => x.time === 'night' && x.fullMoon && x.extras.includes('feast'))(analyze('추석날 송편을 먹었어요.')));
