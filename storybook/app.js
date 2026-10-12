@@ -1225,7 +1225,7 @@ function bookPagesHTML(s, { shareId, reader, kid, date = todayKo() }) {
   const body = pages.slice(1).map((p, k) => `
     <section class="book-page">
       <div class="bp-art"><img src="${esc(p.image)}" alt=""></div>
-      <div class="bp-text">
+      <div class="bp-text${p.text.length > 150 ? ' bp-xlong' : p.text.length > 100 ? ' bp-long' : ''}">
         <p>${esc(p.text)}</p>
         ${qr(k + 1, `찍으면 ${reader}<br>목소리로 들어요`)}
       </div>
