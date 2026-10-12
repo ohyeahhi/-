@@ -6,6 +6,7 @@ import { describe } from './composer.js';
 import qrcode from './vendor/qrcode.js';
 import { payEnabled, startPayment, confirmPayment } from './pay.js';
 import { POLICIES, BUSINESS, POLICY_UPDATED } from './policies.js';
+import { track, trackOpen } from './stats.js';
 
 const app = document.getElementById('app');
 const toastEl = document.getElementById('toast');
@@ -322,6 +323,7 @@ async function uploadWithProgress(story, recorded) {
       (n, t) => { bar.style.width = `${(n / t) * 100}%`; label.textContent = `${n} / ${t}`; },
     );
     local.set(shareKey, { ...(local.get(shareKey) || {}), [story.id]: { id: shareId, at: Date.now() } });
+    track('share', { story: story.id, shareId, n: recorded.length });
     close();
     await new Promise((r) => setTimeout(r, 280));
     return shareId;
@@ -413,6 +415,7 @@ function welcomeView() {
     if (b) { role = b.dataset.role; sync(); }
   });
   app.querySelector('#go').addEventListener('click', () => {
+    if (!profile) track('start', { meta: { role, kid: Boolean(app.querySelector('#kid').value.trim()) } });
     profile = { role, kid: app.querySelector('#kid').value.trim() };
     local.set('profile', profile);
     location.hash = '#/';
@@ -684,6 +687,7 @@ async function recordView(id, idxStr) {
       return;
     }
     await db.putBlob(key, blob);
+    track('record', { story: id, n: i, meta: { video: isVideo(blob.type) } });
     draw('done');
     toast(isVideo(blob.type) ? '얼굴과 목소리를 담았어요' : '목소리를 담았어요');
   }
@@ -768,6 +772,8 @@ function recError(e) {
 function doneView(id) {
   const s = getStory(id);
   if (!s) return notFound();
+  const completed = local.get('completed') || {};
+  if (!completed[id]) { track('complete', { story: id }); local.set('completed', { ...completed, [id]: Date.now() }); }
   render(`
     ${topbar({ back: `#/story/${id}` })}
     <div class="celebrate">
@@ -857,11 +863,12 @@ async function sharedView(shareId, page) {
     kid: (manifest.kid || '').trim(),
     endExtra: `<a class="btn btn-secondary full" href="#/about" data-act="invite">우리 가족도 만들어 보기</a>`,
     startAt: Number(page) || 0,
+    shareId,
   });
 }
 
 // 듣기 화면: 표지 → 쪽마다 그림 + 목소리 → 끝. 한 쪽이 끝나면 저절로 넘어가요.
-function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startAt = 0 }) {
+function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startAt = 0, shareId = null }) {
   const first = Math.max(0, list.findIndex((p) => p.n === startAt));
   let pos = 0;
   let alive = true;
@@ -898,6 +905,7 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
   };
 
   const drawEnd = () => {
+    if (shareId) track('listen_end', { story: s.id, shareId });
     stage.innerHTML = `
       <div class="listen-start">
         <div class="celebrate-badge">🌟</div>
@@ -980,7 +988,8 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
 
   stage.addEventListener('click', (e) => {
     const act = e.target.closest('[data-act]')?.dataset.act;
-    if (act === 'start') playAt(first);
+    if (act === 'start') { playAt(first); if (shareId) track('listen', { story: s.id, shareId, n: list[first]?.n ?? 0 }); }
+    else if (act === 'invite' && shareId) track('invite', { shareId });
     else if (act === 'again') playAt(0);
     else if (act === 'prev') playAt(pos - 1);
     else if (act === 'next') playAt(pos + 1);
@@ -1132,7 +1141,7 @@ function editorView(editId) {
       toast('저장하지 못했어요. 휴대폰 저장 공간을 확인해 주세요');
       return;
     }
-    if (!editId) local.set(DRAFT, null);
+    if (!editId) { local.set(DRAFT, null); track('create', { n: pages.length }); }
     toast('이야기를 저장했어요');
     location.hash = editId ? `#/story/${state.id}` : `#/record/${state.id}/0`;
   });
@@ -1212,6 +1221,7 @@ function bookPagesHTML(s, { shareId, reader, kid, date = todayKo() }) {
 async function bookView(id) {
   const s = getStory(id);
   if (!s) return notFound();
+  track('book', { story: id });
   const { recorded, latest, total } = await recordingsOf(s);
   const done = recorded.length === total;
   let shareId = shareEnabled() && done ? savedShareId(s, latest) : null;
@@ -1276,6 +1286,7 @@ async function checkout(order) {
     return;
   }
   local.set('pendingOrder', { storyId: order.storyId, title: order.title, qty: order.qty });
+  track('order', { story: order.storyId, n: order.qty });
   try {
     await startPayment(order, { successUrl: `${appBase()}?pay=success`, failUrl: `${appBase()}?pay=fail` });
   } catch (e) {
@@ -1301,6 +1312,7 @@ async function payReturnView() {
   try {
     const { order } = await confirmPayment({ paymentKey: q.get('paymentKey'), orderId: q.get('orderId'), amount: q.get('amount') });
     local.set('pendingOrder', null);
+    track('paid', { n: order.qty });
     render(`
       ${topbar({ back: '#/' })}
       <div class="celebrate">
@@ -1445,6 +1457,7 @@ function policyView(doc) {
 // 부모(자녀) 세대용 소개. 이 화면을 본 자녀가 할머니·할아버지께 앱 링크를 보내요.
 function aboutView() {
   const url = appBase();
+  track('about');
   const msg = '엄마(아빠) 목소리로 손주에게 동화 읽어 주세요 💛 링크를 누르고 동화를 골라 녹음만 하면 돼요.';
   const steps = [
     ['📱', '링크 하나로 시작', '앱 설치나 가입 없이 링크만 열면 돼요. 글씨가 크고 버튼이 단순해요.'],
@@ -1496,6 +1509,7 @@ function aboutView() {
   app.querySelector('#try').addEventListener('click', () => { location.hash = profile ? '#/' : '#/welcome'; });
   // navigator.share는 누른 그 순간에 불러야 열려요.
   app.querySelector('#send-parents').addEventListener('click', () => {
+    track('send_parents');
     if (navigator.share) navigator.share({ title: '들려줄게', text: msg, url }).catch(() => {});
     else copyText(`${msg}\n${url}`);
   });
@@ -1554,6 +1568,7 @@ async function route() {
 
 window.addEventListener('hashchange', route);
 route();
+trackOpen();
 
 if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
