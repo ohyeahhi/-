@@ -5,7 +5,7 @@
 
 ## 1. 표 만들기
 1. Supabase 대시보드 → 왼쪽 **SQL Editor** → **New query**
-2. `supabase/events.sql` 내용을 **전부** 붙여 넣고 **Run**
+2. `supabase/events.sql` 내용을 **전부** 붙여 넣고 **Run** (예전에 실행했어도 다시 실행하면 새 기록 이름이 더해져요)
 3. "Success. No rows returned" 가 나오면 끝이에요.
 
 앱은 이미 `config.js` 의 Supabase 주소와 공개 키로 보내고 있어서 **앱 쪽은 고칠 게 없어요.**
@@ -35,6 +35,7 @@ SQL Editor 에서 `supabase/events.sql` 아래쪽 주석에 있는 질문을 붙
 | `listen` / `listen_end` | 받은 가족이 듣기 시작 / 끝까지 들었을 때 |
 | `invite` | 받은 가족이 "우리 가족도 만들어 보기"를 눌렀을 때 |
 | `about` / `send_parents` | 소개 화면을 열었을 때 / "부모님께 보내기"를 눌렀을 때 |
-| `book` / `order` / `paid` | 그림책 미리보기 / 결제 시작 / 결제 완료 |
+| `book` / `order` / `paid` | 그림책 미리보기 / 결제 시작 / 결제 완료 (meta.kind: book · keep) |
+| `keep_view` | "오래 간직하기" 화면을 열었을 때 |
 
 1년이 지난 기록은 지워 주세요: `delete from public.events where at < now() - interval '1 year';`

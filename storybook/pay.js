@@ -36,7 +36,7 @@ function loadSdk() {
   return sdk;
 }
 
-// order: { shareId, storyId, title, qty, name, phone, addr, memo }
+// order: { shareId, storyId, title, qty, gift, card, name, phone, addr, memo }  또는  { kind: 'keep', shareId, storyId }
 export async function startPayment(order, { successUrl, failUrl }) {
   const created = await callOrders({ action: 'create', ...order });
   const TossPayments = await loadSdk();
@@ -46,8 +46,8 @@ export async function startPayment(order, { successUrl, failUrl }) {
     amount: { currency: 'KRW', value: created.amount },
     orderId: created.orderId,
     orderName: created.orderName,
-    customerName: order.name,
-    customerMobilePhone: order.phone.replace(/\D/g, ''),
+    ...(order.name ? { customerName: order.name } : {}),
+    ...(order.phone ? { customerMobilePhone: order.phone.replace(/\D/g, '') } : {}),
     successUrl,
     failUrl,
   });
@@ -55,3 +55,9 @@ export async function startPayment(order, { successUrl, failUrl }) {
 
 export const confirmPayment = ({ paymentKey, orderId, amount }) =>
   callOrders({ action: 'confirm', paymentKey, orderId, amount: Number(amount) });
+
+// 녹음을 언제까지 보관하는지 (10년 보관을 샀거나 그림책을 샀으면 그 날짜, 아니면 null)
+export async function keepStatus(shareId) {
+  if (!payEnabled()) return null;
+  try { return (await callOrders({ action: 'keep_status', shareId })).until; } catch { return null; }
+}

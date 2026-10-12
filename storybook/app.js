@@ -4,10 +4,10 @@ import { shareEnabled, uploadShare, fetchShare, publicUrl } from './share.js';
 import * as mine from './mystories.js';
 import { describe } from './composer.js';
 import qrcode from './vendor/qrcode.js';
-import { payEnabled, startPayment, confirmPayment } from './pay.js';
+import { payEnabled, startPayment, confirmPayment, keepStatus } from './pay.js';
 import { POLICIES, BUSINESS, POLICY_UPDATED } from './policies.js';
 import { track, trackOpen } from './stats.js';
-import { PRICE_FIRST, PRICE_MORE, GIFT_PRICE, MAX_QTY, priceOf } from './pricing.js';
+import { PRICE_FIRST, PRICE_MORE, GIFT_PRICE, MAX_QTY, priceOf, FREE_KEEP_DAYS, KEEP_PRICE, KEEP_YEARS } from './pricing.js';
 
 const app = document.getElementById('app');
 const toastEl = document.getElementById('toast');
@@ -832,6 +832,7 @@ async function loadShared(shareId) {
 async function sharedView(shareId, page) {
   render(`
     ${topbar()}
+    <div id="keep-note"></div>
     <div class="listen" id="stage"><div class="loading"><span class="spinner"></span><p class="sub">동화를 불러오고 있어요</p></div></div>
   `, 'screen-listen');
   const loaded = await loadShared(shareId);
@@ -862,10 +863,20 @@ async function sharedView(shareId, page) {
     list,
     reader: whoOf(manifest.role),
     kid: (manifest.kid || '').trim(),
-    endExtra: `<a class="btn btn-secondary full" href="#/about" data-act="invite">우리 가족도 만들어 보기</a>`,
+    endExtra: `<a class="keep-link" href="#/keep/${shareId}">🔒 이 목소리 오래 간직하기<span>${I.chevron}</span></a>
+      <a class="btn btn-secondary full" href="#/about" data-act="invite">우리 가족도 만들어 보기</a>`,
     startAt: Number(page) || 0,
     shareId,
   });
+  // 무료 보관이 60일 안에 끝나면 위에 알려 줘요.
+  const freeUntil = freeKeepUntil(manifest);
+  if (payEnabled() && freeUntil && freeUntil - Date.now() < 60 * 864e5) {
+    const until = await keepStatus(shareId);
+    const note = app.querySelector('#keep-note');
+    if (note && !(until && new Date(until) > freeUntil)) {
+      note.innerHTML = `<a class="notice keep-notice" href="#/keep/${shareId}"><p>이 녹음은 <b>${dateKo(freeUntil)}</b>에 지워져요. 오래 간직하려면 눌러 주세요.</p></a>`;
+    }
+  }
 }
 
 // 듣기 화면: 표지 → 쪽마다 그림 + 목소리 → 끝. 한 쪽이 끝나면 저절로 넘어가요.
@@ -1298,8 +1309,8 @@ async function checkout(order) {
     });
     return;
   }
-  local.set('pendingOrder', { storyId: order.storyId, title: order.title, qty: order.qty });
-  track('order', { story: order.storyId, n: order.qty });
+  local.set('pendingOrder', { kind: order.kind || 'book', shareId: order.shareId, storyId: order.storyId, title: order.title, qty: order.qty });
+  track('order', { story: order.storyId, n: order.qty, meta: { kind: order.kind || 'book' } });
   try {
     await startPayment(order, { successUrl: `${appBase()}?pay=success`, failUrl: `${appBase()}?pay=fail` });
   } catch (e) {
@@ -1311,21 +1322,44 @@ async function checkout(order) {
 // 토스 결제창에서 돌아왔을 때 (?pay=success&paymentKey=…&orderId=…&amount=…)
 async function payReturnView() {
   const q = new URLSearchParams(location.search);
-  history.replaceState(null, '', `${appBase()}#/`);
+  // 보관 결제는 받은 가족(처음 설정 없음)이 하니까, 끝나면 그 녹음 화면으로 돌아가요.
+  const pending = local.get('pendingOrder') || {};
+  const home = pending.kind === 'keep' && pending.shareId ? `#/keep/${pending.shareId}` : '#/';
+  history.replaceState(null, '', `${appBase()}${home}`);
   if (q.get('pay') !== 'success') {
     render(`
-      ${topbar({ back: '#/' })}
+      ${topbar({ back: home })}
       <div class="celebrate"><div class="celebrate-badge">😢</div>
         <h1 class="title-lg">결제가 완료되지 않았어요</h1>
         <p class="sub">${esc(q.get('message') || '결제를 취소했거나 문제가 생겼어요.')}</p></div>
-      <div class="cta-bar"><a class="btn btn-primary" href="#/">처음으로</a></div>`);
+      <div class="cta-bar"><a class="btn btn-primary" href="${home}">돌아가기</a></div>`);
     return;
   }
   render(`<div class="loading"><span class="spinner"></span><p class="sub">결제를 확인하고 있어요</p></div>`);
   try {
     const { order } = await confirmPayment({ paymentKey: q.get('paymentKey'), orderId: q.get('orderId'), amount: q.get('amount') });
     local.set('pendingOrder', null);
-    track('paid', { n: order.qty });
+    track('paid', { n: order.qty, meta: { kind: order.kind || 'book' } });
+    if (order.kind === 'keep') {
+      const until = new Date();
+      until.setFullYear(until.getFullYear() + KEEP_YEARS);
+      render(`
+        ${topbar({ back: `#/s/${order.shareId}` })}
+        <div class="celebrate">
+          <div class="celebrate-badge">🔒</div>
+          <h1 class="title-xl">${KEEP_YEARS}년 동안 간직할게요</h1>
+          <p class="sub">${dateKo(until)}까지 이 링크와 그림책 QR이 그대로 열려요.</p>
+        </div>
+        <div class="order-sum">
+          <div><span>주문 번호</span><b>${esc(order.orderId)}</b></div>
+          <div class="total"><span>결제 금액</span><b>${won(order.amount)}</b></div>
+        </div>
+        <div class="cta-bar">
+          ${order.receiptUrl ? `<a class="btn btn-secondary" href="${esc(order.receiptUrl)}" target="_blank" rel="noopener">영수증</a>` : ''}
+          <a class="btn btn-primary grow" href="#/s/${esc(order.shareId)}">다시 듣기</a>
+        </div>`);
+      return;
+    }
     render(`
       ${topbar({ back: '#/' })}
       <div class="celebrate">
@@ -1347,7 +1381,7 @@ async function payReturnView() {
       <div class="celebrate"><div class="celebrate-badge">⚠️</div>
         <h1 class="title-lg">결제를 확인하지 못했어요</h1>
         <p class="sub">${esc(e.message || '')}<br>돈이 빠져나갔다면 자동으로 취소돼요. 다시 주문해 주세요.</p></div>
-      <div class="cta-bar"><a class="btn btn-primary" href="#/">처음으로</a></div>`);
+      <div class="cta-bar"><a class="btn btn-primary" href="${home}">돌아가기</a></div>`);
   }
 }
 
@@ -1397,6 +1431,7 @@ async function orderView(id) {
       <div><span>배송비</span><b>무료</b></div>
       <div class="total"><span>결제 금액</span><b id="sum-total"></b></div>
     </div>
+    <p class="order-hint">🔒 그림책을 주문하면 녹음도 ${KEEP_YEARS}년 동안 보관돼서, QR을 찍으면 언제든 그 목소리가 나와요.</p>
     <label class="check"><input type="checkbox" id="o-agree">
       <span>주문 제작 상품이라 제작이 시작되면 취소할 수 없어요(<a href="#/policy/refund">환불 규정</a>). 배송을 위해 이름·연락처·주소를 모으는 데 동의해요(<a href="#/policy/privacy">개인정보처리방침</a>).</span></label>
     <div class="cta-bar"><button class="btn btn-primary" id="pay"></button></div>
@@ -1553,6 +1588,52 @@ function aboutView() {
   });
 }
 
+/* ---------- 녹음 오래 간직하기 (10년 보관) ---------- */
+const dateKo = (d) => new Date(d).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
+const freeKeepUntil = (manifest) => (manifest?.createdAt ? new Date(manifest.createdAt).getTime() + FREE_KEEP_DAYS * 864e5 : null);
+
+async function keepView(shareId) {
+  render(`
+    ${topbar({ back: `#/s/${shareId}`, title: '오래 간직하기' })}
+    <div class="loading"><span class="spinner"></span></div>
+  `);
+  const loaded = await loadShared(shareId);
+  if (!loaded?.s) return notFound();
+  const { manifest, s } = loaded;
+  const reader = whoOf(manifest.role);
+  const freeUntil = freeKeepUntil(manifest);
+  const until = await keepStatus(shareId);
+  const kept = until && (!freeUntil || new Date(until) > freeUntil);
+  track('keep_view', { story: s.id, shareId });
+  render(`
+    ${topbar({ back: `#/s/${shareId}`, title: '오래 간직하기' })}
+    <div class="keep-hero">
+      ${coverHTML(s, 'cover-xl')}
+      <h1 class="title-lg">${esc(reader)} 목소리를<br>${kept ? '오래 간직하고 있어요' : '오래 간직하세요'}</h1>
+      <p class="sub">‘${esc(s.title)}’ · ${manifest.pages.length}쪽${manifest.pages.some((p) => isVideo(p.type)) ? ' · 얼굴 영상' : ''}</p>
+    </div>
+    <div class="keep-status ${kept ? 'on' : ''}">
+      <span>${kept ? '🔒' : '⏳'}</span>
+      <p>${kept ? `<b>${dateKo(until)}</b>까지 보관해요.` : freeUntil ? `지금은 무료로 <b>${dateKo(freeUntil)}</b>까지 보관해요. 그 뒤에는 지워져요.` : '무료로 1년 동안 보관해요.'}</p>
+    </div>
+    ${kept ? '' : `
+    <ul class="keep-points">
+      <li><b>${KEEP_YEARS}년 동안</b> 이 링크와 그림책 QR이 그대로 열려요</li>
+      <li>손주가 자라서 다시 들어도, 할머니 목소리 그대로예요</li>
+      <li>그림책을 주문하면 ${KEEP_YEARS}년 보관이 <b>함께</b> 돼요</li>
+    </ul>
+    <p class="keep-fine">한 번만 결제해요 (자동 결제 없음). 결제 후 7일 안에는 전액 환불해 드려요. <a href="#/policy/refund">환불 규정</a></p>`}
+    <div class="cta-bar">
+      ${kept ? `<a class="btn btn-primary" href="#/s/${shareId}">다시 듣기</a>`
+        : `<button class="btn btn-primary" id="keep-pay">${won(KEEP_PRICE)}으로 ${KEEP_YEARS}년 간직하기</button>`}
+    </div>
+  `, 'screen-keep');
+  app.querySelector('#keep-pay')?.addEventListener('click', async () => {
+    if (!payEnabled()) { toast('결제가 아직 연결되지 않았어요'); return; }
+    await checkout({ kind: 'keep', shareId, storyId: s.id, title: s.title, qty: 1, amount: KEEP_PRICE });
+  });
+}
+
 function notFound() {
   render(`
     ${topbar({ back: '#/' })}
@@ -1578,6 +1659,7 @@ const routes = [
   [/^#\/order\/([\w-]+)$/, orderView],
   [/^#\/policy\/(terms|privacy|refund)$/, policyView],
   [/^#\/about$/, aboutView],
+  [/^#\/keep\/([a-z0-9]{12})$/, keepView],
   [/^#\/new$/, () => editorView()],
   [/^#\/edit\/([\w-]+)$/, editorView],
 ];
@@ -1588,7 +1670,7 @@ async function route() {
   if (/[?&]pay=/.test(location.search)) { await payReturnView(); return; }
   const hash = location.hash || '#/';
   // 공유 링크(#/s/…)는 처음 설정 없이 바로 열려요.
-  const open = ['#/s/', '#/print/', '#/policy/', '#/about'].some((p) => hash.startsWith(p));
+  const open = ['#/s/', '#/print/', '#/policy/', '#/about', '#/keep/'].some((p) => hash.startsWith(p));
   if (!profile && hash !== '#/welcome' && !open) {
     location.replace('#/welcome');
     return;

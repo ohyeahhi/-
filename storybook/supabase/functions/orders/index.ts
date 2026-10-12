@@ -2,6 +2,9 @@
 //
 //   POST { action: 'create', shareId, storyId, title, qty, gift, card, name, phone, addr, memo }
 //        → { orderId, amount, orderName }   금액은 여기서 권수·선물 포장으로 계산해요.
+//   POST { action: 'create', kind: 'keep', shareId }
+//        → { orderId, amount, orderName }   녹음 10년 보관 (배송 없음)
+//   POST { action: 'keep_status', shareId } → { until }  보관 날짜 (산 적 없으면 null)
 //   POST { action: 'confirm', paymentKey, orderId, amount }
 //        → { ok: true, order }               토스에 승인 요청 후 '결제 완료'로 바꿔요.
 //
@@ -14,6 +17,9 @@ const PRICE_FIRST = 39000;  // 첫 권
 const PRICE_MORE = 29000;   // 두 번째 권부터
 const GIFT_PRICE = 5000;    // 선물 포장 + 카드, 권마다
 const priceOf = (qty: number, gift: boolean) => PRICE_FIRST + PRICE_MORE * (qty - 1) + (gift ? GIFT_PRICE * qty : 0);
+const KEEP_PRICE = 9900;    // 녹음 10년 보관
+const KEEP_YEARS = 10;      // 그림책을 사도 같은 기간 보관해요 (QR이 계속 열리도록)
+const SHARE_RE = /^[a-z0-9]{12}$/;
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info',
@@ -32,6 +38,27 @@ Deno.serve(async (req) => {
   const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return fail('잘못된 요청이에요'); }
+
+  if (body.action === 'keep_status') {
+    const shareId = str(body.shareId, 12);
+    if (!SHARE_RE.test(shareId)) return fail('링크가 올바르지 않아요');
+    const { data } = await db.from('keeps').select('until').eq('share_id', shareId).maybeSingle();
+    return json({ until: data?.until ?? null });
+  }
+
+  if (body.action === 'create' && body.kind === 'keep') {
+    const shareId = str(body.shareId, 12);
+    if (!SHARE_RE.test(shareId)) return fail('링크가 올바르지 않아요');
+    const { data: files } = await db.storage.from('shares').list(shareId, { limit: 1 });
+    if (!files?.length) return fail('녹음을 찾을 수 없어요', 404, 'NOT_FOUND');
+    const orderId = `KEEP-${Date.now().toString(36)}-${crypto.randomUUID().slice(0, 8)}`.toUpperCase();
+    const { error } = await db.from('orders').insert({
+      order_id: orderId, kind: 'keep', share_id: shareId, story_id: str(body.storyId, 40) || 'unknown',
+      title: '목소리 10년 보관', qty: 1, amount: KEEP_PRICE, status: 'pending',
+    });
+    if (error) return fail('주문을 저장하지 못했어요', 500, 'DB');
+    return json({ orderId, amount: KEEP_PRICE, orderName: '할머니 목소리 10년 보관' });
+  }
 
   if (body.action === 'create') {
     const qty = Number(body.qty);
@@ -90,6 +117,13 @@ Deno.serve(async (req) => {
       paid_at: new Date().toISOString(),
     };
     await db.from('orders').update(update).eq('order_id', orderId);
+    // 보관을 샀거나 그림책을 샀으면 그 녹음은 결제한 날부터 10년 보관해요. (이미 더 길면 그대로)
+    const until = new Date();
+    until.setFullYear(until.getFullYear() + KEEP_YEARS);
+    const { data: kept } = await db.from('keeps').select('until').eq('share_id', order.share_id).maybeSingle();
+    if (!kept || new Date(kept.until) < until) {
+      await db.from('keeps').upsert({ share_id: order.share_id, until: until.toISOString(), order_id: orderId, updated_at: new Date().toISOString() });
+    }
     return json({ ok: true, order: publicOrder({ ...order, ...update }) });
   }
 
@@ -98,5 +132,5 @@ Deno.serve(async (req) => {
 
 // 화면에 돌려줄 때는 주소·전화번호를 빼요.
 function publicOrder(o: Record<string, unknown>) {
-  return { orderId: o.order_id, title: o.title, qty: o.qty, gift: o.gift, amount: o.amount, receiptUrl: o.receipt_url };
+  return { orderId: o.order_id, kind: o.kind ?? 'book', shareId: o.share_id, title: o.title, qty: o.qty, gift: o.gift, amount: o.amount, receiptUrl: o.receipt_url };
 }

@@ -642,3 +642,23 @@ button:disabled { cursor: default; }
 .gift-card small { display: block; margin-top: 2px; font-size: 14px; color: var(--text-2); line-height: 1.45; }
 .gift-emoji { font-size: 26px; }
 .gift-card:has(input:checked) { box-shadow: inset 0 0 0 2px var(--accent), var(--shadow); }
+
+/* 오래 간직하기 */
+.keep-link {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%;
+  padding: 16px 18px; border-radius: 18px; background: var(--accent-weak); color: var(--accent-text);
+  font-size: 16px; font-weight: 700; text-decoration: none;
+}
+.keep-link span { display: flex; }
+.keep-notice { display: block; text-decoration: none; color: inherit; }
+.keep-hero { text-align: center; padding-top: 8px; }
+.keep-hero .cover-xl { margin: 0 auto; }
+.keep-status {
+  display: flex; gap: 12px; align-items: center; margin-top: 24px; padding: 16px 18px; border-radius: 20px;
+  background: var(--surface); box-shadow: var(--shadow); font-size: 16px; line-height: 1.55; color: var(--text-2);
+}
+.keep-status span { font-size: 24px; }
+.keep-status.on { background: var(--accent-weak); color: var(--text); }
+.keep-points { margin: 20px 4px 0; padding-left: 20px; display: grid; gap: 8px; font-size: 16px; line-height: 1.55; color: var(--text-2); }
+.keep-fine { margin: 16px 4px 0; font-size: 13px; line-height: 1.6; color: var(--text-3); }
+.keep-fine a { color: var(--text-2); text-decoration: underline; }

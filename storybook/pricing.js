@@ -6,6 +6,11 @@ export const PRICE_MORE = 29000;
 export const GIFT_PRICE = 5000;
 export const MAX_QTY = 10;
 
+// 녹음 보관: 링크를 만든 날부터 1년은 무료. 10년 보관은 9,900원 (그림책을 사면 함께 돼요)
+export const FREE_KEEP_DAYS = 365;
+export const KEEP_PRICE = 9900;
+export const KEEP_YEARS = 10;
+
 export function priceOf({ qty, gift }) {
   const books = qty >= 1 ? PRICE_FIRST + PRICE_MORE * (qty - 1) : 0;
   const wrap = gift ? GIFT_PRICE * qty : 0;
