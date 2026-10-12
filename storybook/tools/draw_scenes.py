@@ -278,7 +278,7 @@ def shadow(x, y, rx, ry=12, o=.14):
 
 
 # ---------- 표정 ----------
-def face(kind, ex=10, ey=0, eye_r=4.5, mouth_y=14, cheek=True, look=(0, 0)):
+def face(kind, ex=10, ey=0, eye_r=4.5, mouth_y=14, cheek=True, look=(0, 0), no_mouth=False):
     lx, ly = look
     if kind == 'happy':      # 웃는 눈
         eyes = (f'<path d="M-{ex+5} {ey}q5-6 10 0M{ex-5} {ey}q5-6 10 0" stroke="{INK}" stroke-width="3.2" '
@@ -310,7 +310,7 @@ def face(kind, ex=10, ey=0, eye_r=4.5, mouth_y=14, cheek=True, look=(0, 0)):
         mouth = f'<path d="M-5 {mouth_y-1}q5 5 10 0" stroke="{INK}" stroke-width="3" fill="none" stroke-linecap="round"/>'
     cheeks = (f'<circle cx="-{ex+8}" cy="{ey+10}" r="5.5" fill="{BLUSH}" opacity=".55"/>'
               f'<circle cx="{ex+8}" cy="{ey+10}" r="5.5" fill="{BLUSH}" opacity=".55"/>') if cheek else ''
-    return eyes + mouth + cheeks
+    return eyes + ('' if no_mouth else mouth) + cheeks
 
 
 # ---------- 캐릭터: 엄마 ----------

@@ -1,7 +1,8 @@
 // 지은 이야기의 글을 읽고, 글에 나오는 것들로 그림을 조립해요.
-//   누가(25가지 캐릭터) · 어떤 표정(웃음·울음·놀람·잠·화) · 무엇을 하는지(달리기·노래·춤·먹기·안기)
+//   누가(37가지 캐릭터) · 어떤 표정(웃음·울음·놀람·잠·화) · 무엇을 하는지(달리기·노래·춤·먹기·안기)
 //   · 언제(낮·저녁·밤) · 어디서(집·숲·들판·논·연못·바다·방·부엌) · 날씨와 계절(비·눈·무지개·봄·가을)
-//   · 무엇이 나오는지(물고기·배·우산·연·케이크·책·편지·보물·떡·박·볏단·도끼…)
+//   · 무엇이 나오는지(과일·채소·먹을거리·장난감·탈것·살림살이 등 70가지쯤)
+//   · 과일이 나무에 열렸으면 과일나무를, 먹고 있으면 손에 든 먹을거리를 그려요.
 // 부품은 img/parts.js (tools/build_images.py 가 만들어요). 서버 없이 휴대폰에서 바로 그려져요.
 // 같은 글 + 같은 seed 면 언제나 같은 그림이 나와요 (공유받은 가족도 똑같이 봐요).
 import { STYLE, BG, CHARACTERS, PROPS } from './img/parts.js';
@@ -33,6 +34,18 @@ const CHAR_WORDS = [
   ['chestnut', ['알밤', '밤톨']],
   ['swallow', ['제비']],
   ['bird', ['파랑새', '참새', '까치', '새가', '새들', '새 한', '새를', '새는']],
+  ['frog', ['개구리', '올챙이']],
+  ['chick', ['병아리']],
+  ['hen', ['암탉', '수탉', '닭이', '닭은', '닭을', '닭과', '닭이랑', '닭 한', '닭들', '꼬꼬닭']],
+  ['duck', ['청둥오리', '집오리', '오리가', '오리는', '오리를', '오리와', '오리랑', '오리들', '오리도', '오리 한']],
+  ['cow', ['황소', '송아지', '젖소', '얼룩소', '누렁소', '소가 ', '소는 ', '소를 ', '소와 ', '소 한 ', '소랑']],
+  ['bear', ['반달곰', '불곰', '곰돌이', '곰이', '곰은', '곰을', '곰과', '곰 한', '곰도', '곰아', '곰들']],
+  ['fox', ['여우']],
+  ['deer', ['사슴', '노루', '고라니']],
+  ['mouse', ['생쥐', '들쥐', '쥐가', '쥐는', '쥐를', '쥐와', '쥐 한', '쥐들']],
+  ['monkey', ['원숭이']],
+  ['elephant', ['코끼리']],
+  ['owl', ['부엉이', '올빼미']],
 ];
 const MOOD_WORDS = {
   sleep: ['잠이', '잠을', '잠들', '자고', '잤', '쿨쿨', '졸', '드르렁', '꿈나라'],
@@ -70,15 +83,46 @@ const PLACE = {
   meadow: ['들판', '풀밭', '꽃밭', '언덕', '잔디'],
 };
 const THING_WORDS = [
+  // 과일 (나무에 열리거나, 들고 먹어요)
+  ['apple', ['사과']],
+  ['persimmon', ['감나무', '홍시', '곶감', '단감', '감이 ', '감을 ', '감 한', '감들', '감을 따', '감이 열']],
+  ['tangerine', ['귤']],
+  ['peach', ['복숭아', '복숭']],
+  ['pear', ['배나무', '배를 따', '배가 열', '배 한 개', '배를 깎', '배를 먹', '배와 ', '배랑']],
+  ['grapes', ['포도']],
+  ['strawberry', ['딸기']],
+  ['banana', ['바나나']],
+  ['watermelon', ['수박']],
+  // 채소·열매
+  ['corn', ['옥수수']],
+  ['carrot', ['당근']],
+  ['radish', ['무를 뽑', '무 뽑', '무밭', '커다란 무', '큰 무', '무 하나', '순무', '총각무', '무청', '무를 캐']],
+  ['sweet_potato', ['고구마']],
+  ['potato', ['감자']],
+  ['cabbage', ['배추']],
+  ['mushroom', ['버섯']],
+  ['acorn', ['도토리']],
+  // 먹을거리
+  ['egg', ['달걀', '계란', '알을', '알이', '알 하나', '알 한']],
+  ['bread', ['빵']],
+  ['lollipop', ['막대사탕', '막대 사탕']],
+  ['candy', ['사탕', '캐러멜', '젤리']],
+  ['icecream', ['얼음과자', '빙수']],
+  ['cookie', ['과자', '쿠키']],
+  ['bee', ['꿀벌', '벌이 ', '벌들', '벌 한', '벌떼']],
+  ['honey', ['꿀']],
+  ['milk', ['우유']],
+  ['dumpling', ['만두']],
+  ['noodles', ['국수', '라면', '짜장면', '자장면']],
   ['fish', ['물고기', '고기를 잡', '낚시', '붕어', '잉어']],
-  ['boat', ['배를 타', '배에 ', '배가 ', '나룻배', '고깃배', '돛단배']],
+  ['boat', ['배를 타', '배에 타', '배에 올', '배에서', '나룻배', '고깃배', '돛단배', '배가 떠', '배를 저', '뱃사공', '배가 출렁']],
   ['umbrella', ['우산']],
   ['kite', ['연을', '연날리', '방패연', '가오리연']],
   ['cake', ['생일', '케이크', '케익']],
-  ['book', ['책을', '책이', '그림책', '공부']],
+  ['book', ['책을', '책이', '그림책', '공부', '동화책']],
   ['letter', ['편지']],
   ['treasure', ['보물', '금은보화', '황금', '금덩이', '부자가']],
-  ['ricecake', ['떡']],
+  ['ricecake', ['떡', '송편']],
   ['basket', ['바구니', '광주리']],
   ['bowl', ['팥죽', '밥을', '죽을', '국을', '밥상']],
   ['gourd', ['호박', '박이', '박을', '박씨']],
@@ -88,7 +132,43 @@ const THING_WORDS = [
   ['cauldron', ['가마솥', '솥에']],
   ['rock', ['바위', '돌멩이']],
   ['snowman', ['눈사람']],
+  // 장난감·물건
+  ['balloons', ['풍선']],
+  ['teddy', ['곰인형', '곰 인형', '곰돌이 인형']],
+  ['doll', ['인형']],
+  ['ball', ['공을', '공이 ', '공놀이', '공 차', '공차기', '축구', '농구', '피구']],
+  ['bicycle', ['자전거']],
+  ['train', ['기차', '열차', '지하철']],
+  ['car', ['자동차', '차를 타', '버스', '트럭', '택시', '소방차', '경찰차']],
+  ['airplane', ['비행기']],
+  ['hat', ['모자를', '모자가', '모자는', '모자도', '모자 ', '밀짚모자', '털모자']],
+  ['bouquet', ['꽃다발', '꽃을 꺾', '꽃을 따', '꽃 한 송이', '꽃을 선물', '꽃을 주']],
+  ['gift', ['선물']],
+  ['lantern', ['등불', '초롱', '등잔', '호롱', '등을 켜']],
+  ['candle', ['촛불', '양초', '초를 켜']],
+  ['clock', ['시계']],
+  ['bucket', ['양동이', '물동이']],
+  ['shovel', ['삽으로', '삽을', '호미']],
+  ['watering_can', ['물뿌리개', '물을 주']],
+  ['sled', ['썰매']],
+  ['shell', ['조개', '소라']],
+  ['star_toy', ['별을 따', '별을 주', '별 모양', '별사탕']],
+  ['drum', ['북을', '북소리', '북 치', '장구']],
+  ['flower_pot', ['화분']],
+  ['blanket', ['담요']],
+  ['heart_big', ['하트', '마음을 전', '사랑한다고']],
+  ['butterfly_big', ['나비']],
 ];
+// 과일은 나무에 열려요. 손에 들 수 있는 것들은 먹을 때 손에 쥐어요.
+const FRUITS = ['apple', 'persimmon', 'tangerine', 'peach', 'pear', 'grapes', 'strawberry', 'banana'];
+const HOLD = new Set([...FRUITS, 'corn', 'carrot', 'sweet_potato', 'potato', 'bread', 'candy', 'lollipop', 'icecream', 'cookie', 'egg', 'star_toy', 'bouquet', 'acorn']);
+// 땅에 놓는 크기
+const GROUND = {
+  cake: 1, book: 0.8, treasure: 1.1, basket: 1, bowl: 0.9, gourd: 0.8, axe: 0.7, wood: 1, rock: 0.6,
+  watermelon: 1, radish: 1, cabbage: 1, mushroom: 1, honey: 0.9, milk: 1, dumpling: 1, noodles: 0.9, ball: 0.9,
+  doll: 1, teddy: 0.9, hat: 0.9, gift: 1, lantern: 0.9, candle: 1, clock: 0.9, bucket: 1, shovel: 0.9, watering_can: 1,
+  sled: 1, shell: 0.9, drum: 1, flower_pot: 1, blanket: 1.2,
+};
 
 // ---------- 무작위 (seed 고정) ----------
 function rng(seed) {
@@ -135,7 +215,13 @@ function moodNear(t, idx, fallback) {
 export function analyze(text, seed = 0) {
   const r = rng(hashText(text) + seed * 7919);
   // "아기 돼지", "새끼 고양이"의 "아기·새끼"는 꾸미는 말이라 아기 캐릭터로 읽지 않아요.
-  const t = text.replace(/\s+/g, ' ').replace(/(아기|새끼|꼬마)\s?(돼지|토끼|고양이|강아지|양|새|제비|다람쥐|거북|호랑이|늑대|개미)/g, '$2');
+  const t = text.replace(/\s+/g, ' ')
+    .replace(/(아기|새끼|꼬마)\s?(돼지|토끼|고양이|강아지|양|새|제비|다람쥐|거북|호랑이|늑대|개미|오리|곰|여우|사슴|생쥐|원숭이|코끼리|부엉이|개구리)/g, '$2')
+    // 뜻이 둘인 말: "사과했어요"(잘못을 빎), "배가 고파"(배고픔), "모자라"(부족함), 아이스크림 속 "아이"
+    .replace(/사과(를\s?)?(했|하였|드렸|드리|해야|할게|하세요)/g, '용서$2')
+    .replace(/배(가|도)?\s?(고파|고프|불러|부르|아파|아프)/g, '속$2')
+    .replace(/모자라|모자란|모자랐/g, '부족')
+    .replace(/아이스크림/g, '얼음과자');
   const masked = {};
   const found = findAll(t, CHAR_WORDS, masked);
   const m = masked.text;  // 캐릭터 이름을 지운 글: 표정·날씨·장소·물건은 여기서 찾아요
@@ -167,6 +253,8 @@ export function analyze(text, seed = 0) {
     weather: Object.keys(WEATHER).filter((w) => has(m, WEATHER[w])),
     place: Object.fromEntries(Object.keys(PLACE).map((p) => [p, has(m, PLACE[p])])),
     things: findAll(m, THING_WORDS).map((x) => x.name),
+    // "사과나무", "나무에서 감을 땄어요", "주렁주렁 열렸어요"
+    onTree: has(m, ['나무', '열렸', '열린', '주렁', '따 먹', '따서', '땄', '따러', '따고']),
     fullMoon: has(m, ['보름달', '둥근 달', '달님']),
     straw: has(m, ['초가', '오두막', '움막', '지푸라기']),
     brick: has(m, ['벽돌']),
@@ -213,6 +301,10 @@ export function compose(text, seed = 0) {
   const back = [];   // 인물 뒤
   const front = [];  // 인물 앞
   const has_ = (k) => things.includes(k);
+  const fruit = things.find((k) => FRUITS.includes(k));
+  const eating = action === 'eat';
+  // 먹는 장면이면 글에 나온 먹을거리를 손에 쥐어요.
+  const food = eating ? things.find((k) => HOLD.has(k) && k !== 'bouquet' && k !== 'star_toy') : null;
 
   // 하늘
   if (!inside) {
@@ -252,15 +344,31 @@ export function compose(text, seed = 0) {
       if (has_('boat')) back.push(put(PROPS.boat, px, ground_y - 10, 0.6));
       if (!place.house) right = 340;
     }
+    // 과일나무: 집·연못이 없는 쪽에 서고, 글에 나온 과일이 주렁주렁 달려요.
+    let treeSide = '';
+    if (fruit && a.onTree) {
+      treeSide = place.house ? (houseSide === 'right' ? 'left' : 'right') : place.pond ? 'left' : (r() < 0.5 ? 'left' : 'right');
+      const tx = treeSide === 'left' ? 150 : 650;
+      back.push(fruitTree(fruit, tx, ground_y - 10, night, r));
+      if (treeSide === 'left') left = Math.max(left, 290); else right = Math.min(right, 510);
+    }
     const edge = place.forest ? tree : pine;
-    if (!(place.house && houseSide === 'left')) back.push(put(PROPS[edge], 40 + r() * 30, ground_y - 30, place.forest ? 0.8 : 0.95));
-    if (!(place.house && houseSide === 'right') && !place.pond) back.push(put(PROPS[edge], 740 + r() * 30, ground_y - 34, place.forest ? 0.75 : 0.9));
-    if (place.forest && !place.house && !place.pond) back.push(put(PROPS[tree], 400 + (r() - 0.5) * 160, ground_y - 50, 0.75));
+    if (!(place.house && houseSide === 'left') && treeSide !== 'left') back.push(put(PROPS[edge], 40 + r() * 30, ground_y - 30, place.forest ? 0.8 : 0.95));
+    if (!(place.house && houseSide === 'right') && !place.pond && treeSide !== 'right') back.push(put(PROPS[edge], 740 + r() * 30, ground_y - 34, place.forest ? 0.75 : 0.9));
+    if (place.forest && !place.house && !place.pond && !treeSide) back.push(put(PROPS[tree], 400 + (r() - 0.5) * 160, ground_y - 50, 0.75));
     if (has_('rice') || kind.startsWith('paddy')) { back.push(put(PROPS.rice, 60, ground_y + 40, 0.9), put(PROPS.rice, 740, ground_y + 40, 0.9)); }
   }
   if (kind === 'sea') {
     if (has_('boat')) back.push(put(PROPS.boat, 560, 470, 0.8));
     if (has_('fish')) back.push(put(PROPS.fish, 300, 450, 1), put(PROPS.fish2, 420, 480, 0.8));
+  }
+
+  if (has_('airplane') && !inside) back.push(put(PROPS.airplane, 250 + r() * 300, 150 + r() * 40, 0.9));
+  // 큰 탈것은 인물 뒤 땅에 서요.
+  const vehicle = ['train', 'car', 'bicycle'].find(has_);
+  if (vehicle && !inside) {
+    const vx = kind === 'sea' ? 400 : (left + right) / 2 + (r() < 0.5 ? -1 : 1) * 110;
+    back.push(put(PROPS[vehicle], vx, ground_y - 6, { train: 0.95, car: 1, bicycle: 0.9 }[vehicle]));
   }
 
   // 하늘을 나는 캐릭터 (제비·새)
@@ -317,11 +425,16 @@ export function compose(text, seed = 0) {
     if (hugging) front.push(put(PROPS.hearts, (spots[0] + spots[1]) / 2, head - 10));
     if (action === 'run') front.push(put(PROPS.speed, lead.x - 150, lead.y - lead.h * 0.6));
     if (lead && (a.mood === 'shock' || a.mood === 'angry')) front.push(put(PROPS.alarm, lead.x + 40, head + 10));
-    if (action === 'eat' && !has_('bowl') && !has_('ricecake')) people.forEach((p) => front.push(put(PROPS.bowl, p.x + 34, p.y + 44, 0.7)));
+    if (food) people.forEach((p, i) => front.push(put(PROPS[food], p.x + (p.x > 400 ? -1 : 1) * (26 + p.h * 0.12), p.y - p.h * 0.28, 0.75)));
+    else if (eating && !has_('bowl') && !has_('ricecake') && !has_('noodles') && !has_('dumpling')) people.forEach((p) => front.push(put(PROPS.bowl, p.x + 34, p.y + 44, 0.7)));
   }
 
   // 글에 나온 물건
-  const frontSpots = [400, 230, 570, 120, 680];
+  // 인물 발치를 가리지 않게, 인물과 떨어진 자리부터 써요.
+  const frontSpots = [400, 230, 570, 120, 680, 320, 480]
+    .map((x, i) => ({ x, i, near: people.some((p) => Math.abs(p.x - x) < 75) }))
+    .sort((p, q) => p.near - q.near || p.i - q.i)
+    .map((p) => p.x);
   let fs = 0;
   const nextSpot = () => frontSpots[fs++ % frontSpots.length];
   for (const k of things) {
@@ -332,9 +445,24 @@ export function compose(text, seed = 0) {
     } else if (k === 'letter' && lead) front.push(put(PROPS.letter, lead.x + 60, lead.y - lead.h * 0.5, 0.9));
     else if (k === 'fish' && !place.pond && kind !== 'sea') front.push(put(PROPS.fish, nextSpot(), 570, 0.9));
     else if (k === 'ricecake') front.push(put(PROPS.basket, nextSpot(), 580, 0.9), put(PROPS.ricecake, frontSpots[(fs - 1) % frontSpots.length], 545, 1));
-    else if (['cake', 'book', 'treasure', 'basket', 'bowl', 'gourd', 'axe', 'wood', 'rock'].includes(k)) {
-      const sc = { cake: 1, book: 0.8, treasure: 1.1, basket: 1, bowl: 0.9, gourd: 0.8, axe: 0.7, wood: 1, rock: 0.6 }[k];
-      front.push(put(PROPS[k === 'axe' && has_('treasure') ? 'axe_gold' : k], nextSpot(), k === 'axe' ? 590 : 585, sc));
+    else if (k === food) continue;  // 이미 손에 들었어요
+    else if (FRUITS.includes(k)) {
+      // 나무에 열렸으면 두어 개가 떨어져 있고, 아니면 땅에 소복이 놓여요.
+      const x = nextSpot();
+      if (a.onTree && !inside) front.push(put(PROPS[k], x - 20, 585, 0.8), put(PROPS[k], x + 30, 590, 0.7));
+      else front.push(put(PROPS[k], x - 34, 588, 0.9), put(PROPS[k], x + 34, 590, 0.85), put(PROPS[k], x, 576, 1));
+    } else if ((k === 'balloons' || k === 'star_toy' || k === 'bouquet') && lead) {
+      front.push(put(PROPS[k], lead.x + (lead.x > 400 ? -1 : 1) * (30 + lead.h * 0.12), lead.y - lead.h * (k === 'balloons' ? 0.3 : 0.25), k === 'balloons' ? 1 : 0.8));
+    } else if (k === 'heart_big' && lead) front.push(put(PROPS.heart_big, lead.x, lead.y - lead.h - 20, 0.6));
+    else if (k === 'bee' || k === 'butterfly_big') front.push(put(PROPS[k], 150 + r() * 500, 230 + r() * 100, 1));
+    else if (k === 'clock' && inside) back.push(put(PROPS.clock, 640, 250, 1));
+    else if (k === 'egg' || k === 'acorn' || k === 'potato' || k === 'sweet_potato' || k === 'carrot' || k === 'corn') {
+      const x = nextSpot();
+      front.push(put(PROPS[k], x - 26, 588, 0.9), put(PROPS[k], x + 26, 590, 0.9));
+    } else if (k === 'candy' || k === 'cookie' || k === 'bread' || k === 'lollipop' || k === 'icecream') {
+      front.push(put(PROPS[k], nextSpot(), 585, 1));
+    } else if (GROUND[k]) {
+      front.push(put(PROPS[k === 'axe' && has_('treasure') ? 'axe_gold' : k], nextSpot(), k === 'axe' ? 590 : 585, GROUND[k]));
     }
   }
 
@@ -353,6 +481,14 @@ export function compose(text, seed = 0) {
   }
 
   return svgDoc(bg, [...out, ...back, ...front]);
+}
+
+// 둥근 나무에 과일을 달아요. (나무 그림의 잎 부분은 대략 가운데 (0,-230), 반지름 130)
+const FRUIT_SPOTS = [[-80, -210], [-30, -255], [35, -215], [80, -250], [-55, -290], [15, -305], [70, -185], [-100, -245], [0, -180]];
+function fruitTree(kind, x, y, night, r) {
+  const s = 0.95;
+  const fruits = FRUIT_SPOTS.map(([fx, fy]) => put(PROPS[kind], fx + (r() - 0.5) * 10, fy + 26, kind === 'grapes' || kind === 'banana' ? 0.55 : 0.6)).join('');
+  return put(PROPS[night ? 'tree_night' : 'tree'] + wrap('sway', fruits), x, y, s);
 }
 
 const svgDoc = (bg, parts) =>

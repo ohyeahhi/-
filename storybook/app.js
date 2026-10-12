@@ -1008,7 +1008,7 @@ function editorView(editId) {
   render(`
     ${topbar({ back: editId ? `#/story/${editId}` : '#/', title: editId ? '이야기 고치기' : '새 이야기' })}
     <h1 class="title-lg">${editId ? '이야기를 고쳐 보세요' : `${who()}가 지은 이야기를<br>들려주세요`}</h1>
-    <p class="sub">장면마다 두세 문장씩 적으면 글에 맞는 그림이 저절로 그려져요. 누가(할머니·손녀·강아지·호랑이…), 어디서(집·숲·바다·부엌…), 언제(밤·비 오는 날·겨울…), 무엇을(노래·달리기·생일 케이크·연날리기…) 했는지 적을수록 그림이 자세해져요.</p>
+    <p class="sub">장면마다 두세 문장씩 적으면 글에 맞는 그림이 저절로 그려져요. 누가(할머니·손녀·강아지·곰·오리…), 어디서(집·숲·바다·부엌…), 언제(밤·비 오는 날·겨울…), 무엇을(사과를 따 먹었다·풍선을 들고·자전거를 타고·생일 케이크…) 했는지 적을수록 그림이 자세해져요.</p>
     <label class="label" for="st-title">제목</label>
     <input id="st-title" class="input" maxlength="30" placeholder="예) 할머니 어릴 적 개울가" value="${esc(state.title)}">
     <div id="pages"></div>
