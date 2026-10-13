@@ -30,6 +30,11 @@ html,body{margin:0;background:#fff;color:var(--ink);font-family:'Pretendard',san
 
 /* cover */
 .cover{page:cover;height:210mm;width:148mm;position:relative;overflow:hidden;background:#fff}
+.cover .trim{position:absolute;left:var(--bleed);top:var(--bleed);width:148mm;height:210mm}
+.back .mark{position:absolute;left:16mm;bottom:20mm;display:flex;flex-direction:column;gap:2mm}
+.back .mark b{font-size:11pt;font-weight:800;letter-spacing:-.04em;color:var(--ink)}
+.back .mark span{font-size:7.5pt;font-weight:600;color:var(--ink3)}
+.blankpage{height:1px}
 .cover .art{position:absolute;right:-14mm;top:-10mm}
 .cover .edition{position:absolute;top:18mm;left:16mm;font-size:7.5pt;font-weight:600;color:var(--accent-ink);letter-spacing:.02em}
 .cover h1{position:absolute;top:100mm;left:16mm;right:16mm;margin:0;font-weight:800;font-size:31pt;line-height:1.22;letter-spacing:-.045em}
@@ -168,8 +173,17 @@ THEMES = {
 THEME = THEMES["노랑"]
 
 
+BLEED = 0  # mm. 인쇄소용은 3
+
+
+def page_css():
+    b = BLEED
+    return (f"@page{{size:{148+2*b}mm {210+2*b}mm;margin:{17+b}mm {16+b}mm {16+b}mm {16+b}mm}}"
+            f".cover{{height:{210+2*b}mm;width:{148+2*b}mm}}:root{{--bleed:{b}mm}}")
+
+
 def doc(title, pages):
-    theme = ":root{" + "".join(f"--{k}:{v};" for k, v in THEME.items()) + "}"
+    theme = page_css() + ":root{" + "".join(f"--{k}:{v};" for k, v in THEME.items()) + "}"
     return f"""<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>{E(title)}</title>
 <style>{CSS}{theme}</style></head><body>{''.join(pages)}</body></html>"""
 
@@ -180,11 +194,11 @@ def runhead(u, right):
 
 def cover(edition, sub, owner_label):
     chips = "".join(f'<span class="chip">{u["no"]} {E(u["title"])}</span>' for u in UNITS)
-    return f"""<section class="page cover">{ART}<div class="edition">{E(edition)}</div>
+    return f"""<section class="page cover"><div class="trim">{ART}<div class="edition">{E(edition)}</div>
 <h1>결혼 전,<br>10번의 대화</h1>
 <div class="sub">{sub}</div>
 <div class="units">{chips}</div>
-<div class="owner">{E(owner_label)}</div></section>"""
+<div class="owner">{E(owner_label)}</div></div></section>"""
 
 
 def howto():
@@ -246,6 +260,24 @@ def together(u):
 <div class="signoff"><div class="row">대화한 날</div><div style="height:1.8mm"></div>{SIGN}</div></section>"""
 
 
+def back_cover(edition):
+    art = """<svg width="20mm" height="14mm" viewBox="0 0 20 14"><circle cx="7" cy="7" r="6" style="fill:var(--accent-soft)"/><circle cx="13" cy="7" r="6" style="fill:var(--accent)" fill-opacity=".92"/></svg>"""
+    return f"""<section class="page cover back"><div class="trim"><div class="mark">{art}<b>결혼 전, 10번의 대화</b><span>{E(edition)}</span></div></div></section>"""
+
+
+def blank_page():
+    return '<section class="page"><div class="blankpage"></div></section>'
+
+
+def memo():
+    return f"""<section class="page"><div class="eyebrow">메모</div><h2>더 하고 싶은 이야기</h2>
+<p class="lead">대화 중에 떠오른 생각이나 다음에 이어서 할 이야기를 자유롭게 적어요.</p>{lines(16)}</section>"""
+
+
+def memo2():
+    return f"""<section class="page"><div class="runhead"><span>메모</span><span></span></div>{lines(20)}</section>"""
+
+
 def feedback():
     sc = lambda: scale_html([["", "전혀 아니다", "매우 그렇다"]])
     qs = [
@@ -266,16 +298,21 @@ def feedback():
 <div class="callout"><b>고맙습니다</b>작성한 기록지는 사진으로 찍어 보내 주셔도 좋아요. 두 분의 대화가 다음 커플의 워크북을 만들어요.</div></section>"""
 
 
+import sys
+BLEED = int(sys.argv[1]) if len(sys.argv) > 1 else 0
+suffix = "_bleed" if BLEED else ""
 for theme_name, THEME in THEMES.items():
     personal = [cover("TEST EDITION · 개인 워크북", "결혼 후 가장 많이 부딪히는 이야기를<br>결혼 전에 미리 나누는 워크북", "이 워크북의 주인"), howto(), guide()]
     for u in UNITS:
         personal += [opener(u), questions(u)]
+    personal += [memo(), memo2(), blank_page(), back_cover("TEST EDITION · 개인 워크북")]
 
     shared = [cover("TEST EDITION · 함께 기록지", "대화를 마친 뒤 두 사람이 함께 쓰는<br>우리의 약속 기록", "우리 두 사람")]
     for u in UNITS:
         shared.append(together(u))
     shared.append(feedback())
+    shared.append(back_cover("TEST EDITION · 함께 기록지"))
 
-    open(f"personal_{theme_name}.html", "w").write(doc("결혼 전 10번의 대화 개인 워크북", personal))
-    open(f"shared_{theme_name}.html", "w").write(doc("결혼 전 10번의 대화 함께 기록지", shared))
+    open(f"personal_{theme_name}{suffix}.html", "w").write(doc("결혼 전 10번의 대화 개인 워크북", personal))
+    open(f"shared_{theme_name}{suffix}.html", "w").write(doc("결혼 전 10번의 대화 함께 기록지", shared))
     print("ok")
