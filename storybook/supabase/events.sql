@@ -68,3 +68,9 @@ create index if not exists events_name on public.events (name);
 -- 4) 받은 가족이 직접 만들어 보기로 넘어간 수 (입소문)
 -- select count(*) filter (where name = 'invite') as 만들어_보기, count(*) filter (where name = 'send_parents') as 부모님께_보내기
 -- from public.events;
+--
+-- 6) 손주 답장: 끝까지 들은 링크 중 답장이 온 비율 (가족이 반응하는지)
+-- select count(distinct share_id) filter (where name = 'listen_end') as 끝까지_들은_링크,
+--        count(distinct share_id) filter (where name = 'reply')      as 답장_온_링크,
+--        count(*)                 filter (where name = 'reply')      as 답장_수
+-- from public.events;

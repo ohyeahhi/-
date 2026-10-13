@@ -22,6 +22,7 @@ SQL Editor 에서 `supabase/events.sql` 아래쪽 주석에 있는 질문을 붙
 | 2) 링크 하나를 몇 번 들었나 | 가족 1곳당 평균 재생 횟수 |
 | 3) 일주일 뒤에도 녹음한 비율 | 재사용률(리텐션) |
 | 4) "우리 가족도 만들어 보기"·"부모님께 보내기" 수 | 입소문(바이럴) 지표 |
+| 6) 끝까지 들은 링크 중 손주 답장이 온 비율 | 가족 반응률 (조부모가 다시 오는 이유) |
 
 ## 모으는 기록
 | 이름 | 언제 |
@@ -37,5 +38,6 @@ SQL Editor 에서 `supabase/events.sql` 아래쪽 주석에 있는 질문을 붙
 | `about` / `send_parents` | 소개 화면을 열었을 때 / "부모님께 보내기"를 눌렀을 때 |
 | `book` / `order` / `paid` | 그림책 미리보기 / 결제 시작 / 결제 완료 (meta.kind: book · keep) |
 | `keep_view` | "오래 간직하기" 화면을 열었을 때 |
+| `reply` | 손주가 목소리 답장을 보냈을 때 |
 
 1년이 지난 기록은 지워 주세요: `delete from public.events where at < now() - interval '1 year';`
