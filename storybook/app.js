@@ -967,7 +967,26 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
   let pos = 0;
   let alive = true;
   let advanceTimer = 0;
-  onDispose(() => { alive = false; clearTimeout(advanceTimer); stopAudio(); player.onerror = null; player.onplaying = null; });
+  // 잠자리 모드: 화면을 어둡게 하고, 정한 시간(15·30분) 동안 동화를 되풀이해 들려준 뒤 "잘 자요"로 끝나요.
+  let bedMin = [15, 30].includes(local.get('bedtime')) ? local.get('bedtime') : 0;
+  let bed = null;   // { until, timer, lock, timeUp }
+  const endBed = () => {
+    if (!bed) return;
+    clearTimeout(bed.timer);
+    bed.lock?.release?.().catch(() => {});
+    document.querySelector('.bed-dim')?.remove();
+    document.documentElement.classList.remove('bedtime');
+    bed = null;
+  };
+  const startBed = async () => {
+    endBed();
+    if (!bedMin) return;
+    document.documentElement.classList.add('bedtime');
+    bed = { until: Date.now() + bedMin * 60e3, timeUp: false, lock: null };
+    bed.timer = setTimeout(() => { if (bed) bed.timeUp = true; }, bedMin * 60e3);
+    try { bed.lock = await navigator.wakeLock?.request('screen'); } catch { /* 화면 켜 두기를 못 해도 들을 수는 있어요 */ }
+  };
+  onDispose(() => { alive = false; clearTimeout(advanceTimer); stopAudio(); player.onerror = null; player.onplaying = null; endBed(); });
 
   const drawStart = () => {
     stage.innerHTML = `
@@ -977,6 +996,23 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
         <h1 class="title-xl">${esc(s.title)}</h1>
         ${kid ? `<p class="sub">${esc(toOf(kid))}</p>` : ''}
         <button class="play-big" data-act="start" aria-label="듣기 시작">${I.play}</button>
+        <div class="bed-pick">
+          <p class="bed-label">🌙 잠자리 모드 <span>화면을 어둡게 하고 정한 시간 동안 되풀이해 들려줘요</span></p>
+          <div class="seg seg-3" role="radiogroup" aria-label="잠자리 모드">
+            ${[[0, '끄기'], [15, '15분'], [30, '30분']].map(([m, t]) => `<button role="radio" data-act="bedmin" data-min="${m}" class="${bedMin === m ? 'on' : ''}" aria-checked="${bedMin === m}">${t}</button>`).join('')}
+          </div>
+        </div>
+      </div>`;
+  };
+  const drawSleep = () => {
+    stopAudio();
+    endBed();
+    stage.innerHTML = `
+      <div class="listen-start bed-end">
+        <div class="celebrate-badge">🌙</div>
+        <h1 class="title-xl">잘 자요${kid ? `, ${esc(callOf(kid) || kid)}` : ''}</h1>
+        <p class="sub">${reader}가 꿈에서도 이야기해 줄 거예요.</p>
+        <div class="end-actions"><button class="btn btn-secondary full" data-act="again">한 번 더 듣기</button></div>
       </div>`;
   };
 
@@ -995,7 +1031,8 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
         <button class="ctl" data-act="prev" aria-label="앞 쪽" ${pos === 0 ? 'disabled' : ''}>${I.prev}</button>
         <button class="ctl ctl-main" data-act="toggle" aria-label="재생/멈춤">${I.pause}</button>
         <button class="ctl" data-act="next" aria-label="다음 쪽" ${pos === list.length - 1 ? 'disabled' : ''}>${I.next}</button>
-      </div>`;
+      </div>
+      ${bed ? `<button class="bed-dim-btn" data-act="dim">🌙 까만 화면으로 소리만 듣기 · ${Math.max(1, Math.ceil((bed.until - Date.now()) / 60e3))}분 남음</button>` : ''}`;
   };
 
   const drawEnd = () => {
@@ -1032,8 +1069,7 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
     const at = pos;
     advanceTimer = setTimeout(() => {
       if (!alive || pos !== at) return;
-      if (pos < list.length - 1) playAt(pos + 1);
-      else drawEnd();
+      advance();
     }, 6000);
     if (failed >= 2 && !played && !warned) {
       warned = true;
@@ -1055,6 +1091,14 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
   };
   player.onplaying = () => { played += 1; };
 
+  // 한 쪽이 끝나면: 다음 쪽 → 끝. 잠자리 모드면 처음부터 되풀이하고, 시간이 다 되면 "잘 자요".
+  function advance() {
+    if (bed?.timeUp) drawSleep();
+    else if (pos < list.length - 1) playAt(pos + 1);
+    else if (bed) { if (shareId) track('listen_end', { story: s.id, shareId }); playAt(0); }
+    else drawEnd();
+  }
+
   async function playAt(j) {
     clearTimeout(advanceTimer);
     pos = j;
@@ -1065,11 +1109,7 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
     if (pip) pip.prepend(player); else parkPlayer();
     player.onended = () => {
       setToggle(false);
-      advanceTimer = setTimeout(() => {
-        if (!alive) return;
-        if (pos < list.length - 1) playAt(pos + 1);
-        else drawEnd();
-      }, 900);
+      advanceTimer = setTimeout(() => { if (alive) advance(); }, 900);
     };
     try {
       await player.play();
@@ -1082,9 +1122,24 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
 
   stage.addEventListener('click', (e) => {
     const act = e.target.closest('[data-act]')?.dataset.act;
-    if (act === 'start') { playAt(first); if (shareId) track('listen', { story: s.id, shareId, n: list[first]?.n ?? 0 }); }
+    if (act === 'bedmin') {
+      bedMin = Number(e.target.closest('[data-min]').dataset.min);
+      local.set('bedtime', bedMin);
+      stage.querySelectorAll('[data-act="bedmin"]').forEach((b) => { const on = Number(b.dataset.min) === bedMin; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); });
+      return;
+    }
+    if (act === 'dim') {
+      const dim = document.createElement('button');
+      dim.className = 'bed-dim';
+      dim.setAttribute('aria-label', '화면 다시 켜기');
+      dim.innerHTML = '<span>🌙</span><small>누르면 화면이 다시 켜져요</small>';
+      dim.addEventListener('click', () => dim.remove());
+      document.body.append(dim);
+      return;
+    }
+    if (act === 'start') { startBed(); playAt(first); if (shareId) track('listen', { story: s.id, shareId, n: list[first]?.n ?? 0 }); }
     else if (act === 'invite' && shareId) track('invite', { shareId });
-    else if (act === 'again') playAt(0);
+    else if (act === 'again') { if (stage.querySelector('.bed-end')) startBed(); playAt(0); }
     else if (act === 'prev') playAt(pos - 1);
     else if (act === 'next') playAt(pos + 1);
     else if (act === 'toggle') {

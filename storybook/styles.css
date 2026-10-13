@@ -762,3 +762,27 @@ html.big-text body { zoom: 1.15; }
 .memo-progress .chev { margin-left: auto; }
 .ask { display: block; margin-bottom: .4em; font-size: .78em; font-weight: 700; color: var(--accent-text); line-height: 1.4; }
 .bp-text .ask { color: #A86E00; }
+
+/* ---------- 잠자리 모드 ---------- */
+.bed-pick { width: 100%; margin-top: 28px; text-align: left; }
+.bed-label { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+.bed-label span { display: block; font-size: 14px; font-weight: 500; color: var(--text-3); }
+.seg-3 { grid-template-columns: 1fr 1fr 1fr; }
+html.bedtime {
+  --bg: #0E0D14; --surface: #1A1824; --fill: #24212F; --line: #2E2A3A;
+  --text: #E9E2CF; --text-2: #B7AE98; --text-3: #847C6C;
+  --accent: #C9A43A; --accent-weak: #2A2416; --accent-text: #E2C26A; --shadow: none;
+}
+html.bedtime body { background: var(--bg); }
+html.bedtime .scene, html.bedtime .cover { filter: brightness(.55) saturate(.7); }
+html.bedtime .listen-text { font-size: 20px; }
+.bed-dim-btn {
+  display: block; width: 100%; margin-top: 18px; padding: 14px; border-radius: 16px;
+  background: var(--fill); color: var(--text-2); font-size: 15px; font-weight: 600;
+}
+.bed-dim {
+  position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px;
+  background: #000; color: #4A4536;
+}
+.bed-dim span { font-size: 40px; opacity: .35; }
+.bed-dim small { font-size: 13px; }
