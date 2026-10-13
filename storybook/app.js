@@ -204,13 +204,49 @@ function sheet({ icon, title, body, primary = '확인', secondary, onPrimary, on
   return { el, close };
 }
 
-function speak(text) {
+// 음성 안내. audio/guide/<key>.mp3 (사람이 녹음한 안내)가 있으면 그걸 틀고,
+// 없으면 휴대폰의 음성 합성을 쓰되, 가장 자연스러운 한국어 목소리를 골라요.
+const guideAudio = new Audio();
+// 자연스러운 목소리 이름 (아이폰: Yuna·Sora 향상된/고품질, 안드로이드·크롬: Google 한국의, 윈도: SunHi 온라인 Natural)
+const GOOD_VOICE = /(premium|enhanced|향상|고품질|natural|neural|online|google|yuna|sora|sunhi|injoon)/i;
+function bestKoreanVoice() {
+  const ko = speechSynthesis.getVoices().filter((v) => /^ko/i.test(v.lang));
+  if (!ko.length) return null;
+  const score = (v) => (GOOD_VOICE.test(v.name) ? 2 : 0) + (/compact|eloquence/i.test(v.name) ? -2 : 0) + (v.localService ? 0 : 1);
+  return ko.sort((a, b) => score(b) - score(a))[0];
+}
+if ('speechSynthesis' in window) speechSynthesis.getVoices();   // 목소리 목록을 미리 불러 둬요
+
+function speakTTS(text) {
   if (!('speechSynthesis' in window)) { toast('이 기기에서는 음성 안내를 쓸 수 없어요'); return; }
   speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = 'ko-KR';
-  u.rate = 0.9;
-  speechSynthesis.speak(u);
+  // 문장마다 나눠 읽으면 숨 쉬는 틈이 생겨서 덜 딱딱하게 들려요.
+  const voice = bestKoreanVoice();
+  for (const part of text.split(/(?<=[.?!,])\s+/)) {
+    const u = new SpeechSynthesisUtterance(part);
+    u.lang = 'ko-KR';
+    if (voice) u.voice = voice;
+    u.rate = 0.95;
+    u.pitch = 1.05;
+    speechSynthesis.speak(u);
+  }
+}
+
+// 안내 파일이 있는지는 미리 알아 둬요. (아이폰은 버튼을 누른 그 순간에만 소리를 낼 수 있어서, 누른 뒤 기다렸다 고르면 막혀요)
+const guideFiles = new Set();
+for (const key of ['intro-grandma', 'intro-grandpa', 'page-grandma', 'page-grandpa']) {
+  fetch(`audio/guide/${key}.mp3`, { method: 'HEAD' }).then((r) => { if (r.ok) guideFiles.add(key); }).catch(() => {});
+}
+
+function speak(text, key) {
+  stopGuide();
+  if (!key || !guideFiles.has(key)) { speakTTS(text); return; }
+  guideAudio.src = `audio/guide/${key}.mp3`;
+  guideAudio.play().catch(() => speakTTS(text));
+}
+function stopGuide() {
+  guideAudio.pause();
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
 }
 
 const openExternal = () => {
@@ -847,7 +883,9 @@ async function recordView(id, idxStr) {
     p.intro
       ? `${kidTo()} 하고 싶은 인사를 편하게 말씀해 주세요. 빨간 버튼을 누르면 녹음이 시작되고, 다 말씀하시면 버튼을 한 번 더 누르시면 돼요.`
       : '화면의 글을 소리 내어 읽어 주세요. 빨간 버튼을 누르면 녹음이 시작되고, 다 읽으시면 버튼을 한 번 더 누르시면 돼요.',
+    `${p.intro ? 'intro' : 'page'}-${profile?.role === 'grandpa' ? 'grandpa' : 'grandma'}`,
   ));
+  onDispose(stopGuide);
   app.querySelector('#external')?.addEventListener('click', openExternal);
 
   onDispose(() => {
