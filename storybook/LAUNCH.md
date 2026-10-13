@@ -8,16 +8,14 @@
 
 ---
 
-## 1단계. 녹음 저장소 다지기 (10분) — 가족 공유가 안전하게 돌아가요
-- [ ] **Storage → shares → Edit bucket**: 파일 크기 **10 MB**, 허용 형식 `audio/mp4, audio/webm, audio/ogg, video/mp4, video/webm, application/json`
-- [ ] **SQL Editor** 에 `supabase/storage.sql` 붙여 넣고 **Run** (앱이 쓰는 파일 이름만 올라가게 · 손주 답장이 들어가서 전에 실행했어도 **다시** 실행)
+## 1~2단계. 저장소·표 한 번에 (5분) — SQL Editor 에서 한 번만 Run
+- [ ] Supabase → **SQL Editor** → **New query**
+- [ ] `supabase/all-in-one.sql` 내용을 **통째로** 붙여 넣고 **Run**
+  - 버킷 설정(10MB·허용 형식), 올리기 규칙(손주 답장 포함), 주문·보관·통계 표를 한 번에 만들어요
+  - 여러 번 실행해도 괜찮아요. 전에 따로 실행한 파일이 있어도 그냥 다시 실행하면 돼요
+- [ ] 맨 아래 결과 표 5줄이 모두 **✅** 인지 확인 (❌ 가 있으면 그 화면을 캡처해서 보내 주세요)
 - [ ] 휴대폰으로 동화 하나 녹음 → **보내기** → 다른 휴대폰에서 링크 열어 듣기
-  (자세히: `SETUP-공유.md`)
-
-## 2단계. 표 만들기 (5분) — SQL Editor 에서 차례로 Run
-- [ ] `supabase/orders.sql` (전에 실행했다면 **맨 아래 두 줄만**)
-- [ ] `supabase/keeps.sql` (녹음 10년 보관)
-- [ ] `supabase/events.sql` (시범 사용 통계 · 전에 실행했어도 **다시 전부** 실행)
+  (자세히: `SETUP-공유.md` · 파일을 하나씩 실행하고 싶으면 `storage.sql` → `orders.sql` → `keeps.sql` → `events.sql`)
 
 ## 3단계. 결제 연결 (20분) — 그림책 주문·10년 보관 결제
 - [ ] [토스페이먼츠 개발자센터](https://developers.tosspayments.com) 가입 → **API 개별 연동 키** 확인
