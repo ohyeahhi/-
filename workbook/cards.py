@@ -3,7 +3,7 @@
 import html
 
 from build import FONTS
-from cards_data import AFTER, BEFORE
+from cards_data import AFTER, BEFORE, TYPES
 
 E = html.escape
 W, H, B = 63, 88, 3  # 카드 크기, 재단 여백(mm)
@@ -26,6 +26,18 @@ html,body{{background:#fff;color:{INK};font-family:'Pretendard',sans-serif;lette
 .qno{{font-size:7.4pt;font-weight:800;color:{YI}}}
 .chip{{display:inline-flex;align-items:center;height:4.4mm;padding:0 1.8mm;border-radius:1.2mm;background:{GRAY};color:{INK2};font-size:5.8pt;font-weight:600;white-space:nowrap}}
 .chip.sit{{background:{YS};color:{YI}}}
+.chip.상상{{background:#fff;color:{INK};box-shadow:inset 0 0 0 .6pt {INK}}}
+.chip.밸런스{{background:{INK};color:#fff}}
+.chip.미션{{background:{Y};color:{INK}}}
+.vs{{margin-top:4mm;display:flex;flex-direction:column;align-items:stretch;gap:1.2mm}}
+.vs .opt{{background:{GRAY};border-radius:2.4mm;padding:2.6mm 3mm;font-size:10pt;font-weight:700;letter-spacing:-.04em;line-height:1.35}}
+.vs .opt:last-child{{background:{YS}}}
+.vs .x{{align-self:center;font-size:6.6pt;font-weight:800;color:{INK3};letter-spacing:.1em}}
+.vs-q{{margin-top:6mm;font-size:10.4pt;font-weight:700;line-height:1.45;letter-spacing:-.04em}}
+.hint{{margin-top:3mm;font-size:6pt;font-weight:600;color:{YI}}}
+.types{{margin-top:3mm;display:flex;flex-direction:column;gap:1.6mm}}
+.types div{{display:flex;gap:2mm;align-items:center;font-size:6.3pt;color:#333D4B;font-weight:500}}
+.types .chip{{width:10mm;justify-content:center}}
 .deck{{margin-left:auto;font-size:5.6pt;font-weight:600;color:{INK3}}}
 .q{{margin-top:7mm;font-size:12.4pt;font-weight:700;line-height:1.5;letter-spacing:-.045em}}
 .sit-box{{margin-top:6mm;background:{YS};border-radius:3mm;padding:3.6mm 3.8mm}}
@@ -53,11 +65,24 @@ html,body{{background:#fff;color:{INK};font-family:'Pretendard',sans-serif;lette
 """
 
 
+KINDS = ("상상", "밸런스", "미션", "상황")
+
+
 def front(deck, cat, n, q):
-    sit = q.startswith("상황:")
-    q = q[3:] if sit else q
-    chips = f'<span class="chip">{E(cat)}</span>' + ('<span class="chip sit">상황</span>' if sit else "")
-    body = f'<div class="sit-box"><div class="q">{E(q)}</div></div>' if sit else f'<div class="q">{E(q)}</div>'
+    kind = next((k for k in KINDS if q.startswith(k + ":")), "")
+    if kind:
+        q = q[len(kind) + 1:]
+    chips = f'<span class="chip">{E(cat)}</span>' + (f'<span class="chip {"sit" if kind == "상황" else kind}">{kind}</span>' if kind else "")
+    if kind == "밸런스":
+        ask, a, b = q.split("|")
+        body = (f'<div class="vs-q">{E(ask)}</div><div class="vs"><div class="opt">{E(a)}</div>'
+                f'<div class="x">VS</div><div class="opt">{E(b)}</div></div><div class="hint">하나, 둘, 셋에 동시에 골라 보세요</div>')
+    elif kind == "상황":
+        body = f'<div class="sit-box"><div class="q">{E(q)}</div></div>'
+    elif kind == "미션":
+        body = f'<div class="q">{E(q)}</div><div class="hint">지금 바로 해 보세요</div>'
+    else:
+        body = f'<div class="q">{E(q)}</div>'
     return f"""<div class="card"><div class="in">
 <div class="top"><span class="qno">Q{n}</span>{chips}<span class="deck">{E(deck['short'])}</span></div>
 {body}
@@ -66,8 +91,8 @@ def front(deck, cat, n, q):
 
 def title_card(deck):
     return f"""<div class="card title">{circles(46)}<div class="in">
-<div class="ed">{E(deck['name'])}</div>
-<div class="t">결혼 전,<br>10번의 대화</div><div class="tag">{E(deck['tagline'])}</div>
+<div class="ed">결혼 전, 10번의 대화</div>
+<div class="t">{E(deck['short'])}<br>대화 카드</div><div class="tag">{E(deck['tagline'])}</div>
 <div class="chips"><span class="chip">{len(deck['cats'])}개의 주제</span><span class="chip">{sum(len(q) for _, q in deck['cats'])}개의 질문</span></div></div></div>"""
 
 
@@ -78,6 +103,13 @@ def how_card(deck):
 <div class="foot"><span class="brand">결혼 전, 10번의 대화</span>{circles(7, cls='mark')}</div></div></div>"""
 
 
+def types_card(deck):
+    rows = "".join(f'<div><span class="chip {"sit" if k == "상황" else k}">{k}</span><span>{E(d)}</span></div>' for k, d in TYPES)
+    return f"""<div class="card how"><div class="in">
+<div class="ey">{E(deck['name'])}</div><h3>다섯 가지 카드</h3><div class="types">{rows}</div>
+<div class="foot"><span class="brand">결혼 전, 10번의 대화</span>{circles(7, cls='mark')}</div></div></div>"""
+
+
 def back_card(deck, dark):
     bg, fg, soft = (INK, "#fff", "#3A3F48") if dark else ("#fff", INK, YS)
     return f"""<div class="card back" style="background:{bg};color:{fg}">{circles(60, soft=soft)}
@@ -85,7 +117,7 @@ def back_card(deck, dark):
 
 
 def cards(deck):
-    out = [title_card(deck), how_card(deck)]
+    out = [title_card(deck), how_card(deck), types_card(deck)]
     n = 0
     for cat, qs in deck["cats"]:
         for q in qs:
