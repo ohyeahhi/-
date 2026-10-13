@@ -258,10 +258,14 @@ async function recordingsOf(story) {
   return { recorded, latest: Math.max(0, ...recorded.map((r) => r.at || 0)), total: records.length };
 }
 
-// 올린 뒤로 다시 녹음한 쪽이 없으면 예전 공유 ID 를 그대로 써요.
+// 올린 뒤로 다시 녹음한 쪽이 없고, (지은 이야기라면) 글·그림 설정도 그대로면 예전 공유 ID 를 그대로 써요.
+const contentSig = (story) => (story.custom
+  ? [...JSON.stringify([story.title, story.pages.map(({ text, seed, noCast }) => [text, seed || 0, Boolean(noCast)])])]
+    .reduce((h, c) => Math.imul(h ^ c.charCodeAt(0), 16777619), 2166136261) >>> 0
+  : 0);
 const savedShareId = (story, latest) => {
   const saved = local.get(shareKey)?.[story.id];
-  return saved && saved.at >= latest ? saved.id : null;
+  return saved && saved.at >= latest && (saved.sig ?? 0) === contentSig(story) ? saved.id : null;
 };
 
 function noServerSheet() {
@@ -323,7 +327,7 @@ async function uploadWithProgress(story, recorded) {
       recorded.map(({ i, blob }) => ({ i, blob })),
       (n, t) => { bar.style.width = `${(n / t) * 100}%`; label.textContent = `${n} / ${t}`; },
     );
-    local.set(shareKey, { ...(local.get(shareKey) || {}), [story.id]: { id: shareId, at: Date.now() } });
+    local.set(shareKey, { ...(local.get(shareKey) || {}), [story.id]: { id: shareId, at: Date.now(), sig: contentSig(story) } });
     track('share', { story: story.id, shareId, n: recorded.length });
     close();
     await new Promise((r) => setTimeout(r, 280));
@@ -1078,6 +1082,8 @@ function editorView(editId) {
   const state = raw
     ? JSON.parse(JSON.stringify(raw))
     : (local.get(DRAFT) || { id: mine.newId(), title: '', pages: [{ text: '', seed: 0 }] });
+  // 고치기: 장면마다 원래 몇 번째였는지 기억해 두었다가, 저장할 때 녹음을 따라 옮겨요.
+  if (raw) state.pages.forEach((p, k) => { p.orig = k; });
   const saveDraft = () => { if (!editId) local.set(DRAFT, state); };
 
   render(`
@@ -1202,12 +1208,19 @@ function editorView(editId) {
     pagesEl.lastElementChild?.querySelector('textarea')?.focus();
   });
 
-  app.querySelector('#save').addEventListener('click', () => {
-    const pages = state.pages.filter((p) => p.text.trim());
-    if (!pages.length) { toast('한 장면 이상 적어 주세요'); return; }
+  app.querySelector('#save').addEventListener('click', async () => {
+    const kept = state.pages.filter((p) => p.text.trim());
+    if (!kept.length) { toast('한 장면 이상 적어 주세요'); return; }
+    const pages = kept.map(({ orig, ...p }) => p);
     if (!mine.saveRaw({ ...state, title: state.title.trim() || '내가 지은 이야기', pages })) {
       toast('저장하지 못했어요. 휴대폰 저장 공간을 확인해 주세요');
       return;
+    }
+    // 녹음은 쪽 번호로 저장돼 있어요(0 = 인사말). 장면을 지우거나 순서가 바뀌면 녹음도 같이 옮기고, 지운 장면 녹음은 지워요.
+    if (editId) {
+      const moves = [[0, 0], ...kept.map((p, j) => (p.orig == null ? null : [p.orig + 1, j + 1])).filter(Boolean)];
+      const same = moves.every(([a, b]) => a === b) && moves.length === raw.pages.length + 1;
+      if (!same) await db.remap(state.id, moves).catch(() => {});
     }
     if (!editId) { local.set(DRAFT, null); track('create', { n: pages.length }); }
     toast('이야기를 저장했어요');

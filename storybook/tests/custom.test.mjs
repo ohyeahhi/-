@@ -59,6 +59,26 @@ export default async function ({ check, browser }) {
   await consent(p);
   await p.waitForSelector('.link-box', { timeout: 15000 });
   const url = (await p.textContent('.link-box')).trim();
+  // 글을 고치면 다시 보낼 때 새 링크를 만들어요. (그림책·가족 화면이 옛 글을 보여 주지 않게)
+  await p.goto(`${APP}#/edit/${id}`);
+  await p.waitForSelector('[data-n="1"] textarea');
+  await p.fill('[data-n="1"] textarea', '밤이 되면 할아버지가 마당에서 별 이야기를 해 주셨단다.');
+  await p.click('#save');
+  await p.waitForSelector('#share');
+  await p.click('#share');
+  await p.click('[data-act="primary"]').catch(() => {});
+  await p.waitForSelector('.link-box', { timeout: 15000 });
+  check('이야기를 고친 뒤 보내면 새 링크가 만들어져요', (await p.textContent('.link-box')).trim() !== url);
+  await p.click('.sheet-backdrop:last-child [data-act="primary"]').catch(() => {});
+  // 첫 장면을 지우면 둘째 장면 녹음이 첫 장면 자리로 옮겨 가요.
+  const at = async (n) => p.evaluate(async ([sid, k]) => (await (await import('./db.js')).getRecord(`${sid}/${k}`))?.at ?? null, [id, n]);
+  const second = await at(2);
+  await p.goto(`${APP}#/edit/${id}`);
+  await p.waitForSelector('[data-n="0"] [data-act="del"]');
+  await p.click('[data-n="0"] [data-act="del"]');
+  await p.click('#save');
+  await p.waitForSelector('#share');
+  check('장면을 지우면 녹음도 따라 옮겨지고 지운 장면 녹음은 없어져요', (await at(1)) === second && (await at(2)) === null, [await at(1), second, await at(2)]);
   const m = await phone(browser, { perms: [] });
   await m.goto(url);
   await m.waitForSelector('[data-act="start"]');

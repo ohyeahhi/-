@@ -62,5 +62,11 @@ export default async function ({ check }) {
   check('"다른 그림"은 좌우를 뒤집거나 가까이 당겨요', compose('할머니가 웃었어요.', 1).includes('scale(-1 1)') && compose('할머니가 웃었어요.', 2).includes('scale(1.14)') && !compose('할머니가 웃었어요.', 0).includes('transform="translate(800'));
   const missing = STORIES.flatMap((s) => s.pages.map((p) => p.image).filter((img) => !fs.existsSync(path.join(ROOT, img))));
   check(`동화 ${STORIES.length}편, 편마다 10쪽, 그림 파일이 모두 있어요`, STORIES.length >= 19 && STORIES.every((s) => s.pages.length === 10) && !missing.length, missing.slice(0, 5));
+  const names = (txt) => [...analyze(txt).ground, ...analyze(txt).sky].map((c) => c.name).join(',');
+  check('"사과 한 개", "딸기", "인형", "미소", "태양", "냄새", "아이고"를 인물로 읽지 않아요',
+    names('사과 한 개를 엄마에게 줬어요') === 'mom' && analyze('엄마가 딸기를 먹었어요').things.includes('strawberry') && names('엄마가 딸기를 먹었어요') === 'mom'
+    && analyze('곰인형이 있었어요').things.includes('teddy') && !names('할머니가 미소를 지었어요').includes('cow') && !names('태양이 떴어요') && !names('맛있는 냄새가 났어요') && !names('아이고 깜짝이야'));
+  check('그래도 "딸이", "형이", "소를", "양이", "새가"는 인물로 읽어요', ['딸이 웃었어요', '형이 왔어요', '소를 몰았어요', '양이 풀을 먹었어요', '새가 날아왔어요'].map(names).join() === 'girl,boy,cow,sheep,bird');
+  check('"밤을 줍고"는 밤(열매), 낮 그림', analyze('할머니와 밤을 줍고 놀았어요.').time === 'day' && analyze('밤이 되자 별이 떴어요.').time === 'night');
   check('같은 글 + 같은 번호면 같은 그림', compose('밤에 손녀가 웃었어요.', 2) === compose('밤에 손녀가 웃었어요.', 2));
 }

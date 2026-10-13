@@ -40,3 +40,16 @@ export const getBlob = async (key) => (await getRecord(key))?.blob ?? null;
 
 export const remove = (key) => tx('readwrite', (s) => s.delete(key));
 export const keys = () => tx('readonly', (s) => s.getAllKeys());
+
+// 이야기를 고쳐서 쪽 순서가 바뀌면 녹음도 따라 옮겨요. moves: [[예전 쪽, 새 쪽], …]
+// 목록에 없는 쪽의 녹음은 지워요. (지운 장면의 녹음이 다른 장면에서 나오지 않게)
+export async function remap(prefix, moves) {
+  const all = (await keys()).filter((k) => typeof k === 'string' && k.startsWith(`${prefix}/`));
+  const raw = {};
+  for (const [from] of moves) raw[from] = await tx('readonly', (s) => s.get(`${prefix}/${from}`));
+  await tx('readwrite', (s) => {
+    for (const k of all) s.delete(k);
+    for (const [from, to] of moves) if (raw[from]) s.put(raw[from], `${prefix}/${to}`);
+    return null;
+  });
+}
