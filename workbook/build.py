@@ -129,6 +129,8 @@ h3{font-weight:700;font-size:11pt;letter-spacing:-.03em;margin:8mm 0 3mm}
 .fb .seg span{height:7mm}
 """
 
+CSS_BASE = CSS
+
 ART = """<svg class="art" width="96mm" height="96mm" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
 <circle cx="40" cy="52" r="30" style="fill:var(--accent-soft)"/>
 <circle cx="62" cy="40" r="30" style="fill:var(--accent)" fill-opacity=".92"/>
@@ -187,7 +189,11 @@ BLEED = 0  # mm. 인쇄소용은 3
 def page_css():
     b = BLEED
     return (f"@page{{size:{148+2*b}mm {210+2*b}mm;margin:{17+b}mm {16+b}mm {16+b}mm {16+b}mm}}"
-            f".cover{{height:{210+2*b}mm;width:{148+2*b}mm}}:root{{--bleed:{b}mm}}")
+            f".cover{{height:{210+2*b}mm;width:{148+2*b}mm}}:root{{--bleed:{b}mm}}"
+            # 쪽번호: 바깥쪽 아래 모서리, 표지와 뒤표지에는 넣지 않음
+            "@page :right{@bottom-right{content:counter(page);font-family:'Pretendard';font-size:7pt;font-weight:600;color:#8B95A1;vertical-align:middle}}"
+            "@page :left{@bottom-left{content:counter(page);font-family:'Pretendard';font-size:7pt;font-weight:600;color:#8B95A1;vertical-align:middle}}"
+            "@page cover{@bottom-right{content:none}@bottom-left{content:none}}")
 
 
 def doc(title, pages):
@@ -225,6 +231,9 @@ def howto():
 <h3>질문 형식</h3><div class="legend">{legend}</div></section>"""
 
 
+HOWTO_BASE = howto
+
+
 def guide():
     rules = ["상대 답을 끝까지 듣고, 평가하기 전에 “그렇게 생각한 이유”를 먼저 물어봐요.",
              "타이머로 한 사람당 5분씩 번갈아 말해요. 말하는 동안 상대는 끊지 않아요.",
@@ -238,6 +247,9 @@ def guide():
 <div class="checks">{ch}</div>
 <div class="callout"><b>함께 기억해 주세요</b>같은 주제에서 반복해서 막히거나 대화가 상처로 끝난다면, 혼전 상담이나 부부 상담을 함께 받아 보길 권해요. 그것도 이 워크북이 제 역할을 한 거예요.</div>
 </section>"""
+
+
+GUIDE_BASE = guide
 
 
 def opener(u):
