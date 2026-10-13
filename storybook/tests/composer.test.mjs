@@ -15,6 +15,14 @@ export default async function ({ check }) {
   check('"모자라요"는 모자를 그리지 않아요', !things('쌀이 모자라요.').includes('hat'));
   check('"아이스크림"은 아이를 그리지 않아요', !who('아이스크림을 먹었어요.').includes('아이'));
   check('"도깨비를"은 비로 읽지 않아요', !analyze('산속에서 도깨비를 만났어요.').weather.includes('rain'));
+  // 움직씨·다른 낱말 속 이름을 동물·장소로 읽지 않아요
+  check('"병아리가 자라서 닭이"는 자라를 그리지 않아요', who('병아리가 자라서 닭이 되었어.') === '병아리, 닭');
+  check('"자라가 바다로"는 자라(거북)', who('자라가 바다로 갔어요.') === '거북이');
+  check('"고개를 넘어"는 강아지가 아니에요', !who('고개를 넘어 할머니 댁에 갔어요.').includes('강아지'));
+  check('"신선한 사과"는 신선이 아니에요', !who('신선한 사과를 샀어요.').includes('신선'));
+  check('"곰곰이"·"주춤"·"꿀잠"은 곰·춤·꿀이 아니에요', !who('곰곰이 생각했어요.').includes('곰') && !analyze('주춤했어요.').action && !things('꿀잠을 잤어요.').includes('honey'));
+  check('"가방에"는 방이 아니고 "부산에서"는 산이 아니에요', !describe('가방에 넣었어요.').where.length && !describe('부산에서 왔어요.').where.length);
+  check('"공연을 보러"는 연이 아니에요', !things('공연을 보러 갔어요.').includes('kite') && things('연을 날렸어요.').includes('kite'));
   check('"기차를 타고"는 기차', things('기차를 타고 갔어요.').includes('train'));
   check('돼지 삼형제 → 돼지 ×3', who('돼지 삼형제가 집을 지었어요.') === '돼지 ×3');
   check('강아지 두 마리 → 강아지 ×2', who('강아지 두 마리가 뛰놀았어요.') === '강아지 ×2');

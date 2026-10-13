@@ -7,9 +7,12 @@ export default async function ({ check, browser, store }) {
   const p = await phone(browser);
   await p.clock.install();
   await p.goto(`${APP}#/s/${ID}`);
-  await p.waitForSelector('[data-act="bedmin"]');
-  check('잠자리 모드는 처음엔 꺼져 있어요', await p.$eval('[data-min="0"]', (b) => b.classList.contains('on')));
-  await p.click('[data-min="15"]');
+  await p.waitForSelector('#bed-min');
+  check('잠자리 모드는 처음엔 꺼져 있어요', (await p.$eval('#bed-min', (x) => x.value)) === '0');
+  check('5분부터 60분까지 5분 단위로 골라요', (await p.$$eval('#bed-min option', (o) => o.map((x) => x.value).join(','))) === '0,5,10,15,20,25,30,35,40,45,50,55,60');
+  await p.click('[data-act="bedstep"][data-d="5"]');
+  check('+ 를 누르면 5분이 돼요', (await p.$eval('#bed-min', (x) => x.value)) === '5');
+  await p.selectOption('#bed-min', '15');
   await shot(p, 'bedtime-start');
   await p.click('[data-act="start"]');
   await p.waitForSelector('.bed-dim-btn');
@@ -29,8 +32,8 @@ export default async function ({ check, browser, store }) {
   check('끝나면 화면이 원래대로 돌아와요', !(await p.evaluate(() => document.documentElement.classList.contains('bedtime'))));
   await shot(p, 'bedtime-end');
   await p.reload();
-  await p.waitForSelector('[data-act="bedmin"]');
-  check('고른 시간을 기억해요', await p.$eval('[data-min="15"]', (b) => b.classList.contains('on')));
+  await p.waitForSelector('#bed-min');
+  check('고른 시간을 기억해요', (await p.$eval('#bed-min', (x) => x.value)) === '15');
   check('오류가 없어요', !p.errors.length, p.errors);
   await p.context().close();
 }

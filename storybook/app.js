@@ -699,6 +699,10 @@ async function recordView(id, idxStr) {
       </div>`,
     })}
     <div class="stepbar"><span style="width:${((i + 1) / pages.length) * 100}%"></span></div>
+    <nav class="page-nav" aria-label="쪽 이동">
+      ${i > 0 ? `<a class="page-nav-btn" data-nav href="#/record/${id}/${i - 1}">${I.prev}<span>${i - 1 === 0 ? '인사말' : `${i - 1}쪽`}</span></a>` : '<span></span>'}
+      ${!last ? `<a class="page-nav-btn" data-nav href="#/record/${id}/${i + 1}"><span>${i + 1}쪽</span>${I.next}</a>` : '<span></span>'}
+    </nav>
     ${inKakao ? `
       <div class="notice">
         <p>카카오톡 안에서는 녹음이 안 될 수 있어요.</p>
@@ -715,6 +719,10 @@ async function recordView(id, idxStr) {
 
   const dock = app.querySelector('#dock');
   const pip = app.querySelector('#pip');
+  // 녹음하는 동안에는 다른 쪽으로 가지 않아요. (녹음이 사라지지 않게)
+  app.querySelector('.page-nav').addEventListener('click', (e) => {
+    if (e.target.closest('[data-nav]') && recorder.active) { e.preventDefault(); toast('녹음을 먼저 멈춰 주세요'); }
+  });
   const camBtn = app.querySelector('#cam-toggle');
   let busy = false;
   let timer = 0;
@@ -1046,7 +1054,9 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
   let alive = true;
   let advanceTimer = 0;
   // 잠자리 모드: 화면을 어둡게 하고, 정한 시간(15·30분) 동안 동화를 되풀이해 들려준 뒤 "잘 자요"로 끝나요.
-  let bedMin = [15, 30].includes(local.get('bedtime')) ? local.get('bedtime') : 0;
+  // 0(끄기) 또는 5~60분 (5분 단위)
+  const okMin = (v) => (Number.isInteger(v) && v >= 0 && v <= 60 && v % 5 === 0 ? v : 0);
+  let bedMin = okMin(local.get('bedtime'));
   let bed = null;   // { until, timer, lock, timeUp }
   const endBed = () => {
     if (!bed) return;
@@ -1081,8 +1091,12 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
         <button class="play-big" data-act="start" aria-label="듣기 시작">${I.play}</button>
         <div class="bed-pick">
           <p class="bed-label">🌙 잠자리 모드 <span>화면을 어둡게 하고 정한 시간 동안 되풀이해 들려줘요</span></p>
-          <div class="seg seg-3" role="radiogroup" aria-label="잠자리 모드">
-            ${[[0, '끄기'], [15, '15분'], [30, '30분']].map(([m, t]) => `<button role="radio" data-act="bedmin" data-min="${m}" class="${bedMin === m ? 'on' : ''}" aria-checked="${bedMin === m}">${t}</button>`).join('')}
+          <div class="bed-row">
+            <button class="bed-step" data-act="bedstep" data-d="-5" aria-label="5분 줄이기">−</button>
+            <select class="bed-select" id="bed-min" aria-label="잠자리 모드 시간">
+              ${[0, ...Array.from({ length: 12 }, (_, k) => (k + 1) * 5)].map((m) => `<option value="${m}"${bedMin === m ? ' selected' : ''}>${m ? `${m}분` : '끄기'}</option>`).join('')}
+            </select>
+            <button class="bed-step" data-act="bedstep" data-d="5" aria-label="5분 늘리기">+</button>
           </div>
         </div>
       </div>`;
@@ -1203,12 +1217,15 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
     }
   }
 
+  stage.addEventListener('change', (e) => {
+    if (e.target.id === 'bed-min') { bedMin = okMin(Number(e.target.value)); local.set('bedtime', bedMin); }
+  });
   stage.addEventListener('click', (e) => {
     const act = e.target.closest('[data-act]')?.dataset.act;
-    if (act === 'bedmin') {
-      bedMin = Number(e.target.closest('[data-min]').dataset.min);
+    if (act === 'bedstep') {
+      bedMin = okMin(Math.min(60, Math.max(0, bedMin + Number(e.target.closest('[data-d]').dataset.d))));
       local.set('bedtime', bedMin);
-      stage.querySelectorAll('[data-act="bedmin"]').forEach((b) => { const on = Number(b.dataset.min) === bedMin; b.classList.toggle('on', on); b.setAttribute('aria-checked', String(on)); });
+      stage.querySelector('#bed-min').value = String(bedMin);
       return;
     }
     if (act === 'dim') {

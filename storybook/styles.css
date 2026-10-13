@@ -800,3 +800,18 @@ html.bedtime .listen-text { font-size: 20px; }
 .screen-shelf .sub { margin-bottom: 18px; }
 .shelf-new { outline: 2px solid var(--accent); }
 .shelf-new b { color: var(--accent-text); }
+
+/* 녹음 화면: 앞뒤 쪽 이동 */
+.page-nav { display: flex; justify-content: space-between; margin: 10px 0 2px; }
+.page-nav-btn {
+  display: inline-flex; align-items: center; gap: 4px; height: 44px; padding: 0 14px; border-radius: 22px;
+  background: var(--fill); color: var(--text-2); font-size: 16px; font-weight: 700;
+}
+.page-nav-btn svg { width: 20px; height: 20px; }
+/* 잠자리 모드 시간 (5~60분) */
+.bed-row { display: flex; align-items: center; gap: 8px; }
+.bed-step { width: 56px; height: 56px; border-radius: 18px; background: var(--fill); font-size: 28px; font-weight: 700; color: var(--text); }
+.bed-select {
+  flex: 1; height: 56px; padding: 0 16px; border-radius: 18px; border: 0; background: var(--fill); color: var(--text);
+  font: inherit; font-size: 20px; font-weight: 700; text-align: center; text-align-last: center; appearance: none; -webkit-appearance: none;
+}
