@@ -786,3 +786,17 @@ html.bedtime .listen-text { font-size: 20px; }
 }
 .bed-dim span { font-size: 40px; opacity: .35; }
 .bed-dim small { font-size: 13px; }
+
+/* ---------- 가족 책장 ---------- */
+.shelf-row {
+  display: flex; align-items: center; gap: 14px; width: 100%; margin: 4px 0 14px; padding: 14px 16px;
+  border-radius: 18px; background: var(--surface); box-shadow: var(--shadow); text-align: left; font-size: 14px; color: var(--text-2); line-height: 1.5;
+}
+.shelf-row > span:first-child { font-size: 28px; }
+.shelf-row b { font-size: 16px; color: var(--text); }
+.shelf-row .chev { margin-left: auto; }
+.shelf-note { display: block; margin-top: 10px; font-size: 14px; color: var(--accent-text); }
+.screen-shelf .title-xl { margin-top: 8px; }
+.screen-shelf .sub { margin-bottom: 18px; }
+.shelf-new { outline: 2px solid var(--accent); }
+.shelf-new b { color: var(--accent-text); }

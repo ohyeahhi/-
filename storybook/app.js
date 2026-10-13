@@ -1,6 +1,6 @@
 import { STORIES, getStory as getBuiltin } from './stories.js';
 import * as db from './db.js';
-import { shareEnabled, uploadShare, fetchShare, publicUrl, uploadReply, fetchReplies } from './share.js';
+import { shareEnabled, uploadShare, fetchShare, publicUrl, uploadReply, fetchReplies, newShelfId, addToShelf, fetchShelf } from './share.js';
 import * as mine from './mystories.js';
 import * as memo from './memories.js';
 import { describe } from './composer.js';
@@ -236,13 +236,29 @@ function sendLink(story, shareId) {
   sheet({
     icon: '💌',
     title: '링크가 준비됐어요',
-    body: `카톡이나 문자로 보내면 앱 설치 없이<br>링크만 눌러서 바로 들을 수 있어요.<span class="link-box">${esc(url)}</span>`,
+    body: `카톡이나 문자로 보내면 앱 설치 없이<br>링크만 눌러서 바로 들을 수 있어요.<span class="link-box">${esc(url)}</span>${local.get('shelfId') ? '<span class="shelf-note">📚 이 동화는 가족 책장에도 들어갔어요</span>' : ''}`,
     secondary: navigator.share ? '링크 복사' : '',
     primary: navigator.share ? '카톡·문자로 보내기' : '링크 복사하기',
     onSecondary: () => copyText(url),
     // navigator.share는 버튼을 누른 그 순간에 불러야 열려요 (await 없이)
     onPrimary: () => (navigator.share
       ? navigator.share({ title: story.title, text, url }).catch(() => {})
+      : copyText(url)),
+  });
+}
+
+function sendShelf() {
+  const url = shelfUrl(shelfId());
+  const text = `${who()}가 ${kidTo()} 읽어 준 동화를 모아 둔 책장이에요 📚 새 동화가 생기면 여기에 들어가요.`;
+  sheet({
+    icon: '📚',
+    title: '가족 책장 링크',
+    body: `지금까지 보낸 동화와 앞으로 보낼 동화가 모두 이 링크 하나에 모여요. 손주 집에 한 번만 보내 두세요.<span class="link-box">${esc(url)}</span>`,
+    secondary: navigator.share ? '링크 복사' : '',
+    primary: navigator.share ? '카톡·문자로 보내기' : '링크 복사하기',
+    onSecondary: () => copyText(url),
+    onPrimary: () => (navigator.share
+      ? navigator.share({ title: '가족 책장', text, url }).catch(() => {})
       : copyText(url)),
   });
 }
@@ -307,6 +323,14 @@ function askUploadConsent(recorded) {
 }
 
 // 녹음을 올리고 공유 ID 를 돌려줘요. 실패하면 다시 시도할지 묻고, 그만두면 null.
+// 가족 책장: 이 휴대폰에서 보낸 동화를 링크 하나로 모아 보여 줘요. 처음 보낼 때 책장 ID를 만들어요.
+const shelfId = () => {
+  let id = local.get('shelfId');
+  if (!/^[a-z0-9]{12}$/.test(id || '')) { id = newShelfId(); local.set('shelfId', id); }
+  return id;
+};
+const shelfUrl = (id) => `${appBase()}#/shelf/${id}`;
+
 async function uploadWithProgress(story, recorded) {
   if (!(await askUploadConsent(recorded))) return null;
   await new Promise((r) => setTimeout(r, 280));
@@ -325,6 +349,7 @@ async function uploadWithProgress(story, recorded) {
         storyId: story.id,
         role: profile?.role || 'grandma',
         kid: kidName(),
+        shelf: shelfId(),
         ...(story.custom ? { custom: { title: story.title, ...(story.memoir ? { memoir: true } : {}), pages: story.pages.map(({ text, seed, noCast, ask }) => ({ text, seed, ...(noCast ? { noCast: true } : {}), ...(ask ? { ask } : {}) })) } } : {}),
       },
       recorded.map(({ i, blob }) => ({ i, blob })),
@@ -334,6 +359,8 @@ async function uploadWithProgress(story, recorded) {
     // 보낸 링크는 모두 기억해요. 고쳐서 다시 보내도 예전 링크로 온 답장을 놓치지 않게.
     local.set('sentShares', [{ id: shareId, story: story.id, at: Date.now() }, ...(local.get('sentShares') || [])].slice(0, 30));
     track('share', { story: story.id, shareId, n: recorded.length });
+    // 책장에 더하기는 실패해도 링크 보내기는 그대로 돼요.
+    await addToShelf(shelfId(), { shareId, storyId: story.id, title: story.title, at: new Date().toISOString(), ...(story.custom ? { cover: { text: story.pages[0].text, seed: story.pages[0].seed || 0, noCast: Boolean(story.pages[0].noCast) } } : {}) }).catch(() => {});
     close();
     await new Promise((r) => setTimeout(r, 280));
     return shareId;
@@ -518,6 +545,7 @@ async function homeView() {
     <div id="reply-slot"></div>
     ${resume}
     ${memoryCard()}
+    <div id="shelf-slot"></div>
     <h2 class="section-label">우리 옛이야기</h2>
     ${STORIES.filter((s) => s.origin === 'korean').map(card).join('')}
     <h2 class="section-label">세계 명작</h2>
@@ -538,6 +566,11 @@ async function homeView() {
     </div>
     ${footerHTML()}
   `, 'screen-home');
+  const shelfSlot = app.querySelector('#shelf-slot');
+  if (shelfSlot && local.get('shelfId') && shareEnabled()) {
+    shelfSlot.innerHTML = `<button class="shelf-row" id="send-shelf"><span>📚</span><span><b>가족 책장 링크 보내기</b><br>보낸 동화가 링크 하나에 모여요</span><span class="chev">${I.chevron}</span></button>`;
+    shelfSlot.querySelector('#send-shelf').addEventListener('click', sendShelf);
+  }
   const replies = await loadReplies();
   const fresh = unheardReplies(replies);
   const slot = app.querySelector('#reply-slot');
@@ -941,7 +974,8 @@ async function sharedView(shareId, page) {
     list,
     reader: whoOf(manifest.role),
     kid: (manifest.kid || '').trim(),
-    endExtra: `${shareEnabled() ? `<button class="btn btn-secondary full" data-act="reply">🎤 ${whoOf(manifest.role)}께 답장 보내기</button>` : ''}
+    endExtra: `${/^[a-z0-9]{12}$/.test(manifest.shelf || '') ? `<a class="btn btn-secondary full" href="#/shelf/${manifest.shelf}">📚 ${whoOf(manifest.role)} 책장에서 다른 동화 보기</a>` : ''}
+      ${shareEnabled() ? `<button class="btn btn-secondary full" data-act="reply">🎤 ${whoOf(manifest.role)}께 답장 보내기</button>` : ''}
       <a class="keep-link" href="#/keep/${shareId}">🔒 이 목소리 오래 간직하기<span>${I.chevron}</span></a>
       <a class="btn btn-secondary full" href="#/about" data-act="invite">우리 가족도 만들어 보기</a>`,
     startAt: Number(page) || 0,
@@ -1825,6 +1859,56 @@ function notFound() {
   `);
 }
 
+/* ---------- 화면: 가족 책장 (손주 쪽) ---------- */
+// 할머니·할아버지가 보낸 동화를 모아 보여 줘요. 처음 본 뒤에 들어온 동화에는 "새 동화" 표시를 달아요.
+async function shelfView(id) {
+  render(`
+    ${topbar()}
+    <div id="shelf"><div class="loading"><span class="spinner"></span><p class="sub">책장을 열고 있어요</p></div></div>
+  `, 'screen-shelf');
+  const entries = await fetchShelf(id).catch(() => null);
+  const box = app.querySelector('#shelf');
+  if (!box) return;
+  if (!entries?.length) {
+    box.innerHTML = `<div class="celebrate"><div class="celebrate-badge">📚</div>
+      <h1 class="title-lg">${entries ? '아직 책장이 비어 있어요' : '책장을 열 수 없어요'}</h1>
+      <p class="sub">${entries ? '동화를 보내면 여기에 모여요.' : '주소가 정확한지 보낸 분께 확인해 주세요.'}</p></div>`;
+    return;
+  }
+  // 같은 동화를 고쳐서 다시 보냈으면 가장 최근 것만 보여 줘요.
+  const latest = new Map();
+  for (const e of entries) latest.set(e.storyId, e);
+  const list = [...latest.values()].sort((a, b) => b.n - a.n);
+  const seenKey = `shelfSeen:${id}`;
+  const seen = Number(local.get(seenKey)) || 0;
+  const first = entries[0];
+  const head = await fetchShare(first.shareId).catch(() => null);
+  const reader = head ? whoOf(head.role) : '할머니';
+  const kid = (head?.kid || '').trim();
+  box.innerHTML = `
+    <h1 class="title-xl">${reader}의 동화 책장</h1>
+    <p class="sub">${kid ? `${esc(toOf(kid))} 들려주려고 ` : ''}${reader}가 읽어 준 동화 ${list.length}편이에요.</p>
+    ${list.map((e) => {
+      const s = getBuiltin(e.storyId);
+      // 직접 지은 이야기는 첫 장면 글로 표지 그림을 그려요.
+      const c = !s && typeof e.cover?.text === 'string' ? e.cover : null;
+      const cover = s ? coverHTML(s)
+        : c ? `<div class="cover"><img src="${mine.pageImage(c.text.slice(0, 200), Number(c.seed) || 0, Boolean(c.noCast))}" alt=""></div>`
+          : '<div class="cover" style="--c1:#FFE7A8;--c2:#FFC9A8"><span>📖</span></div>';
+      const fresh = seen && e.n > seen;
+      return `
+      <a class="story-card${fresh ? ' shelf-new' : ''}" href="#/s/${e.shareId}">
+        ${cover}
+        <div class="story-card-body">
+          <div class="story-card-title">${esc(e.title || s?.title || '동화')}</div>
+          <div class="story-card-meta">${fresh ? '<b>새 동화</b> · ' : ''}${dateKo(new Date(e.at))}</div>
+        </div>
+        <span class="chev">${I.chevron}</span>
+      </a>`;
+    }).join('')}`;
+  local.set(seenKey, Math.max(...entries.map((e) => e.n)));
+}
+
 /* ---------- 화면: 추억 질문 ---------- */
 // 하루 하나씩 질문에 답하면 장면이 하나씩 쌓여서 "옛날 이야기" 책이 돼요.
 const memoirTitle = () => `${who()}의 옛날 이야기`;
@@ -2062,6 +2146,7 @@ const routes = [
   [/^#\/policy\/(terms|privacy|refund)$/, policyView],
   [/^#\/about$/, aboutView],
   [/^#\/replies$/, repliesView],
+  [/^#\/shelf\/([a-z0-9]{12})$/, shelfView],
   [/^#\/memory(?:\/([\w-]+))?$/, memoryView],
   [/^#\/keep\/([a-z0-9]{12})$/, keepView],
   [/^#\/flyer\/([a-z0-9-]{2,20})$/, flyerView],
@@ -2075,7 +2160,7 @@ async function route() {
   if (/[?&]pay=/.test(location.search)) { await payReturnView(); return; }
   const hash = location.hash || '#/';
   // 공유 링크(#/s/…)는 처음 설정 없이 바로 열려요.
-  const open = ['#/s/', '#/print/', '#/policy/', '#/about', '#/keep/', '#/flyer/'].some((p) => hash.startsWith(p));
+  const open = ['#/s/', '#/shelf/', '#/print/', '#/policy/', '#/about', '#/keep/', '#/flyer/'].some((p) => hash.startsWith(p));
   if (!profile && hash !== '#/welcome' && !open) {
     location.replace('#/welcome');
     return;

@@ -98,3 +98,33 @@ export async function fetchReplies(id) {
   }
   return out;
 }
+
+// 가족 책장: <책장ID>/s-1.json … s-30.json 에 보낸 동화를 하나씩 더해요. (목록 보기 없이 번호로 찾아요)
+// 책장 ID도 공유 ID와 같은 모양이라, 마지막으로 더한 날부터 1년 보관돼요. (cleanup 함수)
+export const SHELF_MAX = 30;
+export const newShelfId = () => newShareId();
+
+export async function addToShelf(shelfId, entry) {
+  if (!ID_RE.test(shelfId) || !shareEnabled()) throw new Error('bad shelf');
+  for (let n = 1; n <= SHELF_MAX; n++) {
+    try {
+      await upload(`${shelfId}/s-${n}.json`, JSON.stringify(entry), 'application/json');
+      return n;
+    } catch (e) {
+      if (!e.taken) throw e;
+    }
+  }
+  throw Object.assign(new Error('shelf full'), { full: true });
+}
+
+export async function fetchShelf(shelfId) {
+  if (!ID_RE.test(shelfId) || !shareEnabled()) throw new Error('bad shelf');
+  const out = [];
+  for (let n = 1; n <= SHELF_MAX; n++) {
+    const res = await fetch(publicUrl(shelfId, `s-${n}.json`), { cache: 'no-store' }).catch(() => null);
+    if (!res?.ok) break;
+    const e = await res.json().catch(() => null);
+    if (e && ID_RE.test(e.shareId || '')) out.push({ ...e, n });
+  }
+  return out;
+}
