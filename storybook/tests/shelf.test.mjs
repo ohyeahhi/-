@@ -54,7 +54,7 @@ export default async function ({ check, browser }) {
   check('책장에서 누르면 그 동화가 열려요', (await m.textContent('.title-xl')).includes('눈사람'));
   await m.click('[data-act="start"]');
   await m.waitForSelector('a[href^="#/shelf/"]', { timeout: 20000 });
-  check('동화 끝 화면에서 책장으로 돌아갈 수 있어요', (await m.textContent('a[href^="#/shelf/"]')).includes('할아버지 책장'));
+  check('동화 끝 화면에서 책장으로 돌아갈 수 있어요', (await m.textContent('a[href^="#/shelf/"]')).includes('가족 책장'));
   await m.goto(`${APP}#/shelf/zzzzzzzzzzzz`);
   await m.waitForSelector('.title-lg');
   check('없는 책장은 안내가 나와요', (await m.textContent('.title-lg')).includes('비어 있어요') || (await m.textContent('.title-lg')).includes('열 수 없어요'));

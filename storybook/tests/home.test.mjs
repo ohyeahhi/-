@@ -4,6 +4,7 @@ import { APP, phone, signedIn, recordPages, shot } from './harness.mjs';
 export default async function ({ check, browser }) {
   const p = await phone(browser);
   await signedIn(p, { role: 'grandma', kid: '하은' }, { faceVideo: false });
+  await p.waitForSelector('.section-label');
   const labels = await p.$$eval('.section-label', (e) => e.map((x) => x.textContent.trim()));
   check('동화를 "우리 옛이야기"와 "세계 명작"으로 나눠 보여요', labels.includes('우리 옛이야기') && labels.includes('세계 명작'), labels);
   check('처음엔 이어서 녹음하기가 없어요', !(await p.$('.resume-card')));

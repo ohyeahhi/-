@@ -37,16 +37,15 @@ export function track(name, { story, shareId, n, meta } = {}) {
   });
   try {
     // keepalive: 화면을 닫는 순간에도 보내져요.
-    fetch(`${CONFIG.supabaseUrl.replace(/\/+$/, '')}/rest/v1/events`, { method: 'POST', headers, body, keepalive: true }).catch(() => {});
+    return fetch(`${CONFIG.supabaseUrl.replace(/\/+$/, '')}/rest/v1/events`, { method: 'POST', headers, body, keepalive: true }).then((r) => r.ok).catch(() => false);
   } catch { /* 통계는 없어도 돼요 */ }
 }
 
 // 하루에 한 번만 "열었어요"를 남겨요.
 export function trackOpen() {
-  try {
-    const today = new Date().toISOString().slice(0, 10);
-    if (localStorage.getItem('openedOn') === today) return;
-    localStorage.setItem('openedOn', today);
-  } catch { /* 사생활 보호 모드 */ }
-  track('open', { meta: { standalone: matchMedia('(display-mode: standalone)').matches, kakao: /KAKAOTALK/i.test(navigator.userAgent) } });
+  const today = new Date().toISOString().slice(0, 10);
+  try { if (localStorage.getItem('openedOn') === today) return; } catch { /* 사생활 보호 모드 */ }
+  // 보내진 뒤에만 "오늘 보냄"으로 적어요. (바로 다른 화면으로 가서 끊기면 다음에 다시 보내요)
+  Promise.resolve(track('open', { meta: { standalone: matchMedia('(display-mode: standalone)').matches, kakao: /KAKAOTALK/i.test(navigator.userAgent) } }))
+    .then((ok) => { if (ok) try { localStorage.setItem('openedOn', today); } catch { /* 사생활 보호 모드 */ } });
 }

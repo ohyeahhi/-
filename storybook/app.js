@@ -59,21 +59,30 @@ const hasBatchim = (w) => {
 };
 const whoOf = (role) => (role === 'grandpa' ? '할아버지' : '할머니');
 // 하은 → 하은이에게 / 민서 → 민서에게
-const toOf = (n) => (!n ? '손주에게' : hasBatchim(n) ? `${n}이에게` : `${n}에게`);
+const toOf = (n) => (!n ? '아이에게' : hasBatchim(n) ? `${n}이에게` : `${n}에게`);
 // 하은 → 하은아 / 민서 → 민서야
 const callOf = (n) => (!n ? '' : hasBatchim(n) ? `${n}아` : `${n}야`);
-const who = () => whoOf(profile?.role);
+// 들려주는 사람: 처음 화면에서 고른 "내 이름"(예: 예림이모, 삼촌). 없으면 할머니/할아버지.
+// 이름은 글자·숫자·빈칸만 남겨요 (화면에 그대로 넣어도 안전하게).
+const cleanName = (n) => String(n || '').replace(/[^가-힣a-zA-Z0-9 ]/g, '').replace(/\s+/g, ' ').trim().slice(0, 10);
+const readerOf = (o) => cleanName(o?.name) || whoOf(o?.role);
+const who = () => readerOf(profile);
+// 받침에 따라 붙는 말: 삼촌이 / 이모가, 삼촌이야 / 이모야
+const ga = (n) => `${n}${hasBatchim(n) ? '이' : '가'}`;
+const ya = (n) => `${n}${hasBatchim(n) ? '이야' : '야'}`;
+const EMOJIS = ['👵', '👴', '👩', '👨', '👩‍🦰', '🧔', '👱‍♀️', '👱', '🧑', '👧', '👦', '🐻', '🐰', '🌷', '⭐', '💛'];
+const emojiOf = (o) => (EMOJIS.includes(o?.emoji) ? o.emoji : o?.role === 'grandpa' ? '👴' : '👵');
 const kidName = () => (profile?.kid || '').trim();
 const kidTo = () => toOf(kidName());
 
 // 모든 동화의 첫 쪽은 손주에게 건네는 인사말이에요.
 // 공유 링크로 열면 보낸 사람의 이름 정보(role, kid)로 그려요.
-const pagesOf = (story, role = profile?.role, kid = kidName()) => [
+const pagesOf = (story, reader = who(), kid = kidName()) => [
   {
     intro: true,
     image: 'img/intro.svg',
     text: `${toOf(kid)} 인사를 건네주세요`,
-    hint: `예) ${callOf(kid) ? `${callOf(kid)}, ` : ''}${whoOf(role)}야. 오늘은 ‘${story.title}’ 이야기를 들려줄게.`,
+    hint: `예) ${callOf(kid) ? `${callOf(kid)}, ` : ''}${ya(reader)}. 오늘은 ‘${story.title}’ 이야기를 들려줄게.`,
   },
   ...story.pages,
 ];
@@ -83,6 +92,9 @@ const askHTML = (p) => (p.ask ? `<span class="ask">Q. ${esc(p.ask)}</span>` : ''
 const recordedSet = async () => new Set(await db.keys().catch(() => []));
 
 /* ---------- 화면 정리 ---------- */
+// 화면을 그리기 전에 기다리는 사이 다른 화면으로 갔으면, 늦게 끝난 화면은 그리지 않아요.
+let navSeq = 0;
+const stillHere = () => { const n = navSeq; return () => n === navSeq; };
 let disposers = [];
 const onDispose = (fn) => disposers.push(fn);
 function dispose() {
@@ -235,8 +247,13 @@ function speakTTS(text) {
 
 // 안내 파일이 있는지는 미리 알아 둬요. (아이폰은 버튼을 누른 그 순간에만 소리를 낼 수 있어서, 누른 뒤 기다렸다 고르면 막혀요)
 const guideFiles = new Set();
-for (const key of ['intro-grandma', 'intro-grandpa', 'page-grandma', 'page-grandpa']) {
-  fetch(`audio/guide/${key}.mp3`, { method: 'HEAD' }).then((r) => { if (r.ok) guideFiles.add(key); }).catch(() => {});
+let guideChecked = false;
+function checkGuideFiles() {   // 녹음 화면에 처음 들어올 때 한 번만 확인해요
+  if (guideChecked) return;
+  guideChecked = true;
+  for (const key of ['intro-grandma', 'intro-grandpa', 'page-grandma', 'page-grandpa']) {
+    fetch(`audio/guide/${key}.mp3`, { method: 'HEAD' }).then((r) => { if (r.ok) guideFiles.add(key); }).catch(() => {});
+  }
 }
 
 function speak(text, key) {
@@ -269,7 +286,7 @@ async function copyText(text) {
 
 function sendLink(story, shareId) {
   const url = shareUrl(shareId);
-  const text = `${who()}가 ${kidTo()} 들려주는 ‘${story.title}’ 동화예요 💛`;
+  const text = `${ga(who())} ${kidTo()} 들려주는 ‘${story.title}’ 동화예요 💛`;
   sheet({
     icon: '💌',
     title: '링크가 준비됐어요',
@@ -286,7 +303,7 @@ function sendLink(story, shareId) {
 
 function sendShelf() {
   const url = shelfUrl(shelfId());
-  const text = `${who()}가 ${kidTo()} 읽어 준 동화를 모아 둔 책장이에요 📚 새 동화가 생기면 여기에 들어가요.`;
+  const text = `${ga(who())} ${kidTo()} 읽어 준 동화를 모아 둔 책장이에요 📚 새 동화가 생기면 여기에 들어가요.`;
   sheet({
     icon: '📚',
     title: '가족 책장 링크',
@@ -386,6 +403,8 @@ async function uploadWithProgress(story, recorded) {
       {
         storyId: story.id,
         role: profile?.role || 'grandma',
+        name: who(),
+        emoji: emojiOf(profile),
         kid: kidName(),
         shelf: shelfId(),
         ...(story.custom ? { custom: { title: story.title, ...(story.memoir ? { memoir: true } : {}), pages: story.pages.map(({ text, seed, noCast, ask }) => ({ text, seed, ...(noCast ? { noCast: true } : {}), ...(ask ? { ask } : {}) })) } } : {}),
@@ -398,7 +417,7 @@ async function uploadWithProgress(story, recorded) {
     local.set('sentShares', [{ id: shareId, story: story.id, at: Date.now() }, ...(local.get('sentShares') || [])].slice(0, 30));
     track('share', { story: story.id, shareId, n: recorded.length });
     // 책장에 더하기는 실패해도 링크 보내기는 그대로 돼요. 결과는 보내기 화면에 알려 줘요.
-    lastShelfAdd = await addToShelf(shelfId(), { shareId, storyId: story.id, title: story.title, at: new Date().toISOString(), ...(story.custom ? { cover: { text: story.pages[0].text, seed: story.pages[0].seed || 0, noCast: Boolean(story.pages[0].noCast) } } : {}) })
+    lastShelfAdd = await addToShelf(shelfId(), { by: { name: who(), emoji: emojiOf(profile) }, shareId, storyId: story.id, title: story.title, at: new Date().toISOString(), ...(story.custom ? { cover: { text: story.pages[0].text, seed: story.pages[0].seed || 0, noCast: Boolean(story.pages[0].noCast) } } : {}) })
       .then(() => { local.set('shelfOk', true); return 'ok'; })
       .catch((e) => (e.full ? 'full' : 'fail'));
     // 1년권 기간이면 서버가 (서명된 책장 항목을 확인하고) 10년 보관으로 올려요.
@@ -463,23 +482,37 @@ function render(html, cls = '') {
 }
 
 /* ---------- 화면: 처음 설정 ---------- */
+// 처음 화면에서 고르는 "저는": 할머니·할아버지뿐 아니라 아이의 여러 가족이 쓸 수 있어요.
+const PRESETS = [
+  ['grandma', '할머니', '👵'], ['grandpa', '할아버지', '👴'], ['family', '엄마', '👩'], ['family', '아빠', '👨'],
+  ['family', '이모', '👩‍🦰'], ['family', '고모', '👱‍♀️'], ['family', '삼촌', '🧔'], ['family', '숙모', '🧑'],
+];
 function welcomeView() {
   let role = profile?.role || 'grandma';
+  let name = who();
+  let emoji = emojiOf(profile);
   render(`
     ${topbar({ back: profile ? '#/' : '' })}
     <div class="welcome">
       <img class="app-mark" src="icons/icon.svg" alt="" width="64" height="64">
-      <h1 class="title-xl">손주에게<br>내 목소리로<br>동화를 들려주세요</h1>
+      <h1 class="title-xl">아이에게<br>내 목소리로<br>동화를 들려주세요</h1>
       <p class="sub">녹음은 이 휴대폰에만 저장돼요.</p>
 
       <span class="label">저는</span>
-      <div class="choice-grid" role="radiogroup">
-        <button class="choice" role="radio" data-role="grandma"><span class="choice-emoji">👵</span>할머니</button>
-        <button class="choice" role="radio" data-role="grandpa"><span class="choice-emoji">👴</span>할아버지</button>
+      <div class="preset-grid" role="radiogroup" aria-label="저는">
+        ${PRESETS.map(([r, n, e]) => `<button class="preset" role="radio" data-role="${r}" data-name="${n}" data-emoji="${e}"><span>${e}</span>${n}</button>`).join('')}
       </div>
 
-      <label class="label" for="kid">손주 이름 <span class="opt">선택</span></label>
-      <input id="kid" class="input" placeholder="예) 하은" maxlength="10" autocomplete="off" value="${esc(kidName())}">
+      <label class="label" for="my-name">내 이름 <span class="opt">아이에게 이렇게 보여요</span></label>
+      <input id="my-name" class="input" placeholder="예) 예림이모, 큰삼촌, 할머니" maxlength="10" autocomplete="off" value="${esc(name)}">
+
+      <span class="label">내 얼굴 이모지</span>
+      <div class="emoji-row" role="radiogroup" aria-label="이모지">
+        ${EMOJIS.map((e) => `<button class="emoji-pick" role="radio" data-emoji="${e}" aria-label="${e}">${e}</button>`).join('')}
+      </div>
+
+      <label class="label" for="kid">아이 이름 <span class="opt">선택</span></label>
+      <input id="kid" class="input" placeholder="예) 예빈" maxlength="10" autocomplete="off" value="${esc(kidName())}">
 
       <span class="label">글씨 크기</span>
       <div class="seg" role="radiogroup" id="text-size">
@@ -489,15 +522,31 @@ function welcomeView() {
     </div>
     <div class="cta-bar"><button class="btn btn-primary" id="go">${profile ? '저장하기' : '시작하기'}</button></div>
   `);
-  const sync = () => app.querySelectorAll('.choice').forEach((b) => {
-    const on = b.dataset.role === role;
-    b.classList.toggle('on', on);
-    b.setAttribute('aria-checked', on);
-  });
+  const nameInput = app.querySelector('#my-name');
+  const sync = () => {
+    app.querySelectorAll('.preset').forEach((b) => {
+      const on = b.dataset.name === name;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-checked', on);
+    });
+    app.querySelectorAll('.emoji-pick').forEach((b) => {
+      const on = b.dataset.emoji === emoji;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-checked', on);
+    });
+  };
   sync();
-  app.querySelector('.choice-grid').addEventListener('click', (e) => {
+  app.querySelector('.preset-grid').addEventListener('click', (e) => {
     const b = e.target.closest('[data-role]');
-    if (b) { role = b.dataset.role; sync(); }
+    if (!b) return;
+    ({ role, name, emoji } = b.dataset);
+    nameInput.value = name;
+    sync();
+  });
+  nameInput.addEventListener('input', () => { name = cleanName(nameInput.value); sync(); });
+  app.querySelector('.emoji-row').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-emoji]');
+    if (b) { emoji = b.dataset.emoji; sync(); }
   });
   // 글씨 크기: 누르는 순간 화면에 바로 보여요.
   const sizeSync = () => app.querySelectorAll('#text-size [data-size]').forEach((b) => {
@@ -514,8 +563,11 @@ function welcomeView() {
     sizeSync();
   });
   app.querySelector('#go').addEventListener('click', () => {
+    const finalName = cleanName(nameInput.value) || (role === 'grandpa' ? '할아버지' : '할머니');
+    // 할아버지 계열 이름이면 남자 목소리 안내 파일을 쓰도록 role 을 맞춰요.
+    if (role === 'family' && /할아버지/.test(finalName)) role = 'grandpa';
     if (!profile) track('start', { meta: { role, kid: Boolean(app.querySelector('#kid').value.trim()) } });
-    profile = { role, kid: app.querySelector('#kid').value.trim() };
+    profile = { role, name: finalName, emoji, kid: app.querySelector('#kid').value.trim() };
     local.set('profile', profile);
     location.hash = '#/';
   });
@@ -536,7 +588,9 @@ function memoryCard() {
 }
 
 async function homeView() {
+  const here = stillHere();
   const rec = await recordedSet();
+  if (!here()) return;
   const card = (s) => {
     const pages = pagesOf(s);
     const n = pages.filter((_, i) => rec.has(keyOf(s.id, i))).length;
@@ -627,10 +681,12 @@ async function homeView() {
 
 /* ---------- 화면: 동화 상세 ---------- */
 async function storyView(id) {
+  const here = stillHere();
   const s = getStory(id);
   if (!s) return notFound();
   const pages = pagesOf(s);
   const rec = await recordedSet();
+  if (!here()) return;
   const has = (i) => rec.has(keyOf(id, i));
   const n = pages.filter((_, i) => has(i)).length;
   const firstMissing = pages.findIndex((_, i) => !has(i));
@@ -681,6 +737,8 @@ async function storyView(id) {
 
 /* ---------- 화면: 녹음 ---------- */
 async function recordView(id, idxStr) {
+  const here = stillHere();
+  checkGuideFiles();
   const s = getStory(id);
   const pages = s && pagesOf(s);
   const i = Number(idxStr);
@@ -689,6 +747,7 @@ async function recordView(id, idxStr) {
   const key = keyOf(id, i);
   const last = i === pages.length - 1;
   const rec = await recordedSet();
+  if (!here()) return;
 
   render(`
     ${topbar({
@@ -1013,7 +1072,7 @@ async function sharedView(shareId, page) {
       </div>`;
     return;
   }
-  const pages = pagesOf(s, manifest.role, manifest.kid || '');
+  const pages = pagesOf(s, readerOf(manifest), manifest.kid || '');
   const list = manifest.pages
     .filter((f) => pages[f.i])
     .map((f) => ({
@@ -1025,17 +1084,17 @@ async function sharedView(shareId, page) {
   mountPlayer(stage, {
     story: s,
     list,
-    reader: whoOf(manifest.role),
+    reader: readerOf(manifest),
     kid: (manifest.kid || '').trim(),
-    endExtra: `${/^[a-z0-9]{12}$/.test(manifest.shelf || '') ? `<a class="btn btn-secondary full" href="#/shelf/${manifest.shelf}">📚 ${whoOf(manifest.role)} 책장에서 다른 동화 보기</a>` : ''}
-      ${shareEnabled() ? `<button class="btn btn-secondary full" data-act="reply">🎤 ${whoOf(manifest.role)}께 답장 보내기</button>` : ''}
+    endExtra: `${/^[a-z0-9]{12}$/.test(manifest.shelf || '') ? `<a class="btn btn-secondary full" href="#/shelf/${manifest.shelf}">📚 우리 가족 책장에서 다른 동화 보기</a>` : ''}
+      ${shareEnabled() ? `<button class="btn btn-secondary full" data-act="reply">🎤 ${readerOf(manifest)}께 답장 보내기</button>` : ''}
       <a class="keep-link" href="#/keep/${shareId}">🔒 이 목소리 오래 간직하기<span>${I.chevron}</span></a>
       <a class="btn btn-secondary full" href="#/about" data-act="invite">우리 가족도 만들어 보기</a>`,
     startAt: Number(page) || 0,
     shareId,
   });
   stage.addEventListener('click', (e) => {
-    if (e.target.closest('[data-act="reply"]')) replySheet(shareId, whoOf(manifest.role), (manifest.kid || '').trim(), s.id);
+    if (e.target.closest('[data-act="reply"]')) replySheet(shareId, readerOf(manifest), (manifest.kid || '').trim(), s.id);
   });
   // 무료 보관이 60일 안에 끝나면 위에 알려 줘요.
   const freeUntil = freeKeepUntil(manifest);
@@ -1086,7 +1145,7 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
     stage.innerHTML = `
       <div class="listen-start">
         ${coverHTML(s, 'cover-xl')}
-        <p class="eyebrow">${reader}가 읽어주는${first > 0 && list[first].n ? ` · ${list[first].n}쪽부터` : ''}</p>
+        <p class="eyebrow">${ga(reader)} 읽어주는${first > 0 && list[first].n ? ` · ${list[first].n}쪽부터` : ''}</p>
         <h1 class="title-xl">${esc(s.title)}</h1>
         ${kid ? `<p class="sub">${esc(toOf(kid))}</p>` : ''}
         <button class="play-big" data-act="start" aria-label="듣기 시작">${I.play}</button>
@@ -1109,7 +1168,7 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
       <div class="listen-start bed-end">
         <div class="celebrate-badge">🌙</div>
         <h1 class="title-xl">잘 자요${kid ? `, ${esc(callOf(kid) || kid)}` : ''}</h1>
-        <p class="sub">${reader}가 꿈에서도 이야기해 줄 거예요.</p>
+        <p class="sub">${ga(reader)} 꿈에서도 이야기해 줄 거예요.</p>
         <div class="end-actions"><button class="btn btn-secondary full" data-act="again">한 번 더 듣기</button></div>
       </div>`;
   };
@@ -1304,7 +1363,7 @@ function editorView(editId) {
 
   render(`
     ${topbar({ back: editId ? `#/story/${editId}` : '#/', title: editId ? '이야기 고치기' : '새 이야기' })}
-    <h1 class="title-lg">${editId ? '이야기를 고쳐 보세요' : `${who()}가 지은 이야기를<br>들려주세요`}</h1>
+    <h1 class="title-lg">${editId ? '이야기를 고쳐 보세요' : `${ga(who())} 지은 이야기를<br>들려주세요`}</h1>
     <p class="sub">장면마다 두세 문장씩 적으면 글에 맞는 그림이 저절로 그려져요. 누가(할머니·손녀·강아지·곰·오리…), 어디서(집·숲·바다·부엌…), 언제(밤·비 오는 날·겨울…), 무엇을(사과를 따 먹었다·풍선을 들고·자전거를 타고…), 어떤 마음이었는지(슬펐다·무서웠다·보고 싶었다·뿌듯했다…), 무슨 날이었는지(추석·김장·운동회·캠핑·장날…) 적을수록 그림이 자세해져요.</p>
     <label class="label" for="st-title">제목</label>
     <input id="st-title" class="input" maxlength="30" placeholder="예) 할머니 어릴 적 개울가" value="${esc(state.title)}">
@@ -1448,7 +1507,7 @@ const listenUrl = (shareId, n) => `${appBase()}#/s/${shareId}${n ? `/${n}` : ''}
 const todayKo = () => new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' });
 
 function bookPagesHTML(s, { shareId, reader, kid, date = todayKo() }) {
-  const pages = pagesOf(s, reader === '할아버지' ? 'grandpa' : 'grandma', kid);
+  const pages = pagesOf(s, reader, kid);
   const to = toOf(kid);
   const qr = (n, label) => (shareId
     ? `<div class="bp-qr">${qrSvg(listenUrl(shareId, n))}<span>${label}</span></div>`
@@ -1457,7 +1516,7 @@ function bookPagesHTML(s, { shareId, reader, kid, date = todayKo() }) {
     <section class="book-page book-cover">
       <img class="bc-img" src="${esc(s.coverImage || pages[1].image)}" alt="">
       <div class="bc-band">
-        <p class="bc-eyebrow">${reader}가 ${esc(to)} 들려주는</p>
+        <p class="bc-eyebrow">${ga(reader)} ${esc(to)} 들려주는</p>
         <h1 class="bc-title">${esc(s.title)}</h1>
         <p class="bc-date">${date}</p>
       </div>
@@ -1483,7 +1542,7 @@ function bookPagesHTML(s, { shareId, reader, kid, date = todayKo() }) {
   const back = `
     <section class="book-page book-back">
       <div>
-        <p class="bb-text">이 책은 ${reader}가 ${esc(to)}<br>직접 읽어 준 목소리 그림책이에요.</p>
+        <p class="bb-text">이 책은 ${ga(reader)} ${esc(to)}<br>직접 읽어 준 목소리 그림책이에요.</p>
         ${shareId ? `<div class="bb-qr">${qrSvg(listenUrl(shareId, 0))}<span>처음부터 끝까지 듣기</span></div>` : ''}
       </div>
       <p class="bb-brand"><img src="icons/icon.svg" alt="" width="28" height="28">들려줄게</p>
@@ -1542,7 +1601,7 @@ async function printView(shareId) {
   const { manifest, s } = loaded;
   book.innerHTML = bookPagesHTML(s, {
     shareId,
-    reader: whoOf(manifest.role),
+    reader: readerOf(manifest),
     kid: (manifest.kid || '').trim(),
     date: new Date(manifest.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }),
   });
@@ -1870,7 +1929,7 @@ async function keepView(shareId) {
   const loaded = await loadShared(shareId);
   if (!loaded?.s) return notFound();
   const { manifest, s } = loaded;
-  const reader = whoOf(manifest.role);
+  const reader = readerOf(manifest);
   const freeUntil = freeKeepUntil(manifest);
   const until = await keepStatus(shareId);
   const kept = until && (!freeUntil || new Date(until) > freeUntil);
@@ -2302,6 +2361,7 @@ const routes = [
 ];
 
 async function route() {
+  navSeq += 1;
   dispose();
   stopAudio();
   // 시범 기간: 아이디·비밀번호를 아는 사람만 들어와요. (config.js access)
