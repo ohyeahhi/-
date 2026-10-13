@@ -16,14 +16,14 @@ where id = 'shares';
 --   <공유 ID 12자>/manifest.json
 --   <공유 ID 12자>/<쪽 번호>.m4a | .mp4 | .webm | .ogg
 --   <공유 ID 12자>/reply-1 … reply-9   손주가 보낸 목소리 답장
---   <책장 ID 12자>/s-1.json … s-30.json   가족 책장 (보낸 동화 목록)
+--   <책장 ID 12자>/owner.json, s-1.json … s-30.json   가족 책장 (공개 키, 서명된 동화 목록)
 -- 다른 이름으로 올리려는 파일(아무 파일이나 올려 두는 무료 저장소로 쓰는 것)은 거절돼요.
 drop policy if exists "가족 공유: 올리기만 허용" on storage.objects;
 create policy "가족 공유: 올리기만 허용"
 on storage.objects for insert to anon
 with check (
   bucket_id = 'shares'
-  and name ~ '^[a-z0-9]{12}/(manifest\.json|[0-9]{1,2}\.(m4a|mp4|webm|ogg)|reply-[1-9]|s-[0-9]{1,2}\.json)$'
+  and name ~ '^[a-z0-9]{12}/(manifest\.json|[0-9]{1,2}\.(m4a|mp4|webm|ogg)|reply-[1-9]|owner\.json|s-([1-9]|[12][0-9]|30)\.json)$'
 );
 
 -- ---------- 2. orders.sql ----------
@@ -123,7 +123,7 @@ create index if not exists events_name on public.events (name);
 
 -- ---------- 5. 확인: 아래 표에서 모두 '✅' 이면 끝 ----------
 select '버킷 shares' as 항목, case when exists (select 1 from storage.buckets where id = 'shares' and public and file_size_limit = 10485760) then '✅' else '❌ 버킷 이름이 shares 인지, Public 인지 확인' end as 결과
-union all select '올리기 규칙', case when exists (select 1 from pg_policies where tablename = 'objects' and policyname = '가족 공유: 올리기만 허용' and with_check like '%s-[0-9]%') then '✅' else '❌' end
+union all select '올리기 규칙', case when exists (select 1 from pg_policies where tablename = 'objects' and policyname = '가족 공유: 올리기만 허용' and with_check like '%owner%') then '✅' else '❌' end
 union all select '주문 표', case when exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'orders' and column_name = 'kind') then '✅' else '❌' end
 union all select '보관 표', case when to_regclass('public.keeps') is not null and to_regclass('public.passes') is not null then '✅' else '❌' end
 union all select '통계 표', case when exists (select 1 from pg_policies where tablename = 'events' and with_check like '%reply%') then '✅' else '❌' end;

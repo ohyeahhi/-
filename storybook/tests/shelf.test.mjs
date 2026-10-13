@@ -1,5 +1,5 @@
 // 가족 책장: 동화를 보낼 때마다 책장에 모이고, 손주는 링크 하나로 모두 봐요. 새로 들어온 동화에는 표시가 붙어요.
-import { APP, phone, signedIn, recordPages, consent, shot } from './harness.mjs';
+import { APP, API, phone, signedIn, recordPages, consent, shot } from './harness.mjs';
 
 const story = (id, title, text) => ({ id, title, pages: [{ text }] });
 
@@ -37,6 +37,12 @@ export default async function ({ check, browser }) {
   check('손주는 처음 설정 없이 책장을 열어요', (await m.textContent('.title-xl')).includes('할아버지의 동화 책장'));
   check('보낸 동화 2편이 모여 있어요', (await m.$$eval('.story-card', (e) => e.length)) === 2);
   check('처음 볼 때는 "새 동화" 표시가 없어요', !(await m.$('.shelf-new')));
+  // 책장 주소만 아는 사람이 서명 없이 가짜 동화를 끼워 넣어도 보이지 않아요.
+  const shelf = url.split('#/shelf/')[1];
+  const forged = await m.evaluate(async ([api, id]) => (await fetch(`${api}/storage/v1/object/shares/${id}/s-3.json`, { method: 'POST', headers: { apikey: 'sb_publishable_test', 'content-type': 'application/json' }, body: JSON.stringify({ shareId: 'aaaaaaaaaaaa', storyId: 'sun-moon', title: '가짜 동화', at: new Date().toISOString(), sig: 'AAAA' }) })).status, [API, shelf]);
+  await m.reload();
+  await m.waitForSelector('.screen-shelf .story-card');
+  check('서명 없는 가짜 동화는 책장에 보이지 않아요', forged === 200 && !(await m.textContent('.screen-shelf')).includes('가짜 동화'));
 
   await recordAndShare(g, 'my-shelfcc3');
   await m.reload();

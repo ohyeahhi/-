@@ -37,15 +37,45 @@ async function keepFor(db: ReturnType<typeof createClient>, shareId: string, ord
   }
 }
 
-// 책장에 들어 있는 공유 ID들 (s-1.json … s-30.json)
+// 책장에 들어 있는 공유 ID들 (s-1.json … s-30.json). 할머니 휴대폰의 키로 서명된 항목만 믿어요. (share.js 와 같은 규칙)
+const unb64 = (s: string) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
+const shelfPayload = (e: Record<string, unknown>) => JSON.stringify([e.shareId, e.storyId, e.title, e.at, e.cover ?? null]);
 async function shelfShares(db: ReturnType<typeof createClient>, shelfId: string) {
   const ids: string[] = [];
+  const read = async (file: string) => {
+    const { data } = await db.storage.from('shares').download(`${shelfId}/${file}`);
+    if (!data) return null;
+    try { return JSON.parse(await data.text()); } catch { return null; }
+  };
+  const owner = await read('owner.json');
+  if (!owner?.pub?.x || !owner?.pub?.y) return ids;
+  let key: CryptoKey;
+  try {
+    key = await crypto.subtle.importKey('jwk', { kty: 'EC', crv: 'P-256', x: owner.pub.x, y: owner.pub.y }, { name: 'ECDSA', namedCurve: 'P-256' }, false, ['verify']);
+  } catch { return ids; }
   for (let n = 1; n <= 30; n++) {
-    const { data } = await db.storage.from('shares').download(`${shelfId}/s-${n}.json`);
-    if (!data) break;
-    try { const e = JSON.parse(await data.text()); if (SHARE_RE.test(e.shareId)) ids.push(e.shareId); } catch { /* 건너뛰어요 */ }
+    const e = await read(`s-${n}.json`);
+    if (!e) break;
+    try {
+      const ok = SHARE_RE.test(e.shareId) && await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, key, unb64(String(e.sig)), new TextEncoder().encode(shelfPayload(e)));
+      if (ok && !ids.includes(e.shareId)) ids.push(e.shareId);
+    } catch { /* 서명이 없거나 틀리면 건너뛰어요 */ }
   }
   return ids;
+}
+
+// 1년권 주기: 같은 주문으로 두 번 늘리지 않아요. (승인 응답이 끊겨 다시 부를 때도 안전하게)
+async function grantPass(db: ReturnType<typeof createClient>, shelfId: string, orderId: string) {
+  const { data: had } = await db.from('passes').select('until, order_id').eq('shelf_id', shelfId).maybeSingle();
+  let passUntil = had ? new Date(had.until) : new Date();
+  if (had?.order_id !== orderId) {
+    const from = had && new Date(had.until) > new Date() ? new Date(had.until) : new Date();
+    passUntil = new Date(from.getTime() + PASS_DAYS * 864e5);
+    await db.from('passes').upsert({ shelf_id: shelfId, until: passUntil.toISOString(), order_id: orderId, updated_at: new Date().toISOString() });
+  }
+  await keepFor(db, shelfId, orderId);
+  for (const id of await shelfShares(db, shelfId)) await keepFor(db, id, orderId);
+  return passUntil;
 }
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -93,6 +123,8 @@ Deno.serve(async (req) => {
     if (!SHARE_RE.test(shelf)) return json({ until: null });
     const { data: pass } = await db.from('passes').select('until, order_id').eq('shelf_id', shelf).maybeSingle();
     if (!pass || new Date(pass.until) < new Date()) return json({ until: null });
+    // 할머니가 서명해서 책장에 넣은 동화만 올려요. (책장 주소만 아는 사람이 끼워 넣지 못하게)
+    if (!(await shelfShares(db, shelf)).includes(shareId)) return json({ until: null });
     await keepFor(db, shareId, pass.order_id);
     await keepFor(db, shelf, pass.order_id);
     const { data } = await db.from('keeps').select('until').eq('share_id', shareId).maybeSingle();
@@ -162,7 +194,11 @@ Deno.serve(async (req) => {
     if (!order) return fail('주문을 찾을 수 없어요', 404, 'NOT_FOUND');
     // 돌아온 금액이 처음 만든 주문 금액과 다르면 승인하지 않아요.
     if (order.amount !== amount) return fail('결제 금액이 주문과 달라요', 400, 'AMOUNT_MISMATCH');
-    if (order.status === 'paid') return json({ ok: true, order: publicOrder(order) });
+    if (order.status === 'paid') {
+      // 1년권은 결제 완료로 바뀐 뒤 혜택을 주기 전에 끊겼을 수 있어요. 다시 불리면 혜택을 마저 줘요.
+      if (order.kind === 'pass') return json({ ok: true, order: { ...publicOrder(order), until: (await grantPass(db, order.share_id, orderId)).toISOString() } });
+      return json({ ok: true, order: publicOrder(order) });
+    }
     // 결제를 기다리는 주문만 승인해요. (실패·배송된 주문을 다시 바꾸지 않게)
     if (order.status !== 'pending') return fail('이미 처리된 주문이에요', 409, 'NOT_PENDING');
 
@@ -194,12 +230,7 @@ Deno.serve(async (req) => {
     await db.from('orders').update(update).eq('order_id', orderId).eq('status', 'pending');
     if (order.kind === 'pass') {
       // 1년권: 남은 기간이 있으면 그 뒤로 1년 더. 지금까지 책장에 보낸 동화와 책장은 바로 10년 보관.
-      const { data: had } = await db.from('passes').select('until').eq('shelf_id', order.share_id).maybeSingle();
-      const from = had && new Date(had.until) > new Date() ? new Date(had.until) : new Date();
-      const passUntil = new Date(from.getTime() + PASS_DAYS * 864e5);
-      await db.from('passes').upsert({ shelf_id: order.share_id, until: passUntil.toISOString(), order_id: orderId, updated_at: new Date().toISOString() });
-      await keepFor(db, order.share_id, orderId);
-      for (const id of await shelfShares(db, order.share_id)) await keepFor(db, id, orderId);
+      const passUntil = await grantPass(db, order.share_id, orderId);
       return json({ ok: true, order: { ...publicOrder({ ...order, ...update }), until: passUntil.toISOString() } });
     }
     // 보관을 샀거나 그림책을 샀으면 그 녹음은 결제한 날부터 10년 보관해요. (이미 더 길면 그대로)

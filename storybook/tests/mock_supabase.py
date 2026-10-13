@@ -35,7 +35,13 @@ class H(http.server.BaseHTTPRequestHandler):
             if body.get('action') == 'pass_claim':
                 try: shelf = json.load(open(os.path.join(ROOT, body.get('shareId', ''), 'manifest.json'))).get('shelf')
                 except Exception: return reply(404, {'message': '녹음을 찾을 수 없어요'})
-                if shelf in PASSES and PASSES[shelf] > now.isoformat(): KEEPS[body['shareId']] = ten(); KEEPS[shelf] = ten()
+                listed = []
+                for n in range(1, 31):
+                    f = os.path.join(ROOT, shelf or '-', 's-%d.json' % n)
+                    if not os.path.exists(f): break
+                    e = json.load(open(f))
+                    if e.get('sig'): listed.append(e.get('shareId'))  # 진짜 서버는 서명까지 확인해요
+                if shelf in PASSES and PASSES[shelf] > now.isoformat() and body['shareId'] in listed: KEEPS[body['shareId']] = ten(); KEEPS[shelf] = ten()
                 return reply(200, {'until': KEEPS.get(body['shareId'])})
             if body.get('action') == 'create' and body.get('kind') == 'pass':
                 sid = body.get('shelfId', '')
@@ -74,7 +80,7 @@ class H(http.server.BaseHTTPRequestHandler):
         if self.headers.get('apikey') != KEY: return self.err(401)
         rel = self.path[len(pre):]
         # supabase/storage.sql 과 같은 규칙: 앱이 쓰는 이름만 올릴 수 있어요.
-        if not __import__('re').fullmatch(r'[a-z0-9]{12}/(manifest\.json|[0-9]{1,2}\.(m4a|mp4|webm|ogg)|reply-[1-9]|s-[0-9]{1,2}\.json)', rel): return self.err(403)
+        if not __import__('re').fullmatch(r'[a-z0-9]{12}/(manifest\.json|[0-9]{1,2}\.(m4a|mp4|webm|ogg)|reply-[1-9]|owner\.json|s-([1-9]|[12][0-9]|30)\.json)', rel): return self.err(403)
         dest = os.path.join(ROOT, rel)
         if os.path.exists(dest): return self.err(409)  # insert only
         os.makedirs(os.path.dirname(dest), exist_ok=True)

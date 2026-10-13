@@ -236,7 +236,7 @@ function sendLink(story, shareId) {
   sheet({
     icon: '💌',
     title: '링크가 준비됐어요',
-    body: `카톡이나 문자로 보내면 앱 설치 없이<br>링크만 눌러서 바로 들을 수 있어요.<span class="link-box">${esc(url)}</span>${local.get('shelfId') ? '<span class="shelf-note">📚 이 동화는 가족 책장에도 들어갔어요</span>' : ''}`,
+    body: `카톡이나 문자로 보내면 앱 설치 없이<br>링크만 눌러서 바로 들을 수 있어요.<span class="link-box">${esc(url)}</span>${lastShelfAdd === 'ok' ? '<span class="shelf-note">📚 이 동화는 가족 책장에도 들어갔어요</span>' : lastShelfAdd === 'full' ? '<span class="shelf-note">📚 가족 책장이 가득 찼어요 (30편). 이 링크는 따로 보내 주세요</span>' : ''}`,
     secondary: navigator.share ? '링크 복사' : '',
     primary: navigator.share ? '카톡·문자로 보내기' : '링크 복사하기',
     onSecondary: () => copyText(url),
@@ -330,6 +330,7 @@ const shelfId = () => {
   return id;
 };
 const shelfUrl = (id) => `${appBase()}#/shelf/${id}`;
+let lastShelfAdd = null;   // 마지막으로 책장에 넣은 결과: ok · full · fail
 
 async function uploadWithProgress(story, recorded) {
   if (!(await askUploadConsent(recorded))) return null;
@@ -359,9 +360,12 @@ async function uploadWithProgress(story, recorded) {
     // 보낸 링크는 모두 기억해요. 고쳐서 다시 보내도 예전 링크로 온 답장을 놓치지 않게.
     local.set('sentShares', [{ id: shareId, story: story.id, at: Date.now() }, ...(local.get('sentShares') || [])].slice(0, 30));
     track('share', { story: story.id, shareId, n: recorded.length });
-    // 책장에 더하기는 실패해도 링크 보내기는 그대로 돼요.
-    claimPass(shareId);
-    await addToShelf(shelfId(), { shareId, storyId: story.id, title: story.title, at: new Date().toISOString(), ...(story.custom ? { cover: { text: story.pages[0].text, seed: story.pages[0].seed || 0, noCast: Boolean(story.pages[0].noCast) } } : {}) }).catch(() => {});
+    // 책장에 더하기는 실패해도 링크 보내기는 그대로 돼요. 결과는 보내기 화면에 알려 줘요.
+    lastShelfAdd = await addToShelf(shelfId(), { shareId, storyId: story.id, title: story.title, at: new Date().toISOString(), ...(story.custom ? { cover: { text: story.pages[0].text, seed: story.pages[0].seed || 0, noCast: Boolean(story.pages[0].noCast) } } : {}) })
+      .then(() => { local.set('shelfOk', true); return 'ok'; })
+      .catch((e) => (e.full ? 'full' : 'fail'));
+    // 1년권 기간이면 서버가 (서명된 책장 항목을 확인하고) 10년 보관으로 올려요.
+    if (lastShelfAdd === 'ok') claimPass(shareId);
     close();
     await new Promise((r) => setTimeout(r, 280));
     return shareId;
@@ -568,7 +572,7 @@ async function homeView() {
     ${footerHTML()}
   `, 'screen-home');
   const shelfSlot = app.querySelector('#shelf-slot');
-  if (shelfSlot && local.get('shelfId') && shareEnabled()) {
+  if (shelfSlot && local.get('shelfOk') && local.get('shelfId') && shareEnabled()) {
     shelfSlot.innerHTML = `<button class="shelf-row" id="send-shelf"><span>📚</span><span><b>가족 책장 링크 보내기</b><br>보낸 동화가 링크 하나에 모여요</span><span class="chev">${I.chevron}</span></button>`;
     if (payEnabled()) shelfSlot.insertAdjacentHTML('beforeend', `<a class="reply-link" href="#/pass/${local.get('shelfId')}">📚 가족 1년권: 보내는 동화 모두 ${KEEP_YEARS}년 간직하기</a>`);
     shelfSlot.querySelector('#send-shelf').addEventListener('click', sendShelf);
@@ -1020,7 +1024,12 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
     document.documentElement.classList.add('bedtime');
     bed = { until: Date.now() + bedMin * 60e3, timeUp: false, lock: null };
     bed.timer = setTimeout(() => { if (bed) bed.timeUp = true; }, bedMin * 60e3);
-    try { bed.lock = await navigator.wakeLock?.request('screen'); } catch { /* 화면 켜 두기를 못 해도 들을 수는 있어요 */ }
+    const b = bed;
+    try {
+      const lock = await navigator.wakeLock?.request('screen');
+      // 기다리는 사이 잠자리 모드가 끝났으면 바로 놓아요.
+      if (bed === b) b.lock = lock; else lock?.release?.().catch(() => {});
+    } catch { /* 화면 켜 두기를 못 해도 들을 수는 있어요 */ }
   };
   onDispose(() => { alive = false; clearTimeout(advanceTimer); stopAudio(); player.onerror = null; player.onplaying = null; endBed(); });
 
@@ -1131,7 +1140,7 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
   function advance() {
     if (bed?.timeUp) drawSleep();
     else if (pos < list.length - 1) playAt(pos + 1);
-    else if (bed) { if (shareId) track('listen_end', { story: s.id, shareId }); playAt(0); }
+    else if (bed) { if (shareId && !bed.counted) { bed.counted = true; track('listen_end', { story: s.id, shareId }); } playAt(0); }
     else drawEnd();
   }
 
