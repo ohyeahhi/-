@@ -112,7 +112,7 @@ export const SITUATIONS = [
   ['summer', '여름', ['여름', '무더', '더운 날', '땀이 뻘뻘'], { things: ['watermelon'], mood: 'tired' }],
   ['winter', '겨울', ['추운 날', '꽁꽁', '눈이 펑펑', '함박눈'], { weather: 'snow' }],
   ['storm', '폭풍', ['천둥', '번개', '태풍', '폭풍', '비바람', '소나기'], { weather: 'rain', mood: 'scared' }],
-  ['rainyday', '비 오는 날', ['비 오는 날', '비가 주룩', '장마'], { weather: 'rain', mood: 'calm' }],
+  ['rainyday', '비 오는 날', ['비 오는 날', '비가 주룩', '장마가', '장마철', '장마 ', '장맛비'], { weather: 'rain', mood: 'calm' }],
   ['rainbowday', '무지개', ['무지개가 떴', '무지개다리'], { weather: 'rainbow', mood: 'happy' }],
   ['sunset', '노을', ['노을', '해가 질', '해 질 녘', '해질녘', '저녁놀'], { time: 'dusk', mood: 'calm' }],
   ['morning', '아침', ['아침에 일어', '새벽', '닭이 울', '아침 햇살'], { time: 'dusk', mood: 'happy' }],

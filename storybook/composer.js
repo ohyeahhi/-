@@ -65,12 +65,12 @@ const ACTION_WORDS = {
 };
 const TIME = {
   // '밤'만으로는 찾지 않아요. (밤을 줍다·밤나무의 밤은 열매)
-  night: ['밤에', '밤이 ', '밤이었', '밤이 되', '밤하늘', '한밤', '밤새', '밤중', '밤늦', '깊은 밤', '밤마다', '어느 밤', '그날 밤', '오늘 밤', '긴 밤', '밤길',
+  night: ['밤에', '밤이 ', '밤이면', '겨울밤', '여름밤', '가을밤', '봄밤', '밤늦게', '야시장', '야식', '밤이었', '밤이 되', '밤하늘', '한밤', '밤새', '밤중', '밤늦', '깊은 밤', '밤마다', '어느 밤', '그날 밤', '오늘 밤', '긴 밤', '밤길',
     '달님', '달빛', '보름달', '별님', '별빛', '별이', '깜깜', '어두', '자장'],
   dusk: ['저녁', '노을', '해질', '해 질', '해가 지', '뉘엿'],
 };
 const WEATHER = {
-  rain: ['비가', '비 오', '비를', '소나기', '장마', '빗물', '빗방울', '우산'],
+  rain: ['비가', '비 오', '비를', '소나기', '장마가', '장마철', '장마 ', '장맛비', '빗물', '빗방울', '우산'],
   snow: ['눈이 ', '눈이 펑', '눈 내', '눈사람', '함박눈', '눈싸움', '썰매', '겨울'],
   rainbow: ['무지개'],
   spring: ['봄', '진달래', '개나리', '벚꽃', '꽃이 피', '꽃밭'],
@@ -85,7 +85,14 @@ const PLACE = {
   house: ['집', '마을', '초가', '마당', '오두막', '대문'],
   forest: ['숲', '나무', '산에', '산속', '산골', '뒷산', '고개', '산길'],
   meadow: ['들판', '풀밭', '꽃밭', '언덕', '잔디'],
+  // 요즘 추억: 역 앞·학교 앞·시장 골목·동네 가게 ("부천역 앞"처럼 ○○역은 따로 찾아요)
+  street: ['기차역', '지하철역', '역 앞', '역 광장', '역전', '정류장', '길거리', '거리에', '거리를', '골목', '시내', '도시', '번화가', '상가',
+    '학교 앞', '횡단보도', '신호등', '아파트', '빌딩', '백화점', '극장', '영화관', '편의점', '문방구', '구멍가게', '슈퍼', '가게', '포장마차', '포차',
+    '분식집', '떡볶이집', '빵집', '시장 골목', '서울', '동네 길'],
 };
+// "부천역 앞에서", "서울역에서", "강남역까지" (기억·지역·무역·구역 같은 말은 빼요)
+const STATION_RE = /([가-힣0-9]+)역(?=\s?앞|\s?근처|\s?광장|에서|에|까지|으로|로\s|에는|이었|이야)/g;
+const NOT_STATION = /^(지|구|무|영|번|통|반|전|성|경|해|역)$/;  // 지역·구역·무역·영역·번역·통역·반역·전역·성역
 const THING_WORDS = [
   // 과일 (나무에 열리거나, 들고 먹어요)
   ['apple', ['사과']],
@@ -106,29 +113,38 @@ const THING_WORDS = [
   ['cabbage', ['배추']],
   ['mushroom', ['버섯']],
   ['acorn', ['도토리']],
-  // 먹을거리
+  // 먹을거리 (긴 말을 먼저: "떡볶이"를 떡으로, "붕어빵"을 물고기로, "식빵"을 그냥 빵으로 읽지 않게)
+  ['tteokbokki', ['떡볶이', '떡볶기', '떡뽀끼', '라볶이', '컵볶이']],
+  ['toast', ['토스트', '샌드위치', '식빵']],
+  ['fishcake', ['어묵', '오뎅']],
+  ['gimbap', ['김밥', '주먹밥', '유부초밥', '초밥']],
+  ['bungeoppang', ['붕어빵', '호떡', '국화빵', '풀빵', '계란빵', '잉어빵', '와플']],
+  ['chicken', ['치킨', '통닭', '닭강정', '닭다리', '양념치킨']],
+  ['pizza', ['피자']],
+  ['burger', ['햄버거', '버거']],
+  ['cup', ['커피', '코코아', '녹차', '찻잔', '차 한 잔', '차를 마', '쌍화차', '율무차', '유자차', '주스', '음료수', '사이다', '콜라', '식혜', '수정과']],
+  ['dumpling', ['찐빵', '호빵', '만두']],
   ['egg', ['달걀', '계란', '알을', '알이', '알 하나', '알 한']],
   ['bread', ['빵']],
   ['lollipop', ['막대사탕', '막대 사탕']],
-  ['candy', ['사탕', '캐러멜', '젤리']],
-  ['icecream', ['얼음과자', '빙수']],
-  ['cookie', ['과자', '쿠키']],
+  ['candy', ['사탕', '캐러멜', '젤리', '달고나', '쫀드기', '뽑기', '눈깔사탕', '엿장수', '엿을']],
+  ['icecream', ['얼음과자', '빙수', '하드', '아이스께끼', '쭈쭈바', '빵빠레']],
+  ['cookie', ['과자', '쿠키', '뻥튀기', '강냉이', '팝콘', '센베이', '전병']],
   ['bee', ['꿀벌', '벌이 ', '벌들', '벌 한', '벌떼']],
   ['honey', ['꿀']],
-  ['milk', ['우유']],
-  ['dumpling', ['만두']],
-  ['noodles', ['국수', '라면', '짜장면', '자장면']],
+  ['milk', ['우유', '요구르트', '야쿠르트']],
+  ['noodles', ['국수', '라면', '짜장면', '자장면', '칼국수', '냉면', '우동', '쫄면', '잔치국수', '짬뽕', '수제비']],
   ['fish', ['물고기', '고기를 잡', '낚시', '붕어', '잉어']],
   ['boat', ['배를 타', '배에 타', '배에 올', '배에서', '나룻배', '고깃배', '돛단배', '배가 떠', '배를 저', '뱃사공', '배가 출렁']],
   ['umbrella', ['우산']],
   ['kite', ['연을', '연날리', '방패연', '가오리연']],
   ['cake', ['생일', '케이크', '케익']],
-  ['book', ['책을', '책이', '그림책', '공부', '동화책']],
+  ['book', ['책을', '책이', '그림책', '공부', '동화책', '숙제', '일기', '공책', '교과서', '받아쓰기', '만화책']],
   ['letter', ['편지']],
   ['treasure', ['보물', '금은보화', '황금', '금덩이', '부자가']],
   ['ricecake', ['떡', '송편']],
   ['basket', ['바구니', '광주리']],
-  ['bowl', ['팥죽', '밥을', '죽을', '국을', '밥상']],
+  ['bowl', ['팥죽', '밥을', '죽을', '국을', '밥상', '찌개', '국밥', '비빔밥', '미역국', '떡국', '삼계탕', '설렁탕', '순댓국', '도시락']],
   ['gourd', ['호박', '박이', '박을', '박씨']],
   ['rice', ['볏단', '벼를', '벼가', '쌀을']],
   ['axe', ['도끼']],
@@ -142,8 +158,12 @@ const THING_WORDS = [
   ['doll', ['인형']],
   ['ball', ['공을', '공이 ', '공놀이', '공 차', '공차기', '축구', '농구', '피구']],
   ['bicycle', ['자전거']],
-  ['train', ['기차', '열차', '지하철']],
-  ['car', ['자동차', '차를 타', '버스', '트럭', '택시', '소방차', '경찰차']],
+  ['station', ['기차역', '지하철역', '역 광장', '역전']],
+  ['train', ['기차', '열차', '지하철', '전철', 'KTX', '케이티엑스']],
+  ['bus', ['버스']],
+  ['car', ['자동차', '차를 타', '트럭', '택시', '소방차', '경찰차']],
+  ['pocha', ['포장마차', '포차']],
+  ['shop', ['편의점', '문방구', '구멍가게', '슈퍼', '가게', '빵집', '떡집', '분식집', '구멍 가게', '상점', '서점']],
   ['airplane', ['비행기']],
   ['hat', ['모자를', '모자가', '모자는', '모자도', '모자 ', '밀짚모자', '털모자']],
   ['bouquet', ['꽃다발', '꽃을 꺾', '꽃을 따', '꽃 한 송이', '꽃을 선물', '꽃을 주']],
@@ -165,14 +185,23 @@ const THING_WORDS = [
 ];
 // 과일은 나무에 열려요. 손에 들 수 있는 것들은 먹을 때 손에 쥐어요.
 const FRUITS = ['apple', 'persimmon', 'tangerine', 'peach', 'pear', 'grapes', 'strawberry', 'banana'];
-const HOLD = new Set([...FRUITS, 'corn', 'carrot', 'sweet_potato', 'potato', 'bread', 'candy', 'lollipop', 'icecream', 'cookie', 'egg', 'star_toy', 'bouquet', 'acorn']);
+const HOLD = new Set([...FRUITS, 'corn', 'carrot', 'sweet_potato', 'potato', 'bread', 'candy', 'lollipop', 'icecream', 'cookie', 'egg', 'star_toy', 'bouquet', 'acorn',
+  'toast', 'fishcake', 'bungeoppang', 'pizza', 'burger', 'cup']);
 // 땅에 놓는 크기
 const GROUND = {
   cake: 1, book: 0.8, treasure: 1.1, basket: 1, bowl: 0.9, gourd: 0.8, axe: 0.7, wood: 1, rock: 0.6,
   watermelon: 1, radish: 1, cabbage: 1, mushroom: 1, honey: 0.9, milk: 1, dumpling: 1, noodles: 0.9, ball: 0.9,
   doll: 1, teddy: 0.9, hat: 0.9, gift: 1, lantern: 0.9, candle: 1, clock: 0.9, bucket: 1, shovel: 0.9, watering_can: 1,
   sled: 1, shell: 0.9, drum: 1, flower_pot: 1, blanket: 1.2,
+  tteokbokki: 1.1, gimbap: 1, chicken: 1, toast: 1, fishcake: 1, bungeoppang: 1, pizza: 1, burger: 1, cup: 1,
 };
+
+// 거리에 서는 것들: 이게 나오면 배경을 거리로 그려요.
+const STREET_THINGS = ['pocha', 'shop', 'bus', 'station'];
+function stationIn(t) {
+  for (const m of t.matchAll(STATION_RE)) if (!NOT_STATION.test(m[1])) return true;
+  return false;
+}
 
 // ---------- 무작위 (seed 고정) ----------
 function rng(seed) {
@@ -266,6 +295,7 @@ export function analyze(text, seed = 0, opts = {}) {
     .replace(/(무지|조|베|안|지우|날|덮|솔|번|부|무|고|마|가리|찌|이쑤시)개/g, '$1□')
     .replace(/(한|두|세|네|다섯|여섯|일곱|여덟|아홉|열|몇|여러|[0-9])\s?개/g, (w) => w.replace('개', '□'))
     .replace(/딸기/g, '□기')
+    .replace(/(통|치|양념)닭/g, '$1□')
     .replace(/인형/g, '인□')
     .replace(/(장|청|주|미|세탁|약|면|파출)소/g, '$1□')
     .replace(/(태|모|영|사|햇|수|다)양/g, '$1□')
@@ -276,6 +306,7 @@ export function analyze(text, seed = 0, opts = {}) {
   const m = [...t].map((ch, i) => (masked.text[i] === ' ' && tc[i] !== ' ' ? ' ' : ch)).join('');  // 캐릭터 이름을 지운 글: 표정·날씨·장소·물건은 여기서 찾아요
   // 상황: 글에 먼저 나온 두 가지까지 (소풍, 추석, 운동회…)
   const sits = findAll(t, SIT_WORDS).slice(0, 2).map((x) => ({ key: x.name, ...SIT[x.name] }));
+  const thingsFound = findAll(m, THING_WORDS).map((x) => x.name);
   const pick = (f) => sits.map((x) => x[f]).find(Boolean);
   // 감정은 글에 쓴 말이 먼저, 없으면 상황의 분위기
   const mood = Object.keys(MOOD_WORDS).find((k) => has(m, MOOD_WORDS[k])) || pick('mood');
@@ -327,8 +358,9 @@ export function analyze(text, seed = 0, opts = {}) {
     action,
     time: firstOf(m, TIME) || pick('time') || 'day',
     weather: [...new Set([...Object.keys(WEATHER).filter((w) => has(m, WEATHER[w])), ...sits.map((x) => x.weather).filter(Boolean)])],
-    place: Object.fromEntries(Object.keys(PLACE).map((p) => [p, has(m, PLACE[p]) || sits.some((x) => x.place === p)])),
-    things: [...new Set([...findAll(m, THING_WORDS).map((x) => x.name), ...sits.flatMap((x) => x.things || [])])],
+    place: Object.fromEntries(Object.keys(PLACE).map((p) => [p, has(m, PLACE[p]) || sits.some((x) => x.place === p)
+      || (p === 'street' && (stationIn(m) || STREET_THINGS.some((k) => thingsFound.includes(k))))])),
+    things: [...new Set([...thingsFound, ...(stationIn(m) ? ['station'] : []), ...sits.flatMap((x) => x.things || [])])],
     extras: [...new Set(sits.flatMap((x) => x.extras || []))],
     situations: sits.map((x) => x.key),
     // "사과나무", "나무에서 감을 땄어요", "주렁주렁 열렸어요"
@@ -357,6 +389,7 @@ function chooseBg(a, seed) {
   if (place.kitchen) return 'kitchen';
   if (place.room) return 'room';
   if (place.sea) return 'sea';
+  if (place.street) return time === 'night' ? 'street_night' : 'street';
   if (weather.includes('snow')) return 'winter';
   if ((weather.includes('rain') || GLOOMY.includes(a.scene)) && time === 'day') return place.forest ? 'forest' : 'meadow';
   if (time === 'night') return place.field ? 'paddy_night' : 'night';
@@ -378,7 +411,8 @@ export function compose(text, seed = 0, opts = {}) {
   let { ground } = a;
   const kind = chooseBg(a, seed);
   const bg = BG[kind];
-  const night = kind === 'night' || kind === 'paddy_night';
+  const night = kind === 'night' || kind === 'paddy_night' || kind === 'street_night';
+  const street = kind.startsWith('street');
   const inside = kind === 'kitchen' || kind === 'room';
   const raining = weather.includes('rain');
   const out = [bg.body];
@@ -441,7 +475,7 @@ export function compose(text, seed = 0, opts = {}) {
       if (treeSide === 'left') left = Math.max(left, crowd ? 200 : 290); else right = Math.min(right, crowd ? 600 : 510);
     }
     // 상황의 큰 소품(텐트·학교·좌판·그네·빨랫줄·장독대·산…)은 집·나무가 없는 쪽에 서요.
-    const mark = a.extras.find((k) => k in LANDMARK);
+    const mark = things.find((k) => k in LANDMARK) || a.extras.find((k) => k in LANDMARK);
     if (mark) {
       const taken = [place.house && houseSide, treeSide, place.pond && !place.house && 'right'].filter(Boolean);
       const sideM = !taken.includes('left') ? 'left' : !taken.includes('right') ? 'right' : '';
@@ -452,9 +486,9 @@ export function compose(text, seed = 0, opts = {}) {
       }
     }
     const edge = place.forest ? tree : pine;
-    if (!(place.house && houseSide === 'left') && treeSide !== 'left') back.push(put(PROPS[edge], 40 + r() * 30, ground_y - 30, place.forest ? 0.8 : 0.95));
-    if (!(place.house && houseSide === 'right') && !place.pond && treeSide !== 'right') back.push(put(PROPS[edge], 740 + r() * 30, ground_y - 34, place.forest ? 0.75 : 0.9));
-    if (place.forest && !place.house && !place.pond && !treeSide) back.push(put(PROPS[tree], 400 + (r() - 0.5) * 160, ground_y - 50, 0.75));
+    if (street) { /* 거리: 건물과 가로등이 배경에 있어서 나무는 세우지 않아요 */ } else if (!(place.house && houseSide === 'left') && treeSide !== 'left') back.push(put(PROPS[edge], 40 + r() * 30, ground_y - 30, place.forest ? 0.8 : 0.95));
+    if (!street && !(place.house && houseSide === 'right') && !place.pond && treeSide !== 'right') back.push(put(PROPS[edge], 740 + r() * 30, ground_y - 34, place.forest ? 0.75 : 0.9));
+    if (!street && place.forest && !place.house && !place.pond && !treeSide) back.push(put(PROPS[tree], 400 + (r() - 0.5) * 160, ground_y - 50, 0.75));
     if (has_('rice') || kind.startsWith('paddy')) { back.push(put(PROPS.rice, 60, ground_y + 40, 0.9), put(PROPS.rice, 740, ground_y + 40, 0.9)); }
   }
   if (kind === 'sea') {
@@ -597,6 +631,8 @@ export function compose(text, seed = 0, opts = {}) {
     else if (k === 'egg' || k === 'acorn' || k === 'potato' || k === 'sweet_potato' || k === 'carrot' || k === 'corn') {
       const x = nextSpot();
       front.push(put(PROPS[k], x - 26, 588, 0.9), put(PROPS[k], x + 26, 590, 0.9));
+    } else if (k in LANDMARK) {
+      continue;  // 큰 소품은 위에서 가장자리에 세웠어요
     } else if (k === 'candy' || k === 'cookie' || k === 'bread' || k === 'lollipop' || k === 'icecream') {
       front.push(put(PROPS[k], nextSpot(), 585, 1));
     } else if (GROUND[k]) {
@@ -614,7 +650,7 @@ export function compose(text, seed = 0, opts = {}) {
   if (raining) front.push(PROPS.rain);
   if (GLOOMY.includes(a.scene)) back.unshift(PROPS.gloom);  // 하늘이 잿빛으로 (인물은 그대로 밝게)
   if (weather.includes('autumn') && !inside) front.push(put(PROPS.leaves, 120, 160));
-  if (!inside && kind !== 'winter' && kind !== 'sea') {
+  if (!inside && kind !== 'winter' && kind !== 'sea' && !street) {
     const flowers = GLOOMY.includes(a.scene) ? 1 : weather.includes('spring') ? 9 : 4;
     for (let i = 0; i < flowers; i++) {
       const x = 30 + r() * 740;
@@ -639,7 +675,8 @@ export function compose(text, seed = 0, opts = {}) {
 }
 
 // 상황 소품 크기: 옆에 서는 큰 것 / 땅에 놓는 것
-const LANDMARK = { tent: 0.9, school: 0.72, stall: 0.85, swing: 0.9, laundry: 0.9, xmas_tree: 0.8, jangdok: 0.8, mountain_flag: 1, bench: 0.8 };
+const LANDMARK = { tent: 0.9, school: 0.72, stall: 0.85, swing: 0.9, laundry: 0.9, xmas_tree: 0.8, jangdok: 0.8, mountain_flag: 1, bench: 0.8,
+  pocha: 0.95, shop: 0.85, bus: 0.85, station: 0.8 };
 const GROUND_EXTRA = { campfire: 1, feast: 0.9, gift_pile: 0.9, sandcastle: 0.9, first_aid: 0.9, camera: 0.8 };
 
 // 둥근 나무에 과일을 달아요. (나무 그림의 잎 부분은 대략 가운데 (0,-230), 반지름 130)
@@ -673,8 +710,10 @@ const NAME_KO = {
   gift: '선물', lantern: '등불', candle: '촛불', clock: '시계', bucket: '양동이', shovel: '삽', watering_can: '물뿌리개',
   sled: '썰매', shell: '조개', star_toy: '별', drum: '북', flower_pot: '화분', blanket: '담요', heart_big: '하트',
   butterfly_big: '나비',
+  tteokbokki: '떡볶이', toast: '토스트', fishcake: '어묵', gimbap: '김밥', bungeoppang: '붕어빵', chicken: '치킨', pizza: '피자',
+  burger: '햄버거', cup: '찻잔', pocha: '포장마차', shop: '가게', bus: '버스', station: '역',
 };
-const PLACE_KO = { kitchen: '부엌', room: '방', sea: '바다', pond: '물가', field: '논밭', house: '집', forest: '숲', meadow: '들판' };
+const PLACE_KO = { kitchen: '부엌', room: '방', sea: '바다', pond: '물가', field: '논밭', house: '집', forest: '숲', meadow: '들판', street: '거리' };
 const WEATHER_KO = { rain: '비', snow: '눈', rainbow: '무지개', spring: '봄', autumn: '가을' };
 const ACTION_KO = { run: '달리기', sing: '노래', dance: '춤', eat: '먹기', hug: '안기' };
 

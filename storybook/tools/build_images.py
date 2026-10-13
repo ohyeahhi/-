@@ -10,6 +10,7 @@ import draw_scenes as ds
 import parts2 as P
 import parts3 as Q
 import parts4 as R
+import parts5 as F
 from draw_scenes import (put, anim, shadow, cloud, birds, stars, stars_colored, sun, moon, pine, night_pine,
                          round_tree, tuft, flower, butterfly, house, pond, ripples, bubbles, mom, kid, tiger,
                          rabbit, turtle, woodcutter, sinseon, axe, face)
@@ -852,11 +853,14 @@ def export_parts_v2():
     # 침대: 앞(이불)과 뒤(머리판·베개)를 나눠 두면, 그 사이에 누운 캐릭터를 끼울 수 있어요.
     props.update(Q.props())
     props.update(R.props())
+    props.update(F.props())
     C.update(Q.characters())
     bed_back, bed_front = P.bed(0, 0, 1, who='<!--WHO-->').split('<!--WHO-->')
     props['bed_back'], props['bed_front'] = bed_back, bed_front
     kinds = ('day', 'dusk', 'night', 'twilight', 'meadow', 'forest', 'warm', 'winter', 'autumn', 'kitchen', 'room', 'paddy', 'paddy_night', 'sea')
     bgs = {k: dict(zip(('defs', 'body'), P.bg2(k))) for k in kinds}
+    bgs['street'] = dict(zip(('defs', 'body'), F.street_bg()))
+    bgs['street_night'] = dict(zip(('defs', 'body'), F.street_bg(night=True)))
     out = {}
     for name, c in C.items():
         out[name] = {'scale': c['scale'], 'h': c['h'], 'faces': c.get('faces', 0), 'sky': c.get('sky', False), 'v': c['v']}

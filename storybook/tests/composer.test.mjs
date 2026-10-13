@@ -23,6 +23,15 @@ export default async function ({ check }) {
   check('"곰곰이"·"주춤"·"꿀잠"은 곰·춤·꿀이 아니에요', !who('곰곰이 생각했어요.').includes('곰') && !analyze('주춤했어요.').action && !things('꿀잠을 잤어요.').includes('honey'));
   check('"가방에"는 방이 아니고 "부산에서"는 산이 아니에요', !describe('가방에 넣었어요.').where.length && !describe('부산에서 왔어요.').where.length);
   check('"공연을 보러"는 연이 아니에요', !things('공연을 보러 갔어요.').includes('kite') && things('연을 날렸어요.').includes('kite'));
+  // 요즘 추억: 거리·역·분식·간식
+  const memo1 = describe('초등학교 끝나고 포장마차에서 떡볶이를 사먹었어');
+  check('포장마차 떡볶이 → 거리 + 포장마차 + 떡볶이 (비 아님)', memo1.where.includes('거리') && memo1.things.includes('포장마차') && memo1.things.includes('떡볶이') && !memo1.when.includes('비'), JSON.stringify(memo1));
+  const memo2 = describe('부천역 앞에서 먹은 토스트가 맛있었어');
+  check('부천역 앞 토스트 → 거리 + 역 + 토스트', memo2.where.includes('거리') && memo2.things.includes('역') && memo2.things.includes('토스트'), JSON.stringify(memo2));
+  check('"그 지역에서"는 역이 아니에요', !describe('그 지역에서 살았어').things.includes('역'));
+  check('"통닭"은 닭(동물)이 아니라 치킨', describe('통닭을 먹었어').things.includes('치킨') && !who('통닭을 먹었어').includes('닭'));
+  check('칼국수·달고나·붕어빵·찐빵·숙제', ['칼국수', '달고나', '붕어빵', '찐빵', '숙제'].map((w) => describe(`${w}를 했어`).things[0]).join() === '국수,사탕,붕어빵,만두,책');
+  check('거리 그림은 거리 배경으로', compose('부천역 앞에서 토스트를 먹었어').length > 0 && analyze('부천역 앞에서 토스트를 먹었어').place.street);
   check('"기차를 타고"는 기차', things('기차를 타고 갔어요.').includes('train'));
   check('돼지 삼형제 → 돼지 ×3', who('돼지 삼형제가 집을 지었어요.') === '돼지 ×3');
   check('강아지 두 마리 → 강아지 ×2', who('강아지 두 마리가 뛰놀았어요.') === '강아지 ×2');
