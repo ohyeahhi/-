@@ -819,3 +819,11 @@ html.bedtime .listen-text { font-size: 20px; }
   flex: 1; height: 56px; padding: 0 16px; border-radius: 18px; border: 0; background: var(--fill); color: var(--text);
   font: inherit; font-size: 20px; font-weight: 700; text-align: center; text-align-last: center; appearance: none; -webkit-appearance: none;
 }
+
+/* ---------- 시범 로그인 ---------- */
+.login { display: flex; flex-direction: column; align-items: center; text-align: center; padding-top: calc(64px + var(--safe-t)); }
+.login .app-mark { margin-bottom: 18px; border-radius: 18px; }
+.login-form { width: 100%; margin-top: 28px; text-align: left; display: flex; flex-direction: column; }
+.login-form .btn { margin-top: 24px; }
+.login-error { margin-top: 12px; color: var(--red); font-size: 15px; font-weight: 600; }
+.login-error[hidden] { display: none; }

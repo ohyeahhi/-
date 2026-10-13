@@ -7,4 +7,9 @@ export const CONFIG = {
   // 토스페이먼츠 클라이언트 키 (test_ck_… 또는 live_ck_…). 공개해도 되는 키예요. SETUP-결제.md 참고.
   // 비워 두면 주문서까지만 보이고 "결제가 아직 연결되지 않았어요" 안내가 떠요.
   tossClientKey: '',
+  // 시범 기간 로그인: 여기 있는 아이디·비밀번호를 아는 사람만 앱을 열 수 있어요. 비우면([]) 로그인 없이 열려요.
+  // 비밀번호는 그대로 적지 않고 암호처럼 바꾼 값(salt·hash)만 적어요. 새 계정은 tools/make_login.py 로 만들어요.
+  access: [
+    { id: 'tester', salt: '65109cceefcecb6b9276ef2236c6cc9e', hash: '2172038ae0c2b39cee7aefca665f8324f3421db362e36156844c071ee7faa7bb' },
+  ],
 };

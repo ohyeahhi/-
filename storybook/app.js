@@ -3,6 +3,7 @@ import * as db from './db.js';
 import { shareEnabled, uploadShare, fetchShare, publicUrl, uploadReply, fetchReplies, newShelfId, addToShelf, fetchShelf } from './share.js';
 import * as mine from './mystories.js';
 import * as memo from './memories.js';
+import { gateOn, passed, login } from './access.js';
 import { describe } from './composer.js';
 import qrcode from './vendor/qrcode.js';
 import { payEnabled, startPayment, confirmPayment, keepStatus, passStatus, claimPass } from './pay.js';
@@ -2247,6 +2248,35 @@ async function repliesView() {
   });
 }
 
+/* ---------- 화면: 시범 로그인 ---------- */
+function loginView() {
+  render(`
+    <div class="login">
+      <img class="app-mark" src="icons/icon.svg" alt="" width="72" height="72">
+      <h1 class="title-lg">들려줄게 시범 서비스</h1>
+      <p class="sub">안내받은 아이디와 비밀번호를 넣어 주세요.</p>
+      <form id="login-form" class="login-form">
+        <label class="label" for="login-id">아이디</label>
+        <input id="login-id" class="input" autocomplete="username" autocapitalize="off" spellcheck="false" required>
+        <label class="label" for="login-pw">비밀번호</label>
+        <input id="login-pw" class="input" type="password" autocomplete="current-password" required>
+        <p class="login-error" id="login-error" role="alert" hidden>아이디나 비밀번호가 맞지 않아요.</p>
+        <button class="btn btn-primary full" id="login-go" type="submit">들어가기</button>
+      </form>
+    </div>
+  `, 'screen-login');
+  const form = app.querySelector('#login-form');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = app.querySelector('#login-go');
+    btn.disabled = true;
+    const ok = await login(app.querySelector('#login-id').value, app.querySelector('#login-pw').value);
+    btn.disabled = false;
+    if (ok) route();
+    else app.querySelector('#login-error').hidden = false;
+  });
+}
+
 /* ---------- 라우터 ---------- */
 const routes = [
   [/^#\/?$/, homeView],
@@ -2274,6 +2304,8 @@ const routes = [
 async function route() {
   dispose();
   stopAudio();
+  // 시범 기간: 아이디·비밀번호를 아는 사람만 들어와요. (config.js access)
+  if (gateOn() && !passed()) { loginView(); return; }
   if (/[?&]pay=/.test(location.search)) { await payReturnView(); return; }
   const hash = location.hash || '#/';
   // 공유 링크(#/s/…)는 처음 설정 없이 바로 열려요.
