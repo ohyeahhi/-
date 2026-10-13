@@ -9,6 +9,7 @@ const t = (...texts) => texts.map((text) => ({ text }));
 export const STORIES = [
   {
     id: 'sun-moon',
+    origin: 'korean',
     title: '해님 달님',
     desc: '호랑이를 피해 하늘로 올라간 오누이 이야기',
     cover: '🌞',
@@ -30,6 +31,7 @@ export const STORIES = [
   },
   {
     id: 'rabbit-turtle',
+    origin: 'world',
     title: '토끼와 거북이',
     desc: '느려도 꾸준한 거북이의 달리기 시합',
     cover: '🐢',
@@ -51,6 +53,7 @@ export const STORIES = [
   },
   {
     id: 'golden-axe',
+    origin: 'korean',
     title: '금도끼 은도끼',
     desc: '정직한 나무꾼과 산신령님 이야기',
     cover: '🪓',
@@ -72,6 +75,7 @@ export const STORIES = [
   },
   {
     id: 'patjuk',
+    origin: 'korean',
     title: '팥죽 할멈과 호랑이',
     desc: '작은 친구들이 힘을 모아 호랑이를 혼내 준 이야기',
     cover: '🥣',
@@ -93,6 +97,7 @@ export const STORIES = [
   },
   {
     id: 'brothers',
+    origin: 'korean',
     title: '의좋은 형제',
     desc: '밤마다 몰래 볏단을 나른 형과 아우',
     cover: '🌾',
@@ -114,6 +119,7 @@ export const STORIES = [
   },
   {
     id: 'spring',
+    origin: 'korean',
     title: '젊어지는 샘물',
     desc: '마시면 젊어지는 신기한 샘물 이야기',
     cover: '💧',
@@ -135,6 +141,7 @@ export const STORIES = [
   },
   {
     id: 'heungbu',
+    origin: 'korean',
     title: '흥부와 놀부',
     desc: '제비가 물어다 준 박씨 이야기',
     cover: '🐦',
@@ -156,6 +163,7 @@ export const STORIES = [
   },
   {
     id: 'lump',
+    origin: 'korean',
     title: '혹부리 영감',
     desc: '노래하는 혹을 판 할아버지와 도깨비',
     cover: '👹',
@@ -177,6 +185,7 @@ export const STORIES = [
   },
   {
     id: 'sun-wind',
+    origin: 'world',
     title: '해님과 바람',
     desc: '나그네의 외투를 벗긴 건 누구였을까요?',
     cover: '🌬️',
@@ -198,6 +207,7 @@ export const STORIES = [
   },
   {
     id: 'ant',
+    origin: 'world',
     title: '개미와 베짱이',
     desc: '여름 내내 일한 개미와 노래한 베짱이',
     cover: '🐜',
@@ -219,6 +229,7 @@ export const STORIES = [
   },
   {
     id: 'shepherd',
+    origin: 'world',
     title: '양치기 소년',
     desc: '거짓말을 하면 어떻게 될까요?',
     cover: '🐑',
@@ -240,6 +251,7 @@ export const STORIES = [
   },
   {
     id: 'red-hood',
+    origin: 'world',
     title: '빨간 모자',
     desc: '할머니 댁 가는 길에 만난 늑대',
     cover: '🧺',
@@ -261,6 +273,7 @@ export const STORIES = [
   },
   {
     id: 'three-pigs',
+    origin: 'world',
     title: '아기 돼지 삼형제',
     desc: '지푸라기 집, 나무 집, 벽돌집',
     cover: '🐷',
@@ -282,6 +295,7 @@ export const STORIES = [
   },
   {
     id: 'mice',
+    origin: 'world',
     title: '시골쥐와 서울쥐',
     desc: '내 집이 제일 편해',
     cover: '🐭',
@@ -303,6 +317,7 @@ export const STORIES = [
   },
   {
     id: 'golden-hen',
+    origin: 'world',
     title: '황금알을 낳는 닭',
     desc: '욕심을 부리면 다 잃어요',
     cover: '🥚',
@@ -324,6 +339,7 @@ export const STORIES = [
   },
   {
     id: 'rabbit-jara',
+    origin: 'korean',
     title: '토끼와 자라',
     desc: '꾀 많은 토끼의 용궁 여행',
     cover: '🐢',
@@ -345,6 +361,7 @@ export const STORIES = [
   },
   {
     id: 'fox-grapes',
+    origin: 'world',
     title: '여우와 신 포도',
     desc: '못 가진 것을 탓하지 말아요',
     cover: '🍇',
@@ -366,6 +383,7 @@ export const STORIES = [
   },
   {
     id: 'gyeonwoo',
+    origin: 'korean',
     title: '견우와 직녀',
     desc: '칠월 칠석, 까치가 놓아 준 다리',
     cover: '🌌',
@@ -387,6 +405,7 @@ export const STORIES = [
   },
   {
     id: 'kongjwi',
+    origin: 'korean',
     title: '콩쥐 팥쥐',
     desc: '고운 마음을 도와준 친구들',
     cover: '👡',

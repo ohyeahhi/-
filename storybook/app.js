@@ -465,6 +465,26 @@ async function homeView() {
       </a>`;
   };
   const mineList = mine.myStories();
+  // 하다 만 녹음이 있으면 맨 위에서 바로 이어서 해요.
+  const last = local.get('lastRecording');
+  const lastStory = last && getStory(last.id);
+  let resume = '';
+  if (lastStory) {
+    const pages = pagesOf(lastStory);
+    const next = pages.findIndex((_, i) => !rec.has(keyOf(lastStory.id, i)));
+    if (next > 0) {
+      resume = `
+      <a class="resume-card" href="#/record/${lastStory.id}/${next}">
+        ${coverHTML(lastStory)}
+        <div class="story-card-body">
+          <div class="resume-eyebrow">이어서 녹음하기</div>
+          <div class="story-card-title">${esc(lastStory.title)}</div>
+          <div class="story-card-meta">${next}쪽부터 · ${pages.length - next}쪽 남았어요</div>
+        </div>
+        <span class="resume-go">${I.chevron}</span>
+      </a>`;
+    }
+  }
 
   render(`
     ${topbar({
@@ -473,8 +493,11 @@ async function homeView() {
     })}
     <h1 class="title-xl">${who()} 목소리로<br>어떤 동화를 들려줄까요?</h1>
     <p class="sub">녹음해 두면 ${esc(kidTo())} 언제든 들려줄 수 있어요.</p>
-    <h2 class="section-label">전래동화</h2>
-    ${STORIES.map(card).join('')}
+    ${resume}
+    <h2 class="section-label">우리 옛이야기</h2>
+    ${STORIES.filter((s) => s.origin === 'korean').map(card).join('')}
+    <h2 class="section-label">세계 명작</h2>
+    ${STORIES.filter((s) => s.origin !== 'korean').map(card).join('')}
     <h2 class="section-label">내가 지은 이야기</h2>
     ${mineList.map(card).join('')}
     <a class="story-card new-card" href="#/new">
@@ -708,6 +731,7 @@ async function recordView(id, idxStr) {
       return;
     }
     await db.putBlob(key, blob);
+    local.set('lastRecording', { id, i, at: Date.now() });
     track('record', { story: id, n: i, meta: { video: isVideo(blob.type) } });
     draw('done');
     toast(isVideo(blob.type) ? '얼굴과 목소리를 담았어요' : '목소리를 담았어요');
