@@ -490,9 +490,10 @@ button:disabled { cursor: default; }
 .bc-img { width: 100%; height: 100%; object-fit: cover; display: block; }
 /* 쪽 그림은 가로 4:3 이라, 그림 칸을 넓게(3:2) 잡고 그림 전체를 액자처럼 보여 줘요. (잘리지 않게) */
 .book-page:has(.bp-art), .book-letter { grid-template-columns: 3fr 2fr; }
-.bp-art { display: flex; align-items: center; justify-content: center; padding: 4cqw 1.5cqw 4cqw 4cqw; }
+/* 그림과 글이 같은 높이(위 6cqw)에서 시작해요. */
+.bp-art { display: flex; align-items: flex-start; justify-content: center; padding: 6cqw 1.5cqw 4cqw 4cqw; }
 .bp-art img, .bl-img { width: 100%; height: auto; aspect-ratio: 4 / 3; object-fit: contain; display: block; border-radius: 2.4cqw; background: #F3EAD3; }
-.book-letter > .bl-img { align-self: center; margin-left: 4cqw; width: calc(100% - 5.5cqw); }
+.book-letter > .bl-img { align-self: start; margin: 6cqw 0 0 4cqw; width: calc(100% - 5.5cqw); }
 .bp-text { display: flex; flex-direction: column; justify-content: space-between; padding: 6cqw 4cqw 4cqw 2.5cqw; }
 .bp-text p { font-size: 2.5cqw; line-height: 1.7; font-weight: 500; letter-spacing: -0.02em; word-break: keep-all; }
 .bp-long p { font-size: 2.2cqw; }
@@ -506,7 +507,7 @@ button:disabled { cursor: default; }
 .bc-eyebrow { font-size: 2.2cqw; font-weight: 700; color: #A86E00; }
 .bc-title { font-size: 6cqw; font-weight: 800; letter-spacing: -0.04em; line-height: 1.2; margin-top: .6cqw; }
 .bc-date { font-size: 1.6cqw; color: #8A7B5C; margin-top: .8cqw; }
-.book-letter .bl-text { display: flex; flex-direction: column; justify-content: center; gap: 2.4cqw; padding: 5cqw; }
+.book-letter .bl-text { display: flex; flex-direction: column; justify-content: flex-start; gap: 2.4cqw; padding: 6cqw 5cqw 5cqw; }
 .bl-eyebrow { font-size: 2.6cqw; font-weight: 800; color: #A86E00; }
 .bl-text p { font-size: 2.2cqw; line-height: 1.8; }
 .book-letter .bp-qr { align-self: flex-start; }
@@ -751,6 +752,9 @@ html.big-text body { zoom: 1.15; }
 .memo-card-q { display: block; margin-top: 6px; font-size: 20px; font-weight: 800; line-height: 1.4; letter-spacing: -0.02em; }
 .memo-card-go { display: inline-flex; align-items: center; gap: 2px; margin-top: 10px; font-size: 15px; font-weight: 700; color: var(--accent-text); }
 .memo-card-go svg { width: 16px; height: 16px; }
+@media (prefers-color-scheme: dark) {
+  .memo-card { background: linear-gradient(135deg, #3A2F17, #33241A); }
+}
 .memo-cat { margin-top: 12px; }
 .memo-q { margin-top: 6px; }
 .memo-art { margin: 18px 0 12px; }
