@@ -35,6 +35,14 @@ html,body{margin:0;background:#fff;color:var(--ink);font-family:'Pretendard',san
 .back .mark b{font-size:11pt;font-weight:800;letter-spacing:-.04em;color:var(--ink)}
 .back .mark span{font-size:7.5pt;font-weight:600;color:var(--ink3)}
 .blankpage{height:1px}
+.ctable{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:1.2mm}
+.ctable b{font-size:7.6pt;font-weight:600;color:var(--ink3);padding:0 2mm}
+.ctable div{height:8.4mm;border-radius:2mm;background:var(--field);display:flex;align-items:center;padding:0 3mm;font-size:8.6pt;font-weight:500}
+.toc{display:flex;flex-direction:column;gap:1.6mm;margin-top:2mm}
+.toc div{display:flex;align-items:center;gap:4mm;height:11.4mm;background:var(--bg);border-radius:3mm;padding:0 4.5mm}
+.toc .n{font-size:9pt;font-weight:800;color:var(--accent-ink);width:7mm}
+.toc .t{flex:1;font-size:10pt;font-weight:700;letter-spacing:-.03em}
+.toc .d{width:22mm;height:6mm;border-radius:1.6mm;background:#fff;font-size:7pt;color:var(--ink3);display:flex;align-items:center;padding:0 2mm}
 .cover .art{position:absolute;right:-14mm;top:-10mm}
 .cover .edition{position:absolute;top:18mm;left:16mm;font-size:7.5pt;font-weight:600;color:var(--accent-ink);letter-spacing:.02em}
 .cover h1{position:absolute;top:100mm;left:16mm;right:16mm;margin:0;font-weight:800;font-size:31pt;line-height:1.22;letter-spacing:-.045em}
@@ -82,13 +90,13 @@ h3{font-weight:700;font-size:11pt;letter-spacing:-.03em;margin:8mm 0 3mm}
 
 /* questions */
 .runhead{display:flex;justify-content:space-between;font-size:7.4pt;font-weight:600;color:var(--ink3);margin-bottom:7mm}
-.q{break-inside:avoid;margin-bottom:7mm}
+.q{break-inside:avoid;margin-bottom:6mm}
 .qmeta{display:flex;align-items:center;gap:2mm;margin-bottom:1.6mm}
 .qno{font-size:9pt;font-weight:800;color:var(--accent-ink);letter-spacing:-.01em}
 .qtext{font-size:11pt;font-weight:600;line-height:1.55;letter-spacing:-.03em;margin-bottom:3.2mm}
 .q.상황 .qtext{background:var(--accent-soft);border-radius:3.5mm;padding:3.6mm 4.4mm;color:var(--ink)}
 .field{background:var(--field);border-radius:3.5mm;padding:1mm 4.4mm 3mm}
-.field i{display:block;height:8mm;border-bottom:.6pt solid var(--line)}
+.field i{display:block;height:7.4mm;border-bottom:.6pt solid var(--line)}
 .choices{display:flex;flex-wrap:wrap;gap:1.8mm;margin-bottom:2.2mm}
 .choice{display:inline-flex;align-items:center;gap:1.6mm;height:7.4mm;padding:0 3.2mm 0 2.4mm;border-radius:3.7mm;border:.6pt solid var(--line);font-size:8.4pt;font-weight:500;color:var(--ink2)}
 .choice .o{width:3.4mm;height:3.4mm;border-radius:50%;border:.7pt solid #B0B8C1}
@@ -193,7 +201,10 @@ def runhead(u, right):
 
 
 def cover(edition, sub, owner_label):
-    chips = "".join(f'<span class="chip">{u["no"]} {E(u["title"])}</span>' for u in UNITS)
+    if len(UNITS) > 3:
+        chips = f'<span class="chip">{len(UNITS)}개의 대화</span><span class="chip">{sum(len(u["qs"]) for u in UNITS)}개의 질문</span>'
+    else:
+        chips = "".join(f'<span class="chip">{u["no"]} {E(u["title"])}</span>' for u in UNITS)
     return f"""<section class="page cover"><div class="trim">{ART}<div class="edition">{E(edition)}</div>
 <h1>결혼 전,<br>10번의 대화</h1>
 <div class="sub">{sub}</div>
@@ -238,6 +249,8 @@ def opener(u):
 
 def questions(u):
     qs = "".join(question(i + 1, q) for i, q in enumerate(u["qs"]))
+    if u.get("memo_lines"):
+        qs += f'<div class="q"><div class="qmeta"><span class="qno">메모</span></div>{lines(u["memo_lines"])}</div>'
     return f'<section class="page">{runhead(u, "각자 쓰기")}{qs}</section>'
 
 
@@ -249,6 +262,9 @@ def together(u):
     for k, v in u["together"]:
         if v == "sign":
             blocks.append(f'<div class="tblock"><div class="k">{E(k)}</div><div class="hint">동의한다면 각자 서명해 주세요.</div>{SIGN}</div>')
+        elif isinstance(v, str) and v.startswith("chores:"):
+            rows = "".join(f"<div>{E(c)}</div><div></div><div></div>" for c in v[7:].split(","))
+            blocks.append(f'<div class="tblock"><div class="k">{E(k)}</div><div class="ctable"><b>집안일</b><b>담당</b><b>주기</b>{rows}</div></div>')
         elif isinstance(v, str) and v.startswith("blank:"):
             blocks.append(f'<div class="tblock"><div class="k">{E(k)}</div><div class="blank"><span class="u"></span><span>{E(v[6:])}</span></div></div>')
         else:
@@ -258,6 +274,12 @@ def together(u):
 <p class="lead">대화가 끝난 뒤 두 사람이 함께 적어요.</p>{''.join(blocks)}</section>
 <section class="page">{runhead(u, "함께 기록")}{cols}
 <div class="signoff"><div class="row">대화한 날</div><div style="height:1.8mm"></div>{SIGN}</div></section>"""
+
+
+def toc():
+    rows = "".join(f'<div><span class="n">{u["no"]}</span><span class="t">{E(u["title"])}</span><span class="d">대화한 날</span></div>' for u in UNITS)
+    return f"""<section class="page"><div class="eyebrow">차례</div><h2>10번의 대화</h2>
+<p class="lead" style="margin-bottom:4mm">순서대로 하지 않아도 괜찮아요. 대화를 마친 단원에는 날짜를 적어 두세요.</p><div class="toc">{rows}</div></section>"""
 
 
 def back_cover(edition):
@@ -298,21 +320,22 @@ def feedback():
 <div class="callout"><b>고맙습니다</b>작성한 기록지는 사진으로 찍어 보내 주셔도 좋아요. 두 분의 대화가 다음 커플의 워크북을 만들어요.</div></section>"""
 
 
-import sys
-BLEED = int(sys.argv[1]) if len(sys.argv) > 1 else 0
-suffix = "_bleed" if BLEED else ""
-for theme_name, THEME in THEMES.items():
-    personal = [cover("TEST EDITION · 개인 워크북", "결혼 후 가장 많이 부딪히는 이야기를<br>결혼 전에 미리 나누는 워크북", "이 워크북의 주인"), howto(), guide()]
-    for u in UNITS:
-        personal += [opener(u), questions(u)]
-    personal += [memo(), memo2(), blank_page(), back_cover("TEST EDITION · 개인 워크북")]
+if __name__ == "__main__":
+    import sys
+    BLEED = int(sys.argv[1]) if len(sys.argv) > 1 else 0
+    suffix = "_bleed" if BLEED else ""
+    for theme_name, THEME in THEMES.items():
+        personal = [cover("TEST EDITION · 개인 워크북", "결혼 후 가장 많이 부딪히는 이야기를<br>결혼 전에 미리 나누는 워크북", "이 워크북의 주인"), howto(), guide()]
+        for u in UNITS:
+            personal += [opener(u), questions(u)]
+        personal += [memo(), memo2(), blank_page(), back_cover("TEST EDITION · 개인 워크북")]
 
-    shared = [cover("TEST EDITION · 함께 기록지", "대화를 마친 뒤 두 사람이 함께 쓰는<br>우리의 약속 기록", "우리 두 사람")]
-    for u in UNITS:
-        shared.append(together(u))
-    shared.append(feedback())
-    shared.append(back_cover("TEST EDITION · 함께 기록지"))
+        shared = [cover("TEST EDITION · 함께 기록지", "대화를 마친 뒤 두 사람이 함께 쓰는<br>우리의 약속 기록", "우리 두 사람")]
+        for u in UNITS:
+            shared.append(together(u))
+        shared.append(feedback())
+        shared.append(back_cover("TEST EDITION · 함께 기록지"))
 
-    open(f"personal_{theme_name}{suffix}.html", "w").write(doc("결혼 전 10번의 대화 개인 워크북", personal))
-    open(f"shared_{theme_name}{suffix}.html", "w").write(doc("결혼 전 10번의 대화 함께 기록지", shared))
-    print("ok")
+        open(f"personal_{theme_name}{suffix}.html", "w").write(doc("결혼 전 10번의 대화 개인 워크북", personal))
+        open(f"shared_{theme_name}{suffix}.html", "w").write(doc("결혼 전 10번의 대화 함께 기록지", shared))
+        print("ok")
