@@ -10,13 +10,13 @@ class H(http.server.BaseHTTPRequestHandler):
     def cors(self):
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Headers', 'apikey, authorization, content-type, cache-control, x-upsert, prefer')
-        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Methods', 'GET, HEAD, POST, OPTIONS')
     def do_OPTIONS(self):
         self.send_response(204); self.cors(); self.end_headers()
     def do_POST(self):
         if self.path == '/rest/v1/events':
             n = int(self.headers.get('content-length', 0)); ev = json.loads(self.rfile.read(n) or b'{}')
-            ok = ev.get('name') in ('open', 'start', 'record', 'complete', 'share', 'listen', 'listen_end', 'invite', 'create', 'book', 'order', 'paid', 'about', 'send_parents', 'keep_view') and (ev.get('org') is None or __import__('re').fullmatch(r'[a-z0-9-]{2,20}', ev['org'])) and 8 <= len(ev.get('device', '')) <= 40
+            ok = ev.get('name') in ('open', 'start', 'record', 'complete', 'share', 'listen', 'listen_end', 'invite', 'create', 'book', 'order', 'paid', 'about', 'send_parents', 'keep_view', 'reply') and (ev.get('org') is None or __import__('re').fullmatch(r'[a-z0-9-]{2,20}', ev['org'])) and 8 <= len(ev.get('device', '')) <= 40
             if ok:
                 with open(os.path.join(ROOT, 'events.log'), 'a') as f: f.write(json.dumps(ev, ensure_ascii=False) + '\n')
             self.send_response(201 if ok else 403); self.cors(); self.end_headers(); return
@@ -51,7 +51,7 @@ class H(http.server.BaseHTTPRequestHandler):
         if self.headers.get('apikey') != KEY: return self.err(401)
         rel = self.path[len(pre):]
         # supabase/storage.sql 과 같은 규칙: 앱이 쓰는 이름만 올릴 수 있어요.
-        if not __import__('re').fullmatch(r'[a-z0-9]{12}/(manifest\.json|[0-9]{1,2}\.(m4a|mp4|webm|ogg))', rel): return self.err(403)
+        if not __import__('re').fullmatch(r'[a-z0-9]{12}/(manifest\.json|[0-9]{1,2}\.(m4a|mp4|webm|ogg)|reply-[1-9])', rel): return self.err(403)
         dest = os.path.join(ROOT, rel)
         if os.path.exists(dest): return self.err(409)  # insert only
         os.makedirs(os.path.dirname(dest), exist_ok=True)
@@ -60,6 +60,10 @@ class H(http.server.BaseHTTPRequestHandler):
         with open(dest + '.type', 'w') as f: f.write(self.headers.get('content-type', ''))
         self.send_response(200); self.cors(); self.send_header('content-type', 'application/json'); self.end_headers()
         self.wfile.write(json.dumps({'Key': 'shares/' + rel}).encode())
+    def do_HEAD(self):
+        rel = self.path[len('/storage/v1/object/public/shares/'):]; dest = os.path.join(ROOT, rel)
+        if not self.path.startswith('/storage/v1/object/public/shares/') or '..' in rel or not os.path.isfile(dest): return self.err(400)
+        self.send_response(200); self.cors(); self.send_header('content-type', open(dest + '.type').read()); self.send_header('content-length', str(os.path.getsize(dest))); self.end_headers()
     def do_GET(self):
         pre = '/storage/v1/object/public/shares/'
         if not self.path.startswith(pre): return self.err(404)

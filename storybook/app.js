@@ -1,6 +1,6 @@
 import { STORIES, getStory as getBuiltin } from './stories.js';
 import * as db from './db.js';
-import { shareEnabled, uploadShare, fetchShare, publicUrl } from './share.js';
+import { shareEnabled, uploadShare, fetchShare, publicUrl, uploadReply, fetchReplies } from './share.js';
 import * as mine from './mystories.js';
 import { describe } from './composer.js';
 import qrcode from './vendor/qrcode.js';
@@ -328,6 +328,8 @@ async function uploadWithProgress(story, recorded) {
       (n, t) => { bar.style.width = `${(n / t) * 100}%`; label.textContent = `${n} / ${t}`; },
     );
     local.set(shareKey, { ...(local.get(shareKey) || {}), [story.id]: { id: shareId, at: Date.now(), sig: contentSig(story) } });
+    // 보낸 링크는 모두 기억해요. 고쳐서 다시 보내도 예전 링크로 온 답장을 놓치지 않게.
+    local.set('sentShares', [{ id: shareId, story: story.id, at: Date.now() }, ...(local.get('sentShares') || [])].slice(0, 30));
     track('share', { story: story.id, shareId, n: recorded.length });
     close();
     await new Promise((r) => setTimeout(r, 280));
@@ -497,6 +499,7 @@ async function homeView() {
     })}
     <h1 class="title-xl">${who()} 목소리로<br>어떤 동화를 들려줄까요?</h1>
     <p class="sub">녹음해 두면 ${esc(kidTo())} 언제든 들려줄 수 있어요.</p>
+    <div id="reply-slot"></div>
     ${resume}
     <h2 class="section-label">우리 옛이야기</h2>
     ${STORIES.filter((s) => s.origin === 'korean').map(card).join('')}
@@ -518,6 +521,15 @@ async function homeView() {
     </div>
     ${footerHTML()}
   `, 'screen-home');
+  const replies = await loadReplies();
+  const fresh = unheardReplies(replies);
+  const slot = app.querySelector('#reply-slot');
+  if (slot && !fresh.length && replies.length) slot.innerHTML = `<a class="reply-link" href="#/replies">💌 손주 답장 모아 듣기 (${replies.length})</a>`;
+  if (slot && fresh.length) {
+    slot.innerHTML = `<a class="reply-notice" href="#/replies"><span class="reply-notice-emoji">💌</span>
+      <span><b>${esc(kidName() || '손주')}${kidName() && hasBatchim(kidName()) ? '이가' : '가'} 답장을 보냈어요</b><br>새 답장 ${fresh.length}개 · 눌러서 들어 보세요</span>
+      <span class="chev">${I.chevron}</span></a>`;
+  }
 }
 
 /* ---------- 화면: 동화 상세 ---------- */
@@ -911,10 +923,14 @@ async function sharedView(shareId, page) {
     list,
     reader: whoOf(manifest.role),
     kid: (manifest.kid || '').trim(),
-    endExtra: `<a class="keep-link" href="#/keep/${shareId}">🔒 이 목소리 오래 간직하기<span>${I.chevron}</span></a>
+    endExtra: `${shareEnabled() ? `<button class="btn btn-secondary full" data-act="reply">🎤 ${whoOf(manifest.role)}께 답장 보내기</button>` : ''}
+      <a class="keep-link" href="#/keep/${shareId}">🔒 이 목소리 오래 간직하기<span>${I.chevron}</span></a>
       <a class="btn btn-secondary full" href="#/about" data-act="invite">우리 가족도 만들어 보기</a>`,
     startAt: Number(page) || 0,
     shareId,
+  });
+  stage.addEventListener('click', (e) => {
+    if (e.target.closest('[data-act="reply"]')) replySheet(shareId, whoOf(manifest.role), (manifest.kid || '').trim(), s.id);
   });
   // 무료 보관이 60일 안에 끝나면 위에 알려 줘요.
   const freeUntil = freeKeepUntil(manifest);
@@ -1734,6 +1750,151 @@ function notFound() {
   `);
 }
 
+/* ---------- 손주 답장: 다 듣고 나서 "고마워요"를 목소리로 보내요 ---------- */
+const REPLY_SECONDS = 30;
+function replySheet(shareId, reader, kid, storyId) {
+  let blob = null;
+  let timer = 0;
+  let left = REPLY_SECONDS;
+  const { el, close } = sheet({
+    icon: '💌',
+    title: `${reader}께 답장 보내기`,
+    body: `<span class="reply-hint">"${reader}, 이야기 고마워요!" 처럼 짧게 말해 보세요. (${REPLY_SECONDS}초까지)</span>
+      <span class="reply-box">
+        <button class="reply-rec" data-r="rec" aria-label="녹음 시작">${I.mic}</button>
+        <span class="reply-state" role="status">눌러서 말하기</span>
+        <span class="reply-done" hidden>
+          <button class="btn btn-secondary" data-r="play">▶ 들어보기</button>
+          <button class="btn btn-secondary" data-r="redo">다시 하기</button>
+        </span>
+      </span>
+      <label class="check consent-check"><input type="checkbox" id="reply-ok"><span>보호자(부모)가 함께 보고 있어요. 답장 목소리는 ${reader}만 듣도록 이 링크에 저장돼요.</span></label>
+      <span class="reply-actions">
+        <button class="btn btn-secondary" data-r="cancel">닫기</button>
+        <button class="btn btn-primary" data-r="send" disabled>보내기</button>
+      </span>`,
+    actions: false,
+  });
+  const $ = (q) => el.querySelector(q);
+  const recBtn = $('[data-r="rec"]');
+  const state = $('.reply-state');
+  const sendBtn = $('[data-r="send"]');
+  const ok = $('#reply-ok');
+  const update = () => { sendBtn.disabled = !(blob && ok.checked); };
+  ok.addEventListener('change', update);
+  const stopRec = async () => {
+    clearInterval(timer);
+    recBtn.classList.remove('on');
+    blob = await recorder.stop();
+    if (!blob?.size) { blob = null; state.textContent = '소리가 담기지 않았어요. 다시 눌러 주세요'; update(); return; }
+    recBtn.hidden = true;
+    state.textContent = '다 됐어요! 들어 보고 보내 주세요';
+    $('.reply-done').hidden = false;
+    update();
+  };
+  const end = () => { clearInterval(timer); if (recorder.active) recorder.stop(); stopAudio(); close(); };
+  onDispose(() => { clearInterval(timer); if (recorder.active) recorder.stop(); });
+  el.addEventListener('click', async (e) => {
+    const r = e.target.closest('[data-r]')?.dataset.r;
+    if (e.target === el || r === 'cancel') end();
+    else if (r === 'rec') {
+      if (recorder.active) { stopRec(); return; }
+      stopAudio();
+      try { await recorder.start(() => {}); } catch {
+        state.textContent = '마이크를 쓸 수 없어요. 브라우저 설정에서 마이크를 허용해 주세요';
+        return;
+      }
+      recBtn.classList.add('on');
+      recBtn.setAttribute('aria-label', '녹음 멈추기');
+      left = REPLY_SECONDS;
+      state.textContent = `듣고 있어요… ${left}초 · 다 말하면 눌러요`;
+      timer = setInterval(() => {
+        left -= 1;
+        state.textContent = `듣고 있어요… ${left}초 · 다 말하면 눌러요`;
+        if (left <= 0) stopRec();
+      }, 1000);
+    } else if (r === 'play' && blob) {
+      setSource(URL.createObjectURL(blob), true);
+      player.play().catch(() => {});
+    } else if (r === 'redo') {
+      stopAudio();
+      blob = null;
+      recBtn.hidden = false;
+      recBtn.setAttribute('aria-label', '녹음 시작');
+      $('.reply-done').hidden = true;
+      state.textContent = '눌러서 말하기';
+      update();
+    } else if (r === 'send' && blob) {
+      stopAudio();
+      sendBtn.disabled = true;
+      sendBtn.textContent = '보내는 중…';
+      try {
+        await uploadReply(shareId, blob);
+        track('reply', { story: storyId, shareId });
+        close();
+        toast(`${reader}께 답장을 보냈어요 💌`);
+      } catch (err) {
+        sendBtn.textContent = '보내기';
+        update();
+        toast(err.full ? '이 링크에는 답장을 더 보낼 수 없어요' : '보내지 못했어요. 인터넷을 확인하고 다시 눌러 주세요');
+      }
+    }
+  });
+}
+
+// 할머니·할아버지 쪽: 보낸 링크마다 답장이 왔는지 봐요. (자주 묻지 않게 3분에 한 번)
+let replyCache = { at: 0, list: [] };
+async function loadReplies(force = false) {
+  if (!shareEnabled()) return [];
+  if (!force && Date.now() - replyCache.at < 3 * 60e3) return replyCache.list;
+  const sent = local.get('sentShares') || [];
+  const lists = await Promise.all(sent.map(async (x) => (await fetchReplies(x.id)).map((r) => ({ ...r, shareId: x.id, story: x.story }))));
+  replyCache = { at: Date.now(), list: lists.flat().sort((a, b) => b.n - a.n) };
+  return replyCache.list;
+}
+const replyKey = (r) => `${r.shareId}/${r.n}`;
+const unheardReplies = (list) => {
+  const heard = new Set(local.get('repliesHeard') || []);
+  return list.filter((r) => !heard.has(replyKey(r)));
+};
+
+async function repliesView() {
+  render(`
+    ${topbar({ back: '#/', title: '손주 답장' })}
+    <div id="replies"><div class="loading"><span class="spinner"></span></div></div>
+  `);
+  const list = await loadReplies(true);
+  const box = app.querySelector('#replies');
+  if (!box) return;
+  if (!list.length) {
+    box.innerHTML = `<div class="celebrate"><div class="celebrate-badge">💌</div>
+      <h1 class="title-lg">아직 답장이 없어요</h1>
+      <p class="sub">${esc(kidTo())} 동화를 보내면, 다 듣고 나서 목소리로 답장을 보낼 수 있어요.</p></div>`;
+    return;
+  }
+  const fresh = new Set(unheardReplies(list).map(replyKey));
+  const name = kidName() ? `${kidName()}${hasBatchim(kidName()) ? '이' : ''}` : '손주';
+  box.innerHTML = `<p class="sub">${esc(name)}의 목소리를 눌러서 들어 보세요.</p>
+    ${list.map((r, k) => `
+      <button class="reply-card${fresh.has(replyKey(r)) ? ' new' : ''}" data-k="${k}">
+        <span class="reply-play">${I.play}</span>
+        <span class="story-card-body">
+          <span class="story-card-title">${esc(getStory(r.story)?.title || '보낸 동화')}</span>
+          <span class="story-card-meta">${r.n}번째 답장${fresh.has(replyKey(r)) ? '<b class="reply-new"> · 새 답장</b>' : ''}</span>
+        </span>
+      </button>`).join('')}`;
+  box.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-k]');
+    if (!b) return;
+    const r = list[Number(b.dataset.k)];
+    setSource(r.url);
+    player.play().catch(() => toast('이 휴대폰에서 틀 수 없는 답장이에요'));
+    b.classList.remove('new');
+    b.querySelector('.reply-new')?.remove();
+    local.set('repliesHeard', [...new Set([...(local.get('repliesHeard') || []), replyKey(r)])].slice(-300));
+  });
+}
+
 /* ---------- 라우터 ---------- */
 const routes = [
   [/^#\/?$/, homeView],
@@ -1748,6 +1909,7 @@ const routes = [
   [/^#\/order\/([\w-]+)$/, orderView],
   [/^#\/policy\/(terms|privacy|refund)$/, policyView],
   [/^#\/about$/, aboutView],
+  [/^#\/replies$/, repliesView],
   [/^#\/keep\/([a-z0-9]{12})$/, keepView],
   [/^#\/flyer\/([a-z0-9-]{2,20})$/, flyerView],
   [/^#\/new$/, () => editorView()],

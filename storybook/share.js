@@ -37,7 +37,11 @@ async function upload(path, body, type) {
   // 예전 anon 키(eyJ…)는 Authorization에도 넣어요. 새 publishable 키(sb_publishable_…)는 apikey만 써요.
   if (key.startsWith('eyJ')) headers.Authorization = `Bearer ${key}`;
   const res = await fetch(`${base()}/storage/v1/object/${bucket()}/${path}`, { method: 'POST', headers, body });
-  if (!res.ok) throw new Error(`upload failed: ${res.status}`);
+  if (!res.ok) {
+    // 같은 이름이 이미 있으면(올리기만 되는 버킷) taken 으로 알려 줘요.
+    const text = await res.text().catch(() => '');
+    throw Object.assign(new Error(`upload failed: ${res.status}`), { taken: res.status === 409 || /duplicate|already exists|"409"/i.test(text) });
+  }
 }
 
 export const publicUrl = (id, file) => `${base()}/storage/v1/object/public/${bucket()}/${id}/${file}`;
@@ -65,4 +69,32 @@ export async function fetchShare(id) {
   const res = await fetch(publicUrl(id, 'manifest.json'));
   if (!res.ok) throw new Error(`not found: ${res.status}`);
   return res.json();
+}
+
+// 손주 답장: <공유ID>/reply-1 … reply-9 (목록 보기 없이 번호로 찾아요)
+// 버킷이 올리기만 되니, 앞 번호가 차 있으면 다음 빈 번호에 올려요.
+export const REPLY_MAX = 9;
+export async function uploadReply(id, blob) {
+  if (!ID_RE.test(id) || !shareEnabled()) throw new Error('bad link');
+  for (let n = 1; n <= REPLY_MAX; n++) {
+    try {
+      await upload(`${id}/reply-${n}`, blob, blob.type || 'audio/webm');
+      return n;
+    } catch (e) {
+      if (!e.taken) throw e;
+    }
+  }
+  throw Object.assign(new Error('replies full'), { full: true });
+}
+
+export async function fetchReplies(id) {
+  const out = [];
+  if (!ID_RE.test(id) || !shareEnabled()) return out;
+  for (let n = 1; n <= REPLY_MAX; n++) {
+    const url = publicUrl(id, `reply-${n}`);
+    const res = await fetch(url, { method: 'HEAD', cache: 'no-store' }).catch(() => null);
+    if (!res?.ok) break;
+    out.push({ n, url });
+  }
+  return out;
 }

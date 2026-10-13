@@ -709,3 +709,35 @@ html.big-text body { zoom: 1.15; }
 }
 .resume-eyebrow { font-size: 14px; font-weight: 800; color: var(--accent-text); }
 .resume-go { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: var(--accent); color: var(--accent-ink); flex: none; }
+
+/* ---------- 손주 답장 ---------- */
+.reply-hint { display: block; }
+.reply-box { display: flex; flex-direction: column; align-items: center; gap: 12px; margin: 20px 0 8px; }
+.reply-rec {
+  width: 84px; height: 84px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--accent); color: #fff; box-shadow: 0 6px 18px rgba(232, 160, 0, .35);
+}
+.reply-rec svg { width: 34px; height: 34px; }
+.reply-rec.on { background: var(--red); animation: ring 1.2s ease-out infinite; }
+.reply-rec[hidden] { display: none; }
+.reply-state { font-size: 16px; font-weight: 600; color: var(--text); text-align: center; }
+.reply-done { display: flex; gap: 8px; }
+.reply-done[hidden] { display: none; }
+.reply-done .btn { height: 46px; padding: 0 16px; font-size: 15px; }
+.reply-actions { display: flex; gap: 10px; margin-top: 16px; }
+.reply-actions .btn { flex: 1; }
+.reply-notice, .reply-card {
+  display: flex; align-items: center; gap: 14px; width: 100%; margin: 4px 0 14px; padding: 16px;
+  border-radius: 20px; background: var(--surface); box-shadow: var(--shadow); text-align: left; color: var(--text);
+}
+.reply-notice { background: var(--accent-weak); font-size: 15px; line-height: 1.5; }
+.reply-notice b { font-size: 17px; }
+.reply-notice-emoji { font-size: 32px; }
+.reply-notice .chev { margin-left: auto; }
+.reply-link { display: inline-block; margin: 0 0 12px; font-size: 15px; font-weight: 600; color: var(--accent-text); }
+.reply-card { margin: 0 0 12px; }
+.reply-card.new { outline: 2px solid var(--accent); }
+.reply-play { flex: none; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-weak); color: var(--accent-text); }
+.reply-play svg { width: 22px; height: 22px; }
+.reply-card .story-card-title, .reply-card .story-card-meta { display: block; }
+@keyframes ring { from { box-shadow: 0 0 0 0 var(--red-weak); } to { box-shadow: 0 0 0 18px rgba(240, 68, 82, 0); } }
