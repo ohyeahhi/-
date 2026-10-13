@@ -5,6 +5,7 @@ import http.server, os, sys, json, datetime
 ROOT = sys.argv[1]; PORT = int(sys.argv[2]) if len(sys.argv) > 2 else 8766; KEY = 'sb_publishable_test'
 ORDERS = {}
 KEEPS = {}
+PASSES = {}
 import uuid
 class H(http.server.BaseHTTPRequestHandler):
     def cors(self):
@@ -27,6 +28,20 @@ class H(http.server.BaseHTTPRequestHandler):
             if body.get('action') == 'keep_status':
                 k = KEEPS.get(body.get('shareId'))
                 return reply(200, {'until': k})
+            now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+            ten = lambda: (now + datetime.timedelta(days=3652)).isoformat() + 'Z'
+            if body.get('action') == 'pass_status':
+                return reply(200, {'until': PASSES.get(body.get('shelfId'))})
+            if body.get('action') == 'pass_claim':
+                try: shelf = json.load(open(os.path.join(ROOT, body.get('shareId', ''), 'manifest.json'))).get('shelf')
+                except Exception: return reply(404, {'message': '녹음을 찾을 수 없어요'})
+                if shelf in PASSES and PASSES[shelf] > now.isoformat(): KEEPS[body['shareId']] = ten(); KEEPS[shelf] = ten()
+                return reply(200, {'until': KEEPS.get(body['shareId'])})
+            if body.get('action') == 'create' and body.get('kind') == 'pass':
+                sid = body.get('shelfId', '')
+                if not os.path.isdir(os.path.join(ROOT, sid)): return reply(404, {'message': '책장을 찾을 수 없어요'})
+                oid = 'PASS-' + uuid.uuid4().hex[:8].upper(); ORDERS[oid] = {'amount': 29000, 'title': '가족 1년권', 'qty': 1, 'status': 'pending', 'kind': 'pass', 'shareId': sid}
+                return reply(200, {'orderId': oid, 'amount': 29000, 'orderName': '들려줄게 가족 1년권'})
             if body.get('action') == 'create' and body.get('kind') == 'keep':
                 sid = body.get('shareId', '')
                 if not os.path.isdir(os.path.join(ROOT, sid)): return reply(404, {'message': '녹음을 찾을 수 없어요'})
@@ -43,6 +58,14 @@ class H(http.server.BaseHTTPRequestHandler):
                 if o['status'] == 'paid': return reply(200, {'ok': True, 'order': {'orderId': body['orderId'], 'kind': o.get('kind', 'book'), 'shareId': o.get('shareId'), 'gift': o.get('gift'), 'title': o['title'], 'qty': o['qty'], 'amount': o['amount'], 'receiptUrl': None}})
                 if o['amount'] != body.get('amount'): return reply(400, {'message': '결제 금액이 주문과 달라요', 'code': 'AMOUNT_MISMATCH'})
                 o['status'] = 'paid'
+                if o.get('kind') == 'pass':
+                    sid = o['shareId']; base = max(now.isoformat(), PASSES.get(sid, '')[:26])
+                    until = (datetime.datetime.fromisoformat(base.rstrip('Z')) + datetime.timedelta(days=365)).isoformat() + 'Z'; PASSES[sid] = until; KEEPS[sid] = ten()
+                    for n in range(1, 31):
+                        f = os.path.join(ROOT, sid, 's-%d.json' % n)
+                        if not os.path.exists(f): break
+                        KEEPS[json.load(open(f))['shareId']] = ten()
+                    return reply(200, {'ok': True, 'order': {'orderId': body['orderId'], 'kind': 'pass', 'shareId': sid, 'title': o['title'], 'qty': 1, 'amount': o['amount'], 'receiptUrl': None, 'until': until}})
                 if o.get('shareId'): KEEPS[o['shareId']] = (datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) + datetime.timedelta(days=3652)).isoformat() + 'Z'
                 return reply(200, {'ok': True, 'order': {'orderId': body['orderId'], 'kind': o.get('kind', 'book'), 'shareId': o.get('shareId'), 'gift': o.get('gift'), 'title': o['title'], 'qty': o['qty'], 'amount': o['amount'], 'receiptUrl': None}})
             return reply(400, {'message': 'unknown'})

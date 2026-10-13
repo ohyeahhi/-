@@ -77,6 +77,15 @@ alter table public.orders alter column name drop not null;
 alter table public.orders alter column phone drop not null;
 alter table public.orders alter column addr drop not null;
 
+-- 가족 1년권: 책장(shelf_id)마다 언제까지인지. 이 기간에 보낸 동화는 10년 보관돼요. (orders 함수만 써요)
+create table if not exists public.passes (
+  shelf_id   text primary key check (shelf_id ~ '^[a-z0-9]{12}$'),
+  until      timestamptz not null,
+  order_id   text,
+  updated_at timestamptz not null default now()
+);
+alter table public.passes enable row level security;
+
 -- ---------- 4. events.sql ----------
 -- 시범 사용 통계 표. Supabase → SQL Editor 에서 한 번 실행해요.
 -- 브라우저(공개 키)는 정해진 이름의 기록을 "쓰기"만 할 수 있고, 읽지는 못해요.
@@ -116,5 +125,5 @@ create index if not exists events_name on public.events (name);
 select '버킷 shares' as 항목, case when exists (select 1 from storage.buckets where id = 'shares' and public and file_size_limit = 10485760) then '✅' else '❌ 버킷 이름이 shares 인지, Public 인지 확인' end as 결과
 union all select '올리기 규칙', case when exists (select 1 from pg_policies where tablename = 'objects' and policyname = '가족 공유: 올리기만 허용' and with_check like '%s-[0-9]%') then '✅' else '❌' end
 union all select '주문 표', case when exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'orders' and column_name = 'kind') then '✅' else '❌' end
-union all select '보관 표', case when to_regclass('public.keeps') is not null then '✅' else '❌' end
+union all select '보관 표', case when to_regclass('public.keeps') is not null and to_regclass('public.passes') is not null then '✅' else '❌' end
 union all select '통계 표', case when exists (select 1 from pg_policies where tablename = 'events' and with_check like '%reply%') then '✅' else '❌' end;

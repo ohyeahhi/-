@@ -5,6 +5,10 @@
 //   POST { action: 'create', kind: 'keep', shareId }
 //        → { orderId, amount, orderName }   녹음 10년 보관 (배송 없음)
 //   POST { action: 'keep_status', shareId } → { until }  보관 날짜 (산 적 없으면 null)
+//   POST { action: 'create', kind: 'pass', shelfId }
+//        → { orderId, amount, orderName }   가족 1년권: 1년 동안 보내는 동화 모두 + 지금까지 보낸 동화 10년 보관
+//   POST { action: 'pass_status', shelfId } → { until }   1년권이 언제까지인지 (없으면 null)
+//   POST { action: 'pass_claim', shareId }  → { until }   1년권 기간에 새로 보낸 동화를 10년 보관으로 올려요
 //   POST { action: 'confirm', paymentKey, orderId, amount }
 //        → { ok: true, order }               토스에 승인 요청 후 '결제 완료'로 바꿔요.
 //
@@ -19,7 +23,30 @@ const GIFT_PRICE = 5000;    // 선물 포장 + 카드, 권마다
 const priceOf = (qty: number, gift: boolean) => PRICE_FIRST + PRICE_MORE * (qty - 1) + (gift ? GIFT_PRICE * qty : 0);
 const KEEP_PRICE = 9900;    // 녹음 10년 보관
 const KEEP_YEARS = 10;      // 그림책을 사도 같은 기간 보관해요 (QR이 계속 열리도록)
+const PASS_PRICE = 29000;   // 가족 1년권 (자동 갱신 없음)
+const PASS_DAYS = 365;
 const SHARE_RE = /^[a-z0-9]{12}$/;
+
+// 10년 보관 날짜를 넣어요. (이미 더 길면 그대로)
+async function keepFor(db: ReturnType<typeof createClient>, shareId: string, orderId: string) {
+  const until = new Date();
+  until.setFullYear(until.getFullYear() + KEEP_YEARS);
+  const { data: kept } = await db.from('keeps').select('until').eq('share_id', shareId).maybeSingle();
+  if (!kept || new Date(kept.until) < until) {
+    await db.from('keeps').upsert({ share_id: shareId, until: until.toISOString(), order_id: orderId, updated_at: new Date().toISOString() });
+  }
+}
+
+// 책장에 들어 있는 공유 ID들 (s-1.json … s-30.json)
+async function shelfShares(db: ReturnType<typeof createClient>, shelfId: string) {
+  const ids: string[] = [];
+  for (let n = 1; n <= 30; n++) {
+    const { data } = await db.storage.from('shares').download(`${shelfId}/s-${n}.json`);
+    if (!data) break;
+    try { const e = JSON.parse(await data.text()); if (SHARE_RE.test(e.shareId)) ids.push(e.shareId); } catch { /* 건너뛰어요 */ }
+  }
+  return ids;
+}
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info',
@@ -46,6 +73,44 @@ Deno.serve(async (req) => {
     if (!SHARE_RE.test(shareId)) return fail('링크가 올바르지 않아요');
     const { data } = await db.from('keeps').select('until').eq('share_id', shareId).maybeSingle();
     return json({ until: data?.until ?? null });
+  }
+
+  if (body.action === 'pass_status') {
+    const shelfId = str(body.shelfId, 12);
+    if (!SHARE_RE.test(shelfId)) return fail('책장 주소가 올바르지 않아요');
+    const { data } = await db.from('passes').select('until').eq('shelf_id', shelfId).maybeSingle();
+    return json({ until: data?.until ?? null });
+  }
+
+  if (body.action === 'pass_claim') {
+    // 새로 보낸 동화의 manifest 에 적힌 책장에 1년권이 살아 있으면 10년 보관으로 올려요.
+    const shareId = str(body.shareId, 12);
+    if (!SHARE_RE.test(shareId)) return fail('링크가 올바르지 않아요');
+    const { data: file } = await db.storage.from('shares').download(`${shareId}/manifest.json`);
+    if (!file) return fail('녹음을 찾을 수 없어요', 404, 'NOT_FOUND');
+    let shelf = '';
+    try { shelf = str(JSON.parse(await file.text()).shelf, 12); } catch { /* 없음 */ }
+    if (!SHARE_RE.test(shelf)) return json({ until: null });
+    const { data: pass } = await db.from('passes').select('until, order_id').eq('shelf_id', shelf).maybeSingle();
+    if (!pass || new Date(pass.until) < new Date()) return json({ until: null });
+    await keepFor(db, shareId, pass.order_id);
+    await keepFor(db, shelf, pass.order_id);
+    const { data } = await db.from('keeps').select('until').eq('share_id', shareId).maybeSingle();
+    return json({ until: data?.until ?? null });
+  }
+
+  if (body.action === 'create' && body.kind === 'pass') {
+    const shelfId = str(body.shelfId, 12);
+    if (!SHARE_RE.test(shelfId)) return fail('책장 주소가 올바르지 않아요');
+    const { data: files } = await db.storage.from('shares').list(shelfId, { limit: 1 });
+    if (!files?.length) return fail('책장을 찾을 수 없어요', 404, 'NOT_FOUND');
+    const orderId = newOrderId('PASS');
+    const { error } = await db.from('orders').insert({
+      order_id: orderId, kind: 'pass', share_id: shelfId, story_id: 'shelf',
+      title: '가족 1년권', qty: 1, amount: PASS_PRICE, status: 'pending',
+    });
+    if (error) return fail('주문을 저장하지 못했어요', 500, 'DB');
+    return json({ orderId, amount: PASS_PRICE, orderName: '들려줄게 가족 1년권' });
   }
 
   if (body.action === 'create' && body.kind === 'keep') {
@@ -127,13 +192,18 @@ Deno.serve(async (req) => {
       paid_at: new Date().toISOString(),
     };
     await db.from('orders').update(update).eq('order_id', orderId).eq('status', 'pending');
-    // 보관을 샀거나 그림책을 샀으면 그 녹음은 결제한 날부터 10년 보관해요. (이미 더 길면 그대로)
-    const until = new Date();
-    until.setFullYear(until.getFullYear() + KEEP_YEARS);
-    const { data: kept } = await db.from('keeps').select('until').eq('share_id', order.share_id).maybeSingle();
-    if (!kept || new Date(kept.until) < until) {
-      await db.from('keeps').upsert({ share_id: order.share_id, until: until.toISOString(), order_id: orderId, updated_at: new Date().toISOString() });
+    if (order.kind === 'pass') {
+      // 1년권: 남은 기간이 있으면 그 뒤로 1년 더. 지금까지 책장에 보낸 동화와 책장은 바로 10년 보관.
+      const { data: had } = await db.from('passes').select('until').eq('shelf_id', order.share_id).maybeSingle();
+      const from = had && new Date(had.until) > new Date() ? new Date(had.until) : new Date();
+      const passUntil = new Date(from.getTime() + PASS_DAYS * 864e5);
+      await db.from('passes').upsert({ shelf_id: order.share_id, until: passUntil.toISOString(), order_id: orderId, updated_at: new Date().toISOString() });
+      await keepFor(db, order.share_id, orderId);
+      for (const id of await shelfShares(db, order.share_id)) await keepFor(db, id, orderId);
+      return json({ ok: true, order: { ...publicOrder({ ...order, ...update }), until: passUntil.toISOString() } });
     }
+    // 보관을 샀거나 그림책을 샀으면 그 녹음은 결제한 날부터 10년 보관해요. (이미 더 길면 그대로)
+    await keepFor(db, order.share_id, orderId);
     return json({ ok: true, order: publicOrder({ ...order, ...update }) });
   }
 

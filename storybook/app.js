@@ -5,10 +5,10 @@ import * as mine from './mystories.js';
 import * as memo from './memories.js';
 import { describe } from './composer.js';
 import qrcode from './vendor/qrcode.js';
-import { payEnabled, startPayment, confirmPayment, keepStatus } from './pay.js';
+import { payEnabled, startPayment, confirmPayment, keepStatus, passStatus, claimPass } from './pay.js';
 import { POLICIES, BUSINESS, POLICY_UPDATED } from './policies.js';
 import { track, trackOpen } from './stats.js';
-import { PRICE_FIRST, PRICE_MORE, GIFT_PRICE, MAX_QTY, priceOf, FREE_KEEP_DAYS, KEEP_PRICE, KEEP_YEARS } from './pricing.js';
+import { PRICE_FIRST, PRICE_MORE, GIFT_PRICE, MAX_QTY, priceOf, FREE_KEEP_DAYS, KEEP_PRICE, KEEP_YEARS, PASS_PRICE } from './pricing.js';
 
 const app = document.getElementById('app');
 const toastEl = document.getElementById('toast');
@@ -360,6 +360,7 @@ async function uploadWithProgress(story, recorded) {
     local.set('sentShares', [{ id: shareId, story: story.id, at: Date.now() }, ...(local.get('sentShares') || [])].slice(0, 30));
     track('share', { story: story.id, shareId, n: recorded.length });
     // 책장에 더하기는 실패해도 링크 보내기는 그대로 돼요.
+    claimPass(shareId);
     await addToShelf(shelfId(), { shareId, storyId: story.id, title: story.title, at: new Date().toISOString(), ...(story.custom ? { cover: { text: story.pages[0].text, seed: story.pages[0].seed || 0, noCast: Boolean(story.pages[0].noCast) } } : {}) }).catch(() => {});
     close();
     await new Promise((r) => setTimeout(r, 280));
@@ -569,6 +570,7 @@ async function homeView() {
   const shelfSlot = app.querySelector('#shelf-slot');
   if (shelfSlot && local.get('shelfId') && shareEnabled()) {
     shelfSlot.innerHTML = `<button class="shelf-row" id="send-shelf"><span>📚</span><span><b>가족 책장 링크 보내기</b><br>보낸 동화가 링크 하나에 모여요</span><span class="chev">${I.chevron}</span></button>`;
+    if (payEnabled()) shelfSlot.insertAdjacentHTML('beforeend', `<a class="reply-link" href="#/pass/${local.get('shelfId')}">📚 가족 1년권: 보내는 동화 모두 ${KEEP_YEARS}년 간직하기</a>`);
     shelfSlot.querySelector('#send-shelf').addEventListener('click', sendShelf);
   }
   const replies = await loadReplies();
@@ -1491,7 +1493,7 @@ async function checkout(order) {
     });
     return;
   }
-  local.set('pendingOrder', { kind: order.kind || 'book', shareId: order.shareId, storyId: order.storyId, title: order.title, qty: order.qty });
+  local.set('pendingOrder', { kind: order.kind || 'book', shelfId: order.shelfId, shareId: order.shareId, storyId: order.storyId, title: order.title, qty: order.qty });
   track('order', { story: order.storyId, n: order.qty, meta: { kind: order.kind || 'book' } });
   try {
     await startPayment(order, { successUrl: `${appBase()}?pay=success`, failUrl: `${appBase()}?pay=fail` });
@@ -1506,7 +1508,8 @@ async function payReturnView() {
   const q = new URLSearchParams(location.search);
   // 보관 결제는 받은 가족(처음 설정 없음)이 하니까, 끝나면 그 녹음 화면으로 돌아가요.
   const pending = local.get('pendingOrder') || {};
-  const home = pending.kind === 'keep' && pending.shareId ? `#/keep/${pending.shareId}` : '#/';
+  const home = pending.kind === 'keep' && pending.shareId ? `#/keep/${pending.shareId}`
+    : pending.kind === 'pass' && pending.shelfId ? `#/pass/${pending.shelfId}` : '#/';
   history.replaceState(null, '', `${appBase()}${home}`);
   if (q.get('pay') !== 'success') {
     render(`
@@ -1524,6 +1527,24 @@ async function payReturnView() {
     // 복지관처럼 여럿이 쓰는 기기에 이름·전화·주소가 남지 않게 지워요.
     local.set('orderForm', null);
     track('paid', { n: order.qty, meta: { kind: order.kind || 'book' } });
+    if (order.kind === 'pass') {
+      render(`
+        ${topbar({ back: `#/shelf/${order.shareId}` })}
+        <div class="celebrate">
+          <div class="celebrate-badge">📚</div>
+          <h1 class="title-xl">가족 1년권이 시작됐어요</h1>
+          <p class="sub">${order.until ? `${dateKo(order.until)}까지 ` : '1년 동안 '}보내는 동화는 모두 ${KEEP_YEARS}년 동안 간직해요.<br>지금까지 보낸 동화와 가족 책장도 함께요.</p>
+        </div>
+        <div class="order-sum">
+          <div><span>주문 번호</span><b>${esc(order.orderId)}</b></div>
+          <div class="total"><span>결제 금액</span><b>${won(order.amount)}</b></div>
+        </div>
+        <div class="cta-bar">
+          ${order.receiptUrl ? `<a class="btn btn-secondary" href="${esc(order.receiptUrl)}" target="_blank" rel="noopener">영수증</a>` : ''}
+          <a class="btn btn-primary grow" href="#/shelf/${esc(order.shareId)}">책장 보기</a>
+        </div>`);
+      return;
+    }
     if (order.kind === 'keep') {
       const until = new Date();
       until.setFullYear(until.getFullYear() + KEEP_YEARS);
@@ -1859,6 +1880,36 @@ function notFound() {
   `);
 }
 
+/* ---------- 가족 1년권 ---------- */
+// 책장 하나(할머니·할아버지 휴대폰 하나)에 붙는 1년권이에요. 손주네 부모가 책장 화면에서 선물로 살 수도 있어요.
+async function passView(id) {
+  render(`
+    ${topbar({ back: `#/shelf/${id}`, title: '가족 1년권' })}
+    <div class="loading"><span class="spinner"></span></div>
+  `);
+  const until = await passStatus(id);
+  const active = until && new Date(until) > new Date();
+  track('keep_view', { meta: { kind: 'pass' } });
+  render(`
+    ${topbar({ back: `#/shelf/${id}`, title: '가족 1년권' })}
+    <div class="keep-hero">
+      <div class="celebrate-badge">📚</div>
+      <h1 class="title-lg">${active ? '가족 1년권을 쓰고 있어요' : '할머니·할아버지 목소리를<br>책장째로 간직하세요'}</h1>
+    </div>
+    ${active ? `<div class="keep-status on"><span>📚</span><p><b>${dateKo(until)}</b>까지 보내는 동화는 모두 ${KEEP_YEARS}년 동안 간직해요.</p></div>` : ''}
+    <ul class="keep-points">
+      <li><b>1년 동안</b> 보내는 동화가 모두 ${KEEP_YEARS}년 보관돼요 (한 편씩 사면 ${won(KEEP_PRICE)})</li>
+      <li><b>지금까지 보낸 동화</b>와 가족 책장도 바로 ${KEEP_YEARS}년 보관돼요</li>
+      <li>어버이날·명절 <b>선물</b>로 좋아요. 손주네가 사 드려도 돼요</li>
+    </ul>
+    <p class="keep-fine">한 번만 결제해요 (자동 갱신 없음). 결제 후 7일 안에는 전액 환불해 드려요. <a href="#/policy/refund">환불 규정</a></p>
+    <div class="cta-bar">
+      <button class="btn btn-primary" id="pass-pay">${won(PASS_PRICE)}${active ? '으로 1년 더 늘리기' : '으로 1년권 시작하기'}</button>
+    </div>
+  `, 'screen-keep');
+  app.querySelector('#pass-pay').addEventListener('click', () => checkout({ kind: 'pass', shelfId: id, shareId: id, storyId: 'shelf', title: '가족 1년권', qty: 1, amount: PASS_PRICE }));
+}
+
 /* ---------- 화면: 가족 책장 (손주 쪽) ---------- */
 // 할머니·할아버지가 보낸 동화를 모아 보여 줘요. 처음 본 뒤에 들어온 동화에는 "새 동화" 표시를 달아요.
 async function shelfView(id) {
@@ -1905,7 +1956,8 @@ async function shelfView(id) {
         </div>
         <span class="chev">${I.chevron}</span>
       </a>`;
-    }).join('')}`;
+    }).join('')}
+    ${payEnabled() ? `<a class="keep-link pass-link" href="#/pass/${id}">📚 이 책장을 ${KEEP_YEARS}년 간직하기 · 가족 1년권<span>${I.chevron}</span></a>` : ''}`;
   local.set(seenKey, Math.max(...entries.map((e) => e.n)));
 }
 
@@ -2147,6 +2199,7 @@ const routes = [
   [/^#\/about$/, aboutView],
   [/^#\/replies$/, repliesView],
   [/^#\/shelf\/([a-z0-9]{12})$/, shelfView],
+  [/^#\/pass\/([a-z0-9]{12})$/, passView],
   [/^#\/memory(?:\/([\w-]+))?$/, memoryView],
   [/^#\/keep\/([a-z0-9]{12})$/, keepView],
   [/^#\/flyer\/([a-z0-9-]{2,20})$/, flyerView],
@@ -2160,7 +2213,7 @@ async function route() {
   if (/[?&]pay=/.test(location.search)) { await payReturnView(); return; }
   const hash = location.hash || '#/';
   // 공유 링크(#/s/…)는 처음 설정 없이 바로 열려요.
-  const open = ['#/s/', '#/shelf/', '#/print/', '#/policy/', '#/about', '#/keep/', '#/flyer/'].some((p) => hash.startsWith(p));
+  const open = ['#/s/', '#/shelf/', '#/pass/', '#/print/', '#/policy/', '#/about', '#/keep/', '#/flyer/'].some((p) => hash.startsWith(p));
   if (!profile && hash !== '#/welcome' && !open) {
     location.replace('#/welcome');
     return;

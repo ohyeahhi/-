@@ -15,3 +15,12 @@ alter table public.orders add column if not exists kind text not null default 'b
 alter table public.orders alter column name drop not null;
 alter table public.orders alter column phone drop not null;
 alter table public.orders alter column addr drop not null;
+
+-- 가족 1년권: 책장(shelf_id)마다 언제까지인지. 이 기간에 보낸 동화는 10년 보관돼요. (orders 함수만 써요)
+create table if not exists public.passes (
+  shelf_id   text primary key check (shelf_id ~ '^[a-z0-9]{12}$'),
+  until      timestamptz not null,
+  order_id   text,
+  updated_at timestamptz not null default now()
+);
+alter table public.passes enable row level security;

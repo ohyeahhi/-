@@ -61,3 +61,15 @@ export async function keepStatus(shareId) {
   if (!payEnabled()) return null;
   try { return (await callOrders({ action: 'keep_status', shareId })).until; } catch { return null; }
 }
+
+// 가족 1년권이 언제까지인지 (없으면 null)
+export async function passStatus(shelfId) {
+  if (!payEnabled()) return null;
+  try { return (await callOrders({ action: 'pass_status', shelfId })).until; } catch { return null; }
+}
+
+// 새로 보낸 동화: 그 책장에 1년권이 살아 있으면 서버가 10년 보관으로 올려요. (실패해도 괜찮아요)
+export async function claimPass(shareId) {
+  if (!payEnabled()) return null;
+  try { return (await callOrders({ action: 'pass_claim', shareId })).until; } catch { return null; }
+}

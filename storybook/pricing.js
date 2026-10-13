@@ -16,3 +16,7 @@ export function priceOf({ qty, gift }) {
   const wrap = gift ? GIFT_PRICE * qty : 0;
   return { books, wrap, total: books + wrap, saved: (PRICE_FIRST - PRICE_MORE) * Math.max(0, qty - 1) };
 }
+
+// 가족 1년권: 1년 동안 보내는 동화 모두 + 지금까지 보낸 동화와 가족 책장을 10년 보관 (자동 갱신 없음, 한 번 결제)
+export const PASS_PRICE = 29000;
+export const PASS_DAYS = 365;
