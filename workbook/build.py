@@ -19,7 +19,6 @@ FONTS = "".join(f"@font-face{{font-family:'Pretendard';font-weight:{w};src:url(f
 CSS = FONTS + """
 :root{
   --ink:#191F28; --ink2:#4E5968; --ink3:#8B95A1; --line:#E5E8EB; --bg:#F2F4F6; --field:#F7F8FA;
-  --blue:#3182F6; --blue-soft:#E8F3FF; --blue-ink:#1B64DA;
 }
 @page{size:148mm 210mm;margin:17mm 16mm 16mm 16mm}
 @page cover{margin:0}
@@ -32,7 +31,7 @@ html,body{margin:0;background:#fff;color:var(--ink);font-family:'Pretendard',san
 /* cover */
 .cover{page:cover;height:210mm;width:148mm;position:relative;overflow:hidden;background:#fff}
 .cover .art{position:absolute;right:-14mm;top:-10mm}
-.cover .edition{position:absolute;top:18mm;left:16mm;font-size:7.5pt;font-weight:600;color:var(--blue);letter-spacing:.02em}
+.cover .edition{position:absolute;top:18mm;left:16mm;font-size:7.5pt;font-weight:600;color:var(--accent-ink);letter-spacing:.02em}
 .cover h1{position:absolute;top:100mm;left:16mm;right:16mm;margin:0;font-weight:800;font-size:31pt;line-height:1.22;letter-spacing:-.045em}
 .cover .sub{position:absolute;top:131mm;left:16mm;right:16mm;font-size:10pt;font-weight:500;color:var(--ink2);line-height:1.6;letter-spacing:-.02em}
 .cover .units{position:absolute;top:150mm;left:16mm;display:flex;gap:2mm}
@@ -41,7 +40,7 @@ html,body{margin:0;background:#fff;color:var(--ink);font-family:'Pretendard',san
   display:flex;align-items:center;padding:0 5mm;font-size:8.5pt;font-weight:600;color:var(--ink3)}
 
 /* type */
-.eyebrow{font-size:8pt;font-weight:700;color:var(--blue);margin-bottom:1.5mm;letter-spacing:-.01em}
+.eyebrow{font-size:8pt;font-weight:700;color:var(--accent-ink);margin-bottom:1.5mm;letter-spacing:-.01em}
 h2{font-weight:800;font-size:19pt;line-height:1.3;letter-spacing:-.04em;margin:0 0 3mm}
 h3{font-weight:700;font-size:11pt;letter-spacing:-.03em;margin:8mm 0 3mm}
 .lead{font-size:9.5pt;color:var(--ink2);line-height:1.65;margin:0 0 7mm}
@@ -49,7 +48,7 @@ h3{font-weight:700;font-size:11pt;letter-spacing:-.03em;margin:8mm 0 3mm}
 /* steps & lists */
 .steps{display:flex;flex-direction:column;gap:2.4mm}
 .step{display:flex;gap:4mm;align-items:flex-start;background:var(--bg);border-radius:3.5mm;padding:4mm 4.5mm}
-.num{flex:none;width:6.4mm;height:6.4mm;border-radius:50%;background:var(--blue);color:#fff;font-size:8pt;font-weight:700;
+.num{flex:none;width:6.4mm;height:6.4mm;border-radius:50%;background:var(--accent);color:var(--on-accent);font-size:8pt;font-weight:700;
   display:flex;align-items:center;justify-content:center;line-height:1}
 .step b{display:block;font-size:9.8pt;font-weight:700;letter-spacing:-.02em;margin-bottom:.4mm}
 .step span{color:var(--ink2);font-size:8.6pt}
@@ -59,16 +58,16 @@ h3{font-weight:700;font-size:11pt;letter-spacing:-.03em;margin:8mm 0 3mm}
 .checks{display:flex;flex-direction:column;gap:4.2mm;margin-top:2mm}
 .checks div{display:flex;gap:3.5mm;align-items:flex-start;font-size:9.4pt;line-height:1.55}
 .checks svg{flex:none;margin-top:.4mm}
-.callout{margin-top:8mm;background:var(--blue-soft);border-radius:3.5mm;padding:4.5mm 5mm;font-size:8.6pt;color:var(--ink2)}
-.callout b{display:block;color:var(--blue-ink);font-size:9.2pt;margin-bottom:.8mm}
+.callout{margin-top:8mm;background:var(--accent-soft);border-radius:3.5mm;padding:4.5mm 5mm;font-size:8.6pt;color:var(--ink2)}
+.callout b{display:block;color:var(--accent-ink);font-size:9.2pt;margin-bottom:.8mm}
 
 .tag{display:inline-flex;align-items:center;height:5mm;padding:0 2.2mm;border-radius:1.4mm;background:var(--bg);color:var(--ink2);
   font-size:7pt;font-weight:600;white-space:nowrap;letter-spacing:0}
-.tag.상황{background:var(--blue-soft);color:var(--blue-ink)}
+.tag.상황{background:var(--accent-soft);color:var(--accent-ink)}
 
 /* unit opener */
 .opener{height:177mm;display:flex;flex-direction:column}
-.opener .unit{margin-top:14mm;font-size:9pt;font-weight:700;color:var(--blue)}
+.opener .unit{margin-top:14mm;font-size:9pt;font-weight:700;color:var(--accent-ink)}
 .opener h2{font-size:30pt;letter-spacing:-.05em;line-height:1.2;margin:2mm 0 6mm}
 .opener .intro{font-size:10.5pt;color:var(--ink2);line-height:1.7;letter-spacing:-.02em}
 .promise{margin-top:auto;background:var(--bg);border-radius:4.5mm;padding:5mm}
@@ -80,9 +79,9 @@ h3{font-weight:700;font-size:11pt;letter-spacing:-.03em;margin:8mm 0 3mm}
 .runhead{display:flex;justify-content:space-between;font-size:7.4pt;font-weight:600;color:var(--ink3);margin-bottom:7mm}
 .q{break-inside:avoid;margin-bottom:7mm}
 .qmeta{display:flex;align-items:center;gap:2mm;margin-bottom:1.6mm}
-.qno{font-size:9pt;font-weight:800;color:var(--blue);letter-spacing:-.01em}
+.qno{font-size:9pt;font-weight:800;color:var(--accent-ink);letter-spacing:-.01em}
 .qtext{font-size:11pt;font-weight:600;line-height:1.55;letter-spacing:-.03em;margin-bottom:3.2mm}
-.q.상황 .qtext{background:var(--blue-soft);border-radius:3.5mm;padding:3.6mm 4.4mm;color:var(--ink)}
+.q.상황 .qtext{background:var(--accent-soft);border-radius:3.5mm;padding:3.6mm 4.4mm;color:var(--ink)}
 .field{background:var(--field);border-radius:3.5mm;padding:1mm 4.4mm 3mm}
 .field i{display:block;height:8mm;border-bottom:.6pt solid var(--line)}
 .choices{display:flex;flex-wrap:wrap;gap:1.8mm;margin-bottom:2.2mm}
@@ -103,7 +102,7 @@ h3{font-weight:700;font-size:11pt;letter-spacing:-.03em;margin:8mm 0 3mm}
 .tblock{margin-bottom:4.5mm;break-inside:avoid}
 .tblock .k{font-size:10pt;font-weight:700;letter-spacing:-.025em;margin-bottom:2mm}
 .tblock .hint{font-size:8pt;color:var(--ink3);margin:-1.2mm 0 2mm}
-.dot{display:inline-block;width:2mm;height:2mm;border-radius:50%;background:var(--blue);margin-right:2mm;vertical-align:.4mm}
+.dot{display:inline-block;width:2mm;height:2mm;border-radius:50%;background:var(--accent);margin-right:2mm;vertical-align:.4mm}
 .sign{display:grid;grid-template-columns:1fr 1fr;gap:2mm}
 .sign div{height:11mm;border-radius:2.6mm;background:var(--field);display:flex;align-items:center;padding:0 4mm;font-size:8pt;font-weight:600;color:var(--ink3)}
 .signoff{margin-top:2mm;background:var(--bg);border-radius:4.5mm;padding:4.5mm}
@@ -118,12 +117,12 @@ h3{font-weight:700;font-size:11pt;letter-spacing:-.03em;margin:8mm 0 3mm}
 """
 
 ART = """<svg class="art" width="96mm" height="96mm" viewBox="0 0 96 96" xmlns="http://www.w3.org/2000/svg">
-<circle cx="40" cy="52" r="30" fill="#E8F3FF"/>
-<circle cx="62" cy="40" r="30" fill="#3182F6" fill-opacity=".9"/>
+<circle cx="40" cy="52" r="30" style="fill:var(--accent-soft)"/>
+<circle cx="62" cy="40" r="30" style="fill:var(--accent)" fill-opacity=".92"/>
 </svg>"""
 
-CHECK = """<svg width="5.2mm" height="5.2mm" viewBox="0 0 20 20"><circle cx="10" cy="10" r="10" fill="#E8F3FF"/>
-<path d="M6 10.4l2.7 2.6L14 7.6" fill="none" stroke="#3182F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>"""
+CHECK = """<svg width="5.2mm" height="5.2mm" viewBox="0 0 20 20"><circle cx="10" cy="10" r="10" style="fill:var(--accent-soft)"/>
+<path d="M6 10.4l2.7 2.6L14 7.6" fill="none" style="stroke:var(--accent-check)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>"""
 
 
 def lines(n):
@@ -161,9 +160,18 @@ def question(i, q):
     return "".join(parts)
 
 
+THEMES = {
+    # accent: 채움색, accent-soft: 연한 배경, accent-ink: 강조 글자색, on-accent: 채움색 위 글자, accent-check: 체크 표시
+    "노랑": {"accent": "#FFC93C", "accent-soft": "#FFF5D6", "accent-ink": "#B07A00", "on-accent": "#191F28", "accent-check": "#E0A800"},
+    "회색": {"accent": "#333D4B", "accent-soft": "#E9ECEF", "accent-ink": "#333D4B", "on-accent": "#FFFFFF", "accent-check": "#333D4B"},
+}
+THEME = THEMES["노랑"]
+
+
 def doc(title, pages):
+    theme = ":root{" + "".join(f"--{k}:{v};" for k, v in THEME.items()) + "}"
     return f"""<!doctype html><html lang="ko"><head><meta charset="utf-8"><title>{E(title)}</title>
-<style>{CSS}</style></head><body>{''.join(pages)}</body></html>"""
+<style>{CSS}{theme}</style></head><body>{''.join(pages)}</body></html>"""
 
 
 def runhead(u, right):
@@ -258,15 +266,16 @@ def feedback():
 <div class="callout"><b>고맙습니다</b>작성한 기록지는 사진으로 찍어 보내 주셔도 좋아요. 두 분의 대화가 다음 커플의 워크북을 만들어요.</div></section>"""
 
 
-personal = [cover("TEST EDITION · 개인 워크북", "결혼 후 가장 많이 부딪히는 이야기를<br>결혼 전에 미리 나누는 워크북", "이 워크북의 주인"), howto(), guide()]
-for u in UNITS:
-    personal += [opener(u), questions(u)]
+for theme_name, THEME in THEMES.items():
+    personal = [cover("TEST EDITION · 개인 워크북", "결혼 후 가장 많이 부딪히는 이야기를<br>결혼 전에 미리 나누는 워크북", "이 워크북의 주인"), howto(), guide()]
+    for u in UNITS:
+        personal += [opener(u), questions(u)]
 
-shared = [cover("TEST EDITION · 함께 기록지", "대화를 마친 뒤 두 사람이 함께 쓰는<br>우리의 약속 기록", "우리 두 사람")]
-for u in UNITS:
-    shared.append(together(u))
-shared.append(feedback())
+    shared = [cover("TEST EDITION · 함께 기록지", "대화를 마친 뒤 두 사람이 함께 쓰는<br>우리의 약속 기록", "우리 두 사람")]
+    for u in UNITS:
+        shared.append(together(u))
+    shared.append(feedback())
 
-open("personal.html", "w").write(doc("결혼 전 10번의 대화 개인 워크북", personal))
-open("shared.html", "w").write(doc("결혼 전 10번의 대화 함께 기록지", shared))
-print("ok")
+    open(f"personal_{theme_name}.html", "w").write(doc("결혼 전 10번의 대화 개인 워크북", personal))
+    open(f"shared_{theme_name}.html", "w").write(doc("결혼 전 10번의 대화 함께 기록지", shared))
+    print("ok")
