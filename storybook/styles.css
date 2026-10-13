@@ -840,3 +840,35 @@ html.bedtime .listen-text { font-size: 20px; }
 .emoji-row { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
 .emoji-pick { min-width: 0; padding: 0; aspect-ratio: 1; border-radius: 14px; background: var(--fill); font-size: 22px; line-height: 1; border: 2px solid transparent; }
 .emoji-pick.on { border-color: var(--accent); background: var(--accent-weak); }
+
+/* ---------- 우리 가족 책장: 사람별 존 + 책꽂이 ---------- */
+.zone-tabs { display: flex; gap: 8px; overflow-x: auto; margin: 6px -20px 8px; padding: 4px 20px 10px; scrollbar-width: none; }
+.zone-tabs::-webkit-scrollbar { display: none; }
+.zone-tab { flex: none; display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 16px; border-radius: 22px; background: var(--surface); box-shadow: var(--shadow); font-size: 16px; font-weight: 700; }
+.zone-tab span { font-size: 22px; }
+.zone { margin-top: 22px; scroll-margin-top: 16px; }
+.zone-head { display: flex; align-items: center; gap: 12px; font-size: 20px; font-weight: 600; line-height: 1.3; margin-bottom: 10px; }
+.zone-head b { font-weight: 800; }
+.zone-head small { font-size: 14px; color: var(--text-3); font-weight: 500; }
+.zone-emoji { width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-weak); font-size: 30px; }
+.bookcase {
+  display: flex; align-items: flex-end; gap: 6px; overflow-x: auto; min-height: 196px;
+  padding: 14px 14px 0; border-radius: 18px 18px 6px 6px; scrollbar-width: none;
+  background: linear-gradient(to bottom, #EADBC0, #E2CDA8); box-shadow: inset 0 -14px 0 #B9885A, inset 0 -18px 0 #A8744A;
+}
+.bookcase::-webkit-scrollbar { display: none; }
+.book-spine {
+  position: relative; flex: none; width: 58px; height: 168px; margin-bottom: 14px; border-radius: 6px 6px 3px 3px;
+  background: linear-gradient(90deg, rgba(0, 0, 0, .14), transparent 18%, transparent 82%, rgba(0, 0, 0, .12)), var(--spine);
+  color: #FFFDF6; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(60, 40, 10, .25);
+}
+.book-spine:nth-child(3n+2) { height: 152px; width: 54px; }
+.book-spine:nth-child(3n) { height: 176px; width: 62px; }
+.spine-title { writing-mode: vertical-rl; font-size: 16px; font-weight: 800; letter-spacing: .04em; max-height: 136px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.spine-new { position: absolute; top: -10px; right: -6px; font-style: normal; font-size: 12px; font-weight: 800; background: var(--red); color: #fff; border-radius: 10px; padding: 2px 6px; }
+.zone-pass { display: inline-block; margin-top: 10px; font-size: 14px; font-weight: 600; color: var(--accent-text); }
+.zone-help { margin-top: 26px; font-size: 14px; color: var(--text-3); line-height: 1.5; }
+.shelf-row-off { cursor: default; }
+@media (prefers-color-scheme: dark) {
+  .bookcase { background: linear-gradient(to bottom, #3A3023, #33291D); box-shadow: inset 0 -14px 0 #6E5236, inset 0 -18px 0 #5C432B; }
+}

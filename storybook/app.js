@@ -663,8 +663,12 @@ async function homeView() {
     ${footerHTML()}
   `, 'screen-home');
   const shelfSlot = app.querySelector('#shelf-slot');
+  if (shelfSlot && shareEnabled() && !(local.get('shelfOk') && local.get('shelfId'))) {
+    shelfSlot.innerHTML = `<div class="shelf-row shelf-row-off"><span>📚</span><span><b>가족 책장</b><br>동화를 한 편 보내면 내 책장이 생겨요. 아이는 책장에서 가족별로 골라 들어요.</span></div>`;
+  }
   if (shelfSlot && local.get('shelfOk') && local.get('shelfId') && shareEnabled()) {
-    shelfSlot.innerHTML = `<button class="shelf-row" id="send-shelf"><span>📚</span><span><b>가족 책장 링크 보내기</b><br>보낸 동화가 링크 하나에 모여요</span><span class="chev">${I.chevron}</span></button>`;
+    shelfSlot.innerHTML = `<button class="shelf-row" id="send-shelf"><span>📚</span><span><b>가족 책장 링크 보내기</b><br>보낸 동화가 아이 책장의 "${esc(who())} 존"에 모여요</span><span class="chev">${I.chevron}</span></button>
+      <a class="reply-link" href="#/shelf/${local.get('shelfId')}">📖 아이가 보는 가족 책장 미리 보기</a>`;
     if (payEnabled()) shelfSlot.insertAdjacentHTML('beforeend', `<a class="reply-link" href="#/pass/${local.get('shelfId')}">📚 가족 1년권: 보내는 동화 모두 ${KEEP_YEARS}년 간직하기</a>`);
     shelfSlot.querySelector('#send-shelf').addEventListener('click', sendShelf);
   }
@@ -1073,6 +1077,7 @@ async function sharedView(shareId, page) {
     return;
   }
   const pages = pagesOf(s, readerOf(manifest), manifest.kid || '');
+  addFamilyShelf(manifest.shelf);   // 이 링크를 보낸 사람의 책장도 가족 책장에 모아 둬요
   const list = manifest.pages
     .filter((f) => pages[f.i])
     .map((f) => ({
@@ -1086,7 +1091,7 @@ async function sharedView(shareId, page) {
     list,
     reader: readerOf(manifest),
     kid: (manifest.kid || '').trim(),
-    endExtra: `${/^[a-z0-9]{12}$/.test(manifest.shelf || '') ? `<a class="btn btn-secondary full" href="#/shelf/${manifest.shelf}">📚 우리 가족 책장에서 다른 동화 보기</a>` : ''}
+    endExtra: `${/^[a-z0-9]{12}$/.test(manifest.shelf || '') ? '<a class="btn btn-secondary full" href="#/family">📚 우리 가족 책장에서 다른 동화 보기</a>' : ''}
       ${shareEnabled() ? `<button class="btn btn-secondary full" data-act="reply">🎤 ${readerOf(manifest)}께 답장 보내기</button>` : ''}
       <a class="keep-link" href="#/keep/${shareId}">🔒 이 목소리 오래 간직하기<span>${I.chevron}</span></a>
       <a class="btn btn-secondary full" href="#/about" data-act="invite">우리 가족도 만들어 보기</a>`,
@@ -2034,55 +2039,89 @@ async function passView(id) {
   app.querySelector('#pass-pay').addEventListener('click', () => checkout({ kind: 'pass', shelfId: id, shareId: id, storyId: 'shelf', title: '가족 1년권', qty: 1, amount: PASS_PRICE }));
 }
 
-/* ---------- 화면: 가족 책장 (손주 쪽) ---------- */
-// 할머니·할아버지가 보낸 동화를 모아 보여 줘요. 처음 본 뒤에 들어온 동화에는 "새 동화" 표시를 달아요.
+/* ---------- 화면: 우리 가족 책장 (아이 쪽) ---------- */
+// 할머니·삼촌·이모… 가족마다 자기 책장(링크)이 있어요. 아이 휴대폰은 열어 본 책장을 모두 기억해서
+// 한 화면에 사람별 "존"으로 나눠 책꽂이처럼 보여 줘요. 처음 본 뒤에 들어온 동화에는 "새" 표시가 붙어요.
+const SHELF_ID = /^[a-z0-9]{12}$/;
+const familyShelves = () => (local.get('familyShelves') || []).filter((x) => SHELF_ID.test(x));
+function addFamilyShelf(id) {
+  if (!SHELF_ID.test(id || '')) return;
+  const list = familyShelves();
+  if (!list.includes(id)) local.set('familyShelves', [...list, id].slice(-20));
+}
+// 책 등 색: 동화마다 늘 같은 색이 되게 제목으로 골라요.
+const SPINE = ['#E4573D', '#3E6FB0', '#3FA36B', '#F2A33C', '#8E6CC8', '#D9668C', '#2E8C8C', '#B07440'];
+const spineColor = (t) => SPINE[[...String(t)].reduce((h, c) => h + c.charCodeAt(0), 0) % SPINE.length];
+
 async function shelfView(id) {
+  // 누가 보낸 책장 링크든, 아이 휴대폰에서는 가족 책장 전체로 보여 줘요.
+  addFamilyShelf(id);
+  return familyView(id);
+}
+
+async function familyView(focus) {
+  const here = stillHere();
   render(`
     ${topbar()}
     <div id="shelf"><div class="loading"><span class="spinner"></span><p class="sub">책장을 열고 있어요</p></div></div>
   `, 'screen-shelf');
-  const entries = await fetchShelf(id).catch(() => null);
+  const ids = familyShelves();
+  const shelves = await Promise.all(ids.map(async (id) => ({ id, entries: await fetchShelf(id).catch(() => null) })));
   const box = app.querySelector('#shelf');
-  if (!box) return;
-  if (!entries?.length) {
+  if (!box || !here()) return;
+  // 열어 봤는데 비어 있는(없는) 책장은 기억에서 지워요. (인터넷이 끊겨 못 읽은 건 그대로 둬요)
+  const empty = shelves.filter((x) => Array.isArray(x.entries) && !x.entries.length).map((x) => x.id);
+  if (empty.length) local.set('familyShelves', familyShelves().filter((x) => !empty.includes(x)));
+  const zones = [];
+  for (const { id, entries } of shelves) {
+    if (!entries?.length) continue;
+    const latest = new Map();
+    for (const e of entries) latest.set(e.storyId, e);
+    const books = [...latest.values()].sort((a, b) => b.n - a.n);
+    const last = entries[entries.length - 1];
+    let by = { name: cleanName(last.by?.name), emoji: EMOJIS.includes(last.by?.emoji) ? last.by.emoji : '' };
+    if (!by.name) {
+      const head = await fetchShare(entries[0].shareId).catch(() => null);
+      by = { name: head ? readerOf(head) : '할머니', emoji: emojiOf(head) };
+    }
+    const seenKey = `shelfSeen:${id}`;
+    const seen = Number(local.get(seenKey)) || 0;
+    zones.push({ id, books, by: { name: by.name, emoji: by.emoji || '📖' }, seen, at: last.at || '', max: Math.max(...entries.map((e) => e.n)) });
+    local.set(seenKey, Math.max(seen, ...entries.map((e) => e.n)));
+  }
+  if (!zones.length) {
     box.innerHTML = `<div class="celebrate"><div class="celebrate-badge">📚</div>
-      <h1 class="title-lg">${entries ? '아직 책장이 비어 있어요' : '책장을 열 수 없어요'}</h1>
-      <p class="sub">${entries ? '동화를 보내면 여기에 모여요.' : '주소가 정확한지 보낸 분께 확인해 주세요.'}</p></div>`;
+      <h1 class="title-lg">${ids.length ? '책장을 열 수 없어요' : '아직 책장이 비어 있어요'}</h1>
+      <p class="sub">${ids.length ? '인터넷을 확인하거나, 보낸 분께 링크를 다시 받아 주세요.' : '가족이 보낸 동화 링크나 책장 링크를 열면 여기에 모여요.'}</p></div>`;
     return;
   }
-  // 같은 동화를 고쳐서 다시 보냈으면 가장 최근 것만 보여 줘요.
-  const latest = new Map();
-  for (const e of entries) latest.set(e.storyId, e);
-  const list = [...latest.values()].sort((a, b) => b.n - a.n);
-  const seenKey = `shelfSeen:${id}`;
-  const seen = Number(local.get(seenKey)) || 0;
-  const first = entries[0];
-  const head = await fetchShare(first.shareId).catch(() => null);
-  const reader = head ? whoOf(head.role) : '할머니';
-  const kid = (head?.kid || '').trim();
+  // 방금 연 사람의 존을 맨 위에, 나머지는 최근에 보낸 순서로
+  zones.sort((a, b) => (b.id === focus) - (a.id === focus) || String(b.at).localeCompare(String(a.at)));
+  const total = zones.reduce((n, z) => n + z.books.length, 0);
   box.innerHTML = `
-    <h1 class="title-xl">${reader}의 동화 책장</h1>
-    <p class="sub">${kid ? `${esc(toOf(kid))} 들려주려고 ` : ''}${reader}가 읽어 준 동화 ${list.length}편이에요.</p>
-    ${list.map((e) => {
-      const s = getBuiltin(e.storyId);
-      // 직접 지은 이야기는 첫 장면 글로 표지 그림을 그려요.
-      const c = !s && typeof e.cover?.text === 'string' ? e.cover : null;
-      const cover = s ? coverHTML(s)
-        : c ? `<div class="cover"><img src="${mine.pageImage(c.text.slice(0, 200), Number(c.seed) || 0, Boolean(c.noCast))}" alt=""></div>`
-          : '<div class="cover" style="--c1:#FFE7A8;--c2:#FFC9A8"><span>📖</span></div>';
-      const fresh = seen && e.n > seen;
-      return `
-      <a class="story-card${fresh ? ' shelf-new' : ''}" href="#/s/${e.shareId}">
-        ${cover}
-        <div class="story-card-body">
-          <div class="story-card-title">${esc(e.title || s?.title || '동화')}</div>
-          <div class="story-card-meta">${fresh ? '<b>새 동화</b> · ' : ''}${dateKo(new Date(e.at))}</div>
+    <h1 class="title-xl">우리 가족 책장</h1>
+    <p class="sub">${zones.length}명이 들려준 동화 ${total}편. 오늘은 누구 목소리로 들을까요?</p>
+    <nav class="zone-tabs">${zones.map((z) => `<a class="zone-tab" href="#zone-${z.id}" data-zone="${z.id}"><span>${z.by.emoji}</span>${esc(z.by.name)}</a>`).join('')}</nav>
+    ${zones.map((z) => `
+      <section class="zone" id="zone-${z.id}">
+        <h2 class="zone-head"><span class="zone-emoji">${z.by.emoji}</span><span><b>${esc(z.by.name)}</b> 존<br><small>동화 ${z.books.length}편</small></span></h2>
+        <div class="bookcase">
+          ${z.books.map((e) => {
+            const fresh = z.seen && e.n > z.seen;
+            const title = e.title || getBuiltin(e.storyId)?.title || '동화';
+            return `<a class="book-spine${fresh ? ' shelf-new' : ''}" href="#/s/${e.shareId}" style="--spine:${spineColor(title)}" aria-label="${esc(title)}${fresh ? ' (새 동화)' : ''}">
+              ${fresh ? '<i class="spine-new">새</i>' : ''}<span class="spine-title">${esc(title)}</span></a>`;
+          }).join('')}
         </div>
-        <span class="chev">${I.chevron}</span>
-      </a>`;
-    }).join('')}
-    ${payEnabled() ? `<a class="keep-link pass-link" href="#/pass/${id}">📚 이 책장을 ${KEEP_YEARS}년 간직하기 · 가족 1년권<span>${I.chevron}</span></a>` : ''}`;
-  local.set(seenKey, Math.max(...entries.map((e) => e.n)));
+        ${payEnabled() ? `<a class="zone-pass" href="#/pass/${z.id}">🔒 ${esc(z.by.name)} 존 10년 간직하기 · 가족 1년권</a>` : ''}
+      </section>`).join('')}
+    <p class="zone-help">다른 가족(삼촌·이모·할아버지…)이 보낸 동화 링크를 이 휴대폰에서 한 번 열면, 그 사람 존이 여기에 생겨요.</p>`;
+  box.querySelector('.zone-tabs').addEventListener('click', (e) => {
+    const t = e.target.closest('[data-zone]');
+    if (!t) return;
+    e.preventDefault();   // 주소(#/family)는 그대로 두고 그 존으로 내려가요
+    box.querySelector(`#zone-${t.dataset.zone}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
 }
 
 /* ---------- 화면: 추억 질문 ---------- */
@@ -2352,6 +2391,7 @@ const routes = [
   [/^#\/about$/, aboutView],
   [/^#\/replies$/, repliesView],
   [/^#\/shelf\/([a-z0-9]{12})$/, shelfView],
+  [/^#\/family$/, () => familyView()],
   [/^#\/pass\/([a-z0-9]{12})$/, passView],
   [/^#\/memory(?:\/([\w-]+))?$/, memoryView],
   [/^#\/keep\/([a-z0-9]{12})$/, keepView],
@@ -2369,9 +2409,10 @@ async function route() {
   if (/[?&]pay=/.test(location.search)) { await payReturnView(); return; }
   const hash = location.hash || '#/';
   // 공유 링크(#/s/…)는 처음 설정 없이 바로 열려요.
-  const open = ['#/s/', '#/shelf/', '#/pass/', '#/print/', '#/policy/', '#/about', '#/keep/', '#/flyer/'].some((p) => hash.startsWith(p));
+  const open = ['#/s/', '#/shelf/', '#/family', '#/pass/', '#/print/', '#/policy/', '#/about', '#/keep/', '#/flyer/'].some((p) => hash.startsWith(p));
   if (!profile && hash !== '#/welcome' && !open) {
-    location.replace('#/welcome');
+    // 아이 휴대폰(처음 설정 없음)에서 앱을 열면, 가족 책장이 있으면 그리로 가요.
+    location.replace(familyShelves().length ? '#/family' : '#/welcome');
     return;
   }
   for (const [re, view] of routes) {

@@ -34,8 +34,8 @@ export default async function ({ check, browser }) {
   const m = await phone(browser, { toss: true, perms: [] });
   check('결제 전에는 무료 보관이에요', !(await keptText(m, first)));
   await m.goto(`${APP}#/shelf/${shelf}`);
-  await m.waitForSelector('.pass-link');
-  await m.click('.pass-link');
+  await m.waitForSelector('.zone-pass');
+  await m.click('.zone-pass');
   await m.waitForSelector('#pass-pay');
   check('1년권 값은 29,000원', (await m.textContent('#pass-pay')).includes('29,000원'));
   await shot(m, 'pass');
