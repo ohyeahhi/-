@@ -741,3 +741,24 @@ html.big-text body { zoom: 1.15; }
 .reply-play svg { width: 22px; height: 22px; }
 .reply-card .story-card-title, .reply-card .story-card-meta { display: block; }
 @keyframes ring { from { box-shadow: 0 0 0 0 var(--red-weak); } to { box-shadow: 0 0 0 18px rgba(240, 68, 82, 0); } }
+
+/* ---------- 추억 질문 ---------- */
+.memo-card {
+  display: block; margin: 4px 0 14px; padding: 18px 18px 16px; border-radius: 22px;
+  background: linear-gradient(135deg, #FFF3D1, #FFE3C8); color: var(--text); box-shadow: var(--shadow);
+}
+.memo-card-eyebrow { display: block; font-size: 14px; font-weight: 700; color: var(--accent-text); }
+.memo-card-q { display: block; margin-top: 6px; font-size: 20px; font-weight: 800; line-height: 1.4; letter-spacing: -0.02em; }
+.memo-card-go { display: inline-flex; align-items: center; gap: 2px; margin-top: 10px; font-size: 15px; font-weight: 700; color: var(--accent-text); }
+.memo-card-go svg { width: 16px; height: 16px; }
+.memo-cat { margin-top: 12px; }
+.memo-q { margin-top: 6px; }
+.memo-art { margin: 18px 0 12px; }
+.memo-progress {
+  display: flex; align-items: center; gap: 12px; margin-top: 18px; padding: 14px 16px; border-radius: 18px;
+  background: var(--surface); box-shadow: var(--shadow); color: var(--text-2); font-size: 14px; line-height: 1.5;
+}
+.memo-progress b { color: var(--text); font-size: 16px; }
+.memo-progress .chev { margin-left: auto; }
+.ask { display: block; margin-bottom: .4em; font-size: .78em; font-weight: 700; color: var(--accent-text); line-height: 1.4; }
+.bp-text .ask { color: #A86E00; }

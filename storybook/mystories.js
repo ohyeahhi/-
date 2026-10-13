@@ -44,13 +44,14 @@ export function pageImage(text, seed = 0, noCast = false) {
 // 저장된 글을 앱의 동화 모양으로 바꿔요. 공유받은 가족도 같은 방법으로 그림을 다시 만들어요.
 export function toStory(raw) {
   const pages = (raw.pages || []).filter((p) => p.text?.trim())
-    .map((p) => ({ text: p.text.trim(), seed: p.seed || 0, noCast: Boolean(p.noCast), image: pageImage(p.text.trim(), p.seed || 0, Boolean(p.noCast)) }));
+    .map((p) => ({ text: p.text.trim(), seed: p.seed || 0, noCast: Boolean(p.noCast), ...(p.ask ? { ask: p.ask } : {}), image: pageImage(p.text.trim(), p.seed || 0, Boolean(p.noCast)) }));
   const n = [...raw.id].reduce((a, c) => a + c.charCodeAt(0), 0);
   return {
     id: raw.id,
     custom: true,
     title: raw.title?.trim() || '내가 지은 이야기',
-    desc: '직접 지은 이야기',
+    desc: raw.memoir ? '추억 질문에 답한 이야기' : '직접 지은 이야기',
+    memoir: Boolean(raw.memoir),
     cover: '📖',
     tint: TINTS[n % TINTS.length],
     minutes: Math.max(1, Math.round(pages.length * 0.4)),

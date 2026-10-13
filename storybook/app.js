@@ -2,6 +2,7 @@ import { STORIES, getStory as getBuiltin } from './stories.js';
 import * as db from './db.js';
 import { shareEnabled, uploadShare, fetchShare, publicUrl, uploadReply, fetchReplies } from './share.js';
 import * as mine from './mystories.js';
+import * as memo from './memories.js';
 import { describe } from './composer.js';
 import qrcode from './vendor/qrcode.js';
 import { payEnabled, startPayment, confirmPayment, keepStatus } from './pay.js';
@@ -76,6 +77,8 @@ const pagesOf = (story, role = profile?.role, kid = kidName()) => [
   ...story.pages,
 ];
 const keyOf = (id, i) => `${id}/${i}`;
+// 추억 질문으로 만든 장면은 글 위에 질문을 작게 보여 줘요.
+const askHTML = (p) => (p.ask ? `<span class="ask">Q. ${esc(p.ask)}</span>` : '');
 const recordedSet = async () => new Set(await db.keys().catch(() => []));
 
 /* ---------- 화면 정리 ---------- */
@@ -322,7 +325,7 @@ async function uploadWithProgress(story, recorded) {
         storyId: story.id,
         role: profile?.role || 'grandma',
         kid: kidName(),
-        ...(story.custom ? { custom: { title: story.title, pages: story.pages.map(({ text, seed, noCast }) => ({ text, seed, ...(noCast ? { noCast: true } : {}) })) } } : {}),
+        ...(story.custom ? { custom: { title: story.title, ...(story.memoir ? { memoir: true } : {}), pages: story.pages.map(({ text, seed, noCast, ask }) => ({ text, seed, ...(noCast ? { noCast: true } : {}), ...(ask ? { ask } : {}) })) } } : {}),
       },
       recorded.map(({ i, blob }) => ({ i, blob })),
       (n, t) => { bar.style.width = `${(n / t) * 100}%`; label.textContent = `${n} / ${t}`; },
@@ -450,6 +453,19 @@ function welcomeView() {
 }
 
 /* ---------- 화면: 홈 ---------- */
+// 홈의 "오늘의 추억 질문" 카드
+function memoryCard() {
+  const q = memo.todayQuestion(memorySkip);
+  const count = memo.memoirRaw()?.pages.length || 0;
+  if (!q || count >= memo.MAX_ANSWERS) return '';
+  return `
+    <a class="memo-card" href="#/memory">
+      <span class="memo-card-eyebrow">💭 오늘의 추억 질문${count ? ` · ${count}개 모았어요` : ''}</span>
+      <span class="memo-card-q">${esc(memo.askText(q, profile?.role))}</span>
+      <span class="memo-card-go">말로 대답하기 ${I.chevron}</span>
+    </a>`;
+}
+
 async function homeView() {
   const rec = await recordedSet();
   const card = (s) => {
@@ -501,6 +517,7 @@ async function homeView() {
     <p class="sub">녹음해 두면 ${esc(kidTo())} 언제든 들려줄 수 있어요.</p>
     <div id="reply-slot"></div>
     ${resume}
+    ${memoryCard()}
     <h2 class="section-label">우리 옛이야기</h2>
     ${STORIES.filter((s) => s.origin === 'korean').map(card).join('')}
     <h2 class="section-label">세계 명작</h2>
@@ -571,6 +588,7 @@ async function storyView(id) {
       <div class="chip-row">
         <a class="chip" href="#/book/${id}">📖 그림책으로 만들기</a>
         ${s.custom ? `<a class="chip" href="#/edit/${id}">${I.edit}이야기 고치기</a>` : ''}
+        ${s.memoir ? '<a class="chip" href="#/memory">💭 추억 질문 더 답하기</a>' : ''}
       </div>
       <div class="stat-row">
         <div><b>${pages.length}쪽</b><span>분량</span></div>
@@ -612,7 +630,7 @@ async function recordView(id, idxStr) {
         <button class="notice-btn" id="external">다른 브라우저로 열기</button>
       </div>` : ''}
     ${sceneHTML(p)}
-    <p class="read-text">${esc(p.text)}</p>
+    <p class="read-text">${askHTML(p)}${esc(p.text)}</p>
     ${p.intro ? `<div class="hint-card">${esc(p.hint)}</div>` : ''}
     <div class="rec-dock">
       <div class="self-cam" id="pip" hidden></div>
@@ -969,9 +987,9 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
       ${p.video
         ? `<div class="call-row">
             <div class="call-cam"><span class="pip-label"><i></i>${reader}</span></div>
-            <p class="listen-text call-text">${p.intro ? `${reader}의 인사 💌` : esc(p.text)}</p>
+            <p class="listen-text call-text">${p.intro ? `${reader}의 인사 💌` : askHTML(p) + esc(p.text)}</p>
           </div>`
-        : `<p class="listen-text">${p.intro ? `${reader}의 인사 💌` : esc(p.text)}</p>`}
+        : `<p class="listen-text">${p.intro ? `${reader}의 인사 💌` : askHTML(p) + esc(p.text)}</p>`}
       <div class="dots">${list.map((_, j) => `<i class="${j === pos ? 'on' : ''}"></i>`).join('')}</div>
       <div class="controls">
         <button class="ctl" data-act="prev" aria-label="앞 쪽" ${pos === 0 ? 'disabled' : ''}>${I.prev}</button>
@@ -1078,6 +1096,32 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
   drawStart();
 }
 
+// 말로 쓰기: 휴대폰 음성 인식으로 받아 적어요. (이야기 만들기·추억 질문에서 같이 써요)
+let recog = null;
+function stopDictation() { try { recog?.abort(); } catch { /* 이미 멈춤 */ } recog = null; }
+function dictateInto(ta, btn) {
+  if (recog) { recog.stop(); return; }
+  const base = ta.value.trim() ? `${ta.value.trim()} ` : '';
+  const label = btn.innerHTML;
+  recog = new SpeechRec();
+  recog.lang = 'ko-KR';
+  recog.interimResults = true;
+  recog.onresult = (e) => {
+    ta.value = (base + Array.from(e.results, (r) => r[0].transcript).join('')).slice(0, Number(ta.maxLength) > 0 ? ta.maxLength : undefined);
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+  };
+  recog.onerror = (e) => {
+    if (e.error === 'not-allowed') toast('마이크 권한을 허용해 주세요');
+    else if (e.error !== 'aborted' && e.error !== 'no-speech') toast('잘 듣지 못했어요. 다시 눌러 주세요');
+  };
+  recog.onend = () => { recog = null; btn.classList.remove('listening'); btn.innerHTML = label; };
+  try {
+    recog.start();
+    btn.classList.add('listening');
+    btn.innerHTML = `${I.mic}<span>듣고 있어요…</span>`;
+  } catch { recog = null; toast('음성 입력을 시작하지 못했어요'); }
+}
+
 /* ---------- 화면: 이야기 만들기·고치기 ---------- */
 const DRAFT = 'storyDraft';
 const MAX_PAGES = 12;
@@ -1158,32 +1202,8 @@ function editorView(editId) {
     refreshArt(n);
   });
 
-  // 말로 쓰기: 휴대폰 음성 인식으로 받아 적어요.
-  let recog = null;
-  const stopDictation = () => { try { recog?.abort(); } catch { /* 이미 멈춤 */ } recog = null; };
   onDispose(stopDictation);
-  function dictate(card, btn) {
-    if (recog) { recog.stop(); return; }
-    const ta = card.querySelector('textarea');
-    const base = ta.value.trim() ? `${ta.value.trim()} ` : '';
-    recog = new SpeechRec();
-    recog.lang = 'ko-KR';
-    recog.interimResults = true;
-    recog.onresult = (e) => {
-      ta.value = base + Array.from(e.results, (r) => r[0].transcript).join('');
-      ta.dispatchEvent(new Event('input', { bubbles: true }));
-    };
-    recog.onerror = (e) => {
-      if (e.error === 'not-allowed') toast('마이크 권한을 허용해 주세요');
-      else if (e.error !== 'aborted' && e.error !== 'no-speech') toast('잘 듣지 못했어요. 다시 눌러 주세요');
-    };
-    recog.onend = () => { recog = null; btn.classList.remove('listening'); btn.innerHTML = `${I.mic}<span>말로 쓰기</span>`; };
-    try {
-      recog.start();
-      btn.classList.add('listening');
-      btn.innerHTML = `${I.mic}<span>듣고 있어요…</span>`;
-    } catch { recog = null; toast('음성 입력을 시작하지 못했어요'); }
-  }
+  const dictate = (card, btn) => dictateInto(card.querySelector('textarea'), btn);
 
   pagesEl.addEventListener('click', (e) => {
     const btn = e.target.closest('[data-act]');
@@ -1298,8 +1318,8 @@ function bookPagesHTML(s, { shareId, reader, kid, date = todayKo() }) {
   const body = pages.slice(1).map((p, k) => `
     <section class="book-page">
       <div class="bp-art"><img src="${esc(p.image)}" alt=""></div>
-      <div class="bp-text${p.text.length > 150 ? ' bp-xlong' : p.text.length > 100 ? ' bp-long' : ''}">
-        <p>${esc(p.text)}</p>
+      <div class="bp-text${p.text.length + (p.ask?.length || 0) > 150 ? ' bp-xlong' : p.text.length + (p.ask?.length || 0) > 100 ? ' bp-long' : ''}">
+        <p>${askHTML(p)}${esc(p.text)}</p>
         ${qr(k + 1, `찍으면 ${reader}<br>목소리로 들어요`)}
       </div>
       <span class="bp-num">${k + 1}</span>
@@ -1750,6 +1770,83 @@ function notFound() {
   `);
 }
 
+/* ---------- 화면: 추억 질문 ---------- */
+// 하루 하나씩 질문에 답하면 장면이 하나씩 쌓여서 "옛날 이야기" 책이 돼요.
+const memoirTitle = () => `${who()}의 옛날 이야기`;
+let memorySkip = 0;
+
+function memoryView(qid) {
+  const q = (qid && memo.questionOf(qid)) || memo.todayQuestion(memorySkip);
+  const raw = memo.memoirRaw();
+  const count = raw?.pages.length || 0;
+  const progress = count
+    ? `<a class="memo-progress" href="#/story/${memo.MEMOIR_ID}">
+        <span><b>${esc(memoirTitle())}</b><br>${count}개 모았어요${count < memo.BOOK_READY ? ` · ${memo.BOOK_READY - count}개 더 모으면 책 한 권이 돼요` : ' · 책으로 만들 수 있어요'}</span>
+        <span class="chev">${I.chevron}</span></a>`
+    : '';
+  if (!q || count >= memo.MAX_ANSWERS) {
+    render(`
+      ${topbar({ back: '#/', title: '추억 질문' })}
+      <div class="celebrate"><div class="celebrate-badge">📚</div>
+        <h1 class="title-lg">질문에 모두 답하셨어요</h1>
+        <p class="sub">모은 이야기를 녹음하고 그림책으로 만들어 보세요.</p></div>
+      ${progress}`);
+    return;
+  }
+  const ask = memo.askText(q, profile?.role);
+  let seed = 0;
+  render(`
+    ${topbar({ back: '#/', title: '추억 질문' })}
+    <p class="eyebrow memo-cat">${esc(q[1])}</p>
+    <h1 class="title-lg memo-q">${esc(ask)}</h1>
+    <p class="sub">생각나는 대로 두세 문장 말씀해 주세요. 글에 맞는 그림이 저절로 그려지고, ${esc(kidTo())} 들려줄 이야기책의 한 장면이 돼요.</p>
+    <div class="page-art memo-art"><img alt="" src="${mine.pageImage('', 0)}"></div>
+    <textarea id="memo-text" class="input textarea page-text" rows="4" maxlength="200" placeholder="예) 우리 집 앞에는 큰 감나무가 있었는데, 가을이면 동생이랑 감을 따 먹었단다."></textarea>
+    <div class="page-found" id="memo-found" aria-live="polite"></div>
+    <div class="page-tools">
+      ${SpeechRec ? `<button class="pill" id="memo-dictate">${I.mic}<span>말로 쓰기</span></button>` : ''}
+      <button class="pill" id="memo-reroll">${I.shuffle}다른 그림</button>
+      ${qid ? '' : '<button class="pill" id="memo-skip">다른 질문</button>'}
+    </div>
+    ${progress}
+    <div class="cta-bar"><button class="btn btn-primary" id="memo-save" disabled>이야기 모으기</button></div>
+  `, 'screen-editor');
+  onDispose(stopDictation);
+  const ta = app.querySelector('#memo-text');
+  const img = app.querySelector('.memo-art img');
+  const save = app.querySelector('#memo-save');
+  let timer = 0;
+  const refresh = () => {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      img.src = mine.pageImage(ta.value.trim(), seed);
+      app.querySelector('#memo-found').innerHTML = foundHTML(ta.value.trim());
+    }, 450);
+  };
+  onDispose(() => clearTimeout(timer));
+  ta.addEventListener('input', () => { save.disabled = !ta.value.trim(); refresh(); });
+  app.querySelector('#memo-dictate')?.addEventListener('click', (e) => dictateInto(ta, e.currentTarget));
+  app.querySelector('#memo-reroll').addEventListener('click', () => { seed += 1; refresh(); });
+  app.querySelector('#memo-skip')?.addEventListener('click', () => { memorySkip += 1; route(); });
+  save.addEventListener('click', () => {
+    stopDictation();
+    const n = memo.saveAnswer(q[0], ta.value, { title: memoirTitle(), role: profile?.role, seed });
+    if (n < 0) { toast('저장하지 못했어요. 휴대폰 저장 공간을 확인해 주세요'); return; }
+    memorySkip = 0;
+    track('create', { story: memo.MEMOIR_ID, n: n + 1, meta: { memory: q[0] } });
+    sheet({
+      icon: '📖',
+      title: '이야기를 모았어요',
+      body: `${esc(memoirTitle())}에 ${n + 1}번째 장면으로 들어갔어요.<br>지금 목소리로 녹음해 둘까요?`,
+      secondary: '나중에',
+      primary: '녹음하기',
+      onPrimary: () => { location.hash = `#/record/${memo.MEMOIR_ID}/${n + 1}`; },
+      onSecondary: () => { location.hash = '#/'; },
+      onDismiss: () => { location.hash = '#/'; },
+    });
+  });
+}
+
 /* ---------- 손주 답장: 다 듣고 나서 "고마워요"를 목소리로 보내요 ---------- */
 const REPLY_SECONDS = 30;
 function replySheet(shareId, reader, kid, storyId) {
@@ -1910,6 +2007,7 @@ const routes = [
   [/^#\/policy\/(terms|privacy|refund)$/, policyView],
   [/^#\/about$/, aboutView],
   [/^#\/replies$/, repliesView],
+  [/^#\/memory(?:\/([\w-]+))?$/, memoryView],
   [/^#\/keep\/([a-z0-9]{12})$/, keepView],
   [/^#\/flyer\/([a-z0-9-]{2,20})$/, flyerView],
   [/^#\/new$/, () => editorView()],
