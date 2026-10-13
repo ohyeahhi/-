@@ -68,7 +68,7 @@ def title_card(deck):
     return f"""<div class="card title">{circles(46)}<div class="in">
 <div class="ed">{E(deck['name'])}</div>
 <div class="t">결혼 전,<br>10번의 대화</div><div class="tag">{E(deck['tagline'])}</div>
-<div class="chips"><span class="chip">{len(deck['cats'])}개의 주제</span><span class="chip">50개의 질문</span></div></div></div>"""
+<div class="chips"><span class="chip">{len(deck['cats'])}개의 주제</span><span class="chip">{sum(len(q) for _, q in deck['cats'])}개의 질문</span></div></div></div>"""
 
 
 def how_card(deck):
