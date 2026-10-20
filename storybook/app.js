@@ -4,6 +4,7 @@ import { shareEnabled, uploadShare, fetchShare, publicUrl, uploadReply, fetchRep
 import * as mine from './mystories.js';
 import * as memo from './memories.js';
 import { gateOn, passed, login } from './access.js';
+import { analyzeTake, TAKE_TIPS } from './take.js';
 import { describe } from './composer.js';
 import qrcode from './vendor/qrcode.js';
 import { payEnabled, startPayment, confirmPayment, keepStatus, passStatus, claimPass } from './pay.js';
@@ -114,11 +115,24 @@ mediaDock.append(player);
 document.body.append(mediaDock);
 const parkPlayer = () => { if (player.parentNode !== mediaDock) mediaDock.append(player); };
 let playerUrl = null;
-function setSource(src, objectUrl = false) {
+// trim: [시작 초, 끝 초] — 녹음 앞뒤의 빈 소리를 건너뛰어요. (끝에 닿으면 끝난 것처럼 알려요)
+let playerTrim = null;
+function setSource(src, objectUrl = false, trim = null) {
   if (playerUrl) URL.revokeObjectURL(playerUrl);
   playerUrl = objectUrl ? src : null;
+  playerTrim = Array.isArray(trim) && trim.length === 2 && trim.every(Number.isFinite) ? trim : null;
   player.src = src;
+  if (playerTrim?.[0] > 0) {
+    const s0 = playerTrim[0];
+    player.addEventListener('loadedmetadata', () => { try { player.currentTime = s0; } catch { /* 처음부터 틀어요 */ } }, { once: true });
+  }
 }
+player.addEventListener('timeupdate', () => {
+  if (playerTrim && player.currentTime >= playerTrim[1] && !player.paused) {
+    player.pause();
+    player.dispatchEvent(new Event('ended'));
+  }
+});
 function stopAudio() {
   player.pause();
   player.onended = null;
@@ -147,7 +161,7 @@ const recorder = {
     mr.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
     mr.start(250);
 
-    const cur = { stream, mr, chunks, type, raf: 0, ctx: null, owns: !given, video };
+    const cur = { stream, mr, chunks, type, raf: 0, ctx: null, owns: !given, video, t0: performance.now(), samples: [] };
     try {
       cur.ctx = new (window.AudioContext || window.webkitAudioContext)();
       const analyser = cur.ctx.createAnalyser();
@@ -158,7 +172,9 @@ const recorder = {
         analyser.getByteTimeDomainData(data);
         let sum = 0;
         for (const v of data) { const x = (v - 128) / 128; sum += x * x; }
-        onLevel(Math.min(1, Math.sqrt(sum / data.length) * 5));
+        const rms = Math.sqrt(sum / data.length);
+        if (cur.samples.length < 20000) cur.samples.push([performance.now() - cur.t0, rms]);
+        onLevel(Math.min(1, rms * 5));
         cur.raf = requestAnimationFrame(tick);
       };
       tick();
@@ -169,6 +185,7 @@ const recorder = {
     const c = this.cur;
     if (!c) return Promise.resolve(null);
     this.cur = null;
+    this.lastTake = { samples: c.samples, ms: performance.now() - c.t0 };
     cancelAnimationFrame(c.raf);
     c.ctx?.close?.();
     return new Promise((resolve) => {
@@ -409,7 +426,7 @@ async function uploadWithProgress(story, recorded) {
         shelf: shelfId(),
         ...(story.custom ? { custom: { title: story.title, ...(story.memoir ? { memoir: true } : {}), pages: story.pages.map(({ text, seed, noCast, ask }) => ({ text, seed, ...(noCast ? { noCast: true } : {}), ...(ask ? { ask } : {}) })) } } : {}),
       },
-      recorded.map(({ i, blob }) => ({ i, blob })),
+      recorded.map(({ i, blob, trim }) => ({ i, blob, trim })),
       (n, t) => { bar.style.width = `${(n / t) * 100}%`; label.textContent = `${n} / ${t}`; },
     );
     local.set(shareKey, { ...(local.get(shareKey) || {}), [story.id]: { id: shareId, at: Date.now(), sig: contentSig(story) } });
@@ -851,7 +868,7 @@ async function recordView(id, idxStr) {
     if (cam) toast('얼굴도 함께 녹화해요');
   });
 
-  const draw = (state) => {
+  const draw = (state, take = null) => {
     if (state === 'idle') {
       dock.innerHTML = `
         <p class="dock-hint">빨간 버튼을 누르고<br>소리 내어 읽어주세요</p>
@@ -867,6 +884,7 @@ async function recordView(id, idxStr) {
       bars = [...dock.querySelectorAll('.meter i')];
     } else {
       dock.innerHTML = `
+        ${take ? `<p class="take-tip take-${take.tip}" role="status">${TAKE_TIPS[take.tip]}${take.trim ? '<br><small>앞뒤의 조용한 부분은 들을 때 건너뛰어요.</small>' : ''}</p>` : ''}
         <div class="done-row">
           <button class="pill" data-act="redo">${I.redo}다시 녹음</button>
           <button class="pill pill-accent" data-act="play">${I.play}<span>들어보기</span></button>
@@ -911,11 +929,12 @@ async function recordView(id, idxStr) {
       draw('idle');
       return;
     }
-    await db.putBlob(key, blob);
+    const take = analyzeTake(recorder.lastTake);
+    await db.putBlob(key, blob, take?.trim ? { trim: take.trim } : {});
     local.set('lastRecording', { id, i, at: Date.now() });
-    track('record', { story: id, n: i, meta: { video: isVideo(blob.type) } });
-    draw('done');
-    toast(isVideo(blob.type) ? '얼굴과 목소리를 담았어요' : '목소리를 담았어요');
+    track('record', { story: id, n: i, meta: { video: isVideo(blob.type), tip: take?.tip || null } });
+    draw('done', take);
+    if (!take) toast(isVideo(blob.type) ? '얼굴과 목소리를 담았어요' : '목소리를 담았어요');
   }
 
   async function togglePlay(btn) {
@@ -927,7 +946,7 @@ async function recordView(id, idxStr) {
     }
     const recd = await db.getRecord(key);
     if (!recd) return;
-    setSource(URL.createObjectURL(recd.blob), true);
+    setSource(URL.createObjectURL(recd.blob), true, recd.trim);
     if (isVideo(recd.blob.type)) {  // 녹화한 얼굴을 작은 창에서 보여줘요
       pip.replaceChildren(player);
       pip.hidden = false;
@@ -1029,7 +1048,7 @@ async function listenView(id) {
     .map(({ rec, ...p }) => ({
       ...p,
       video: isVideo(rec.blob.type),
-      load: async () => { setSource(URL.createObjectURL(rec.blob), true); return true; },
+      load: async () => { setSource(URL.createObjectURL(rec.blob), true, rec.trim); return true; },
     }));
   if (!list.length) {
     toast('먼저 녹음해 주세요');
@@ -1084,7 +1103,7 @@ async function sharedView(shareId, page) {
       ...pages[f.i],
       n: f.i,
       video: isVideo(f.type),
-      load: async () => { setSource(publicUrl(shareId, f.file)); return true; },
+      load: async () => { setSource(publicUrl(shareId, f.file), false, f.trim); return true; },
     }));
   mountPlayer(stage, {
     story: s,

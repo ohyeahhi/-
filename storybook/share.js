@@ -46,16 +46,16 @@ async function upload(path, body, type) {
 
 export const publicUrl = (id, file) => `${base()}/storage/v1/object/public/${bucket()}/${id}/${file}`;
 
-// pages: [{ i, blob }]  meta: { storyId, role, kid }
+// pages: [{ i, blob, trim? }]  trim: 들을 때 건너뛸 앞뒤 빈 소리 [시작 초, 끝 초]  meta: { storyId, role, kid }
 export async function uploadShare(meta, pages, onProgress = () => {}) {
   const id = newShareId();
   const total = pages.length + 1;
   const files = [];
-  for (const [n, { i, blob }] of pages.entries()) {
+  for (const [n, { i, blob, trim }] of pages.entries()) {
     const type = blob.type || 'audio/webm';
     const file = `${i}.${extOf(type)}`;
     await upload(`${id}/${file}`, blob, type);
-    files.push({ i, file, type });
+    files.push({ i, file, type, ...(Array.isArray(trim) ? { trim } : {}) });
     onProgress(n + 1, total);
   }
   const manifest = { v: 1, ...meta, pages: files, createdAt: new Date().toISOString() };

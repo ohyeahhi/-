@@ -25,15 +25,16 @@ async function tx(mode, fn) {
   });
 }
 
-export async function putBlob(key, blob) {
+// extra: { trim: [시작 초, 끝 초] } — 녹음 도우미가 찾은, 들을 때 건너뛸 앞뒤 빈 소리
+export async function putBlob(key, blob, extra = {}) {
   const buf = await blob.arrayBuffer();
-  return tx('readwrite', (s) => s.put({ buf, type: blob.type, at: Date.now() }, key));
+  return tx('readwrite', (s) => s.put({ buf, type: blob.type, at: Date.now(), ...extra }, key));
 }
 
 // { blob, at } — at은 녹음한 시각이에요. 공유 뒤에 다시 녹음했는지 알아낼 때 써요.
 export async function getRecord(key) {
   const rec = await tx('readonly', (s) => s.get(key));
-  return rec ? { blob: new Blob([rec.buf], { type: rec.type }), at: rec.at } : null;
+  return rec ? { blob: new Blob([rec.buf], { type: rec.type }), at: rec.at, trim: rec.trim || null } : null;
 }
 
 export const getBlob = async (key) => (await getRecord(key))?.blob ?? null;

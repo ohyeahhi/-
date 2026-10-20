@@ -21,6 +21,8 @@ export default async function ({ check, browser }) {
   await p.waitForTimeout(300);
   check('녹음하는 동안에는 쪽을 옮기지 않아요', (await p.evaluate(() => location.hash)) === '#/record/sun-moon/1');
   await p.click('[data-act="rec"]');
+  await p.waitForSelector('.take-tip', { timeout: 5000 }).catch(() => {});
+  check('녹음이 끝나면 녹음 도우미가 한마디 해요', Boolean(await p.$('.take-tip')), await p.evaluate(() => document.querySelector('.dock-main')?.innerText));
   check('오류가 없어요', !p.errors.length, p.errors);
   await p.context().close();
 }
