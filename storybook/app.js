@@ -1,6 +1,6 @@
 import { STORIES, getStory as getBuiltin } from './stories.js';
 import * as db from './db.js';
-import { shareEnabled, uploadShare, fetchShare, publicUrl, uploadReply, fetchReplies, newShelfId, addToShelf, fetchShelf } from './share.js';
+import { shareEnabled, uploadShare, fetchShare, publicUrl, uploadReply, fetchReplies, newShelfId, addToShelf, fetchShelf, markHeard, fetchHeard } from './share.js';
 import * as mine from './mystories.js';
 import * as memo from './memories.js';
 import { gateOn, passed, login } from './access.js';
@@ -666,6 +666,7 @@ async function homeView() {
     <h1 class="title-xl">${who()} 목소리로<br>어떤 동화를 들려줄까요?</h1>
     <p class="sub">녹음해 두면 ${esc(kidTo())} 언제든 들려줄 수 있어요.</p>
     <div id="reply-slot"></div>
+    <div id="heard-slot"></div>
     ${resume}
     ${memoryCard()}
     <a class="card-row" href="#/card"><span>💌</span><span><b>목소리 카드 보내기</b><br>생일·어린이날·입학 축하를 한마디로</span><span class="chev">${I.chevron}</span></a>
@@ -700,6 +701,13 @@ async function homeView() {
     if (payEnabled()) shelfSlot.insertAdjacentHTML('beforeend', `<a class="reply-link" href="#/pass/${local.get('shelfId')}">📚 가족 1년권: 보내는 동화 모두 ${KEEP_YEARS}년 간직하기</a>`);
     shelfSlot.querySelector('#send-shelf').addEventListener('click', sendShelf);
   }
+  const heardSlot = app.querySelector('#heard-slot');
+  loadHeard().then((h) => {
+    if (!heardSlot || !h.count) return;
+    const kid = kidName() ? `${kidName()}${hasBatchim(kidName()) ? '이' : ''}가` : '아이가';
+    const party = h.count >= 5 && h.count % 5 === 0;
+    heardSlot.innerHTML = `<p class="heard-line${party ? ' party' : ''}">${party ? '🎉' : '✅'} ${esc(kid)} ${esc(who())} 동화 <b>${h.count}편</b>을 끝까지 들었어요${party ? '!' : ''}</p>`;
+  });
   const replies = await loadReplies();
   const fresh = unheardReplies(replies);
   const slot = app.querySelector('#reply-slot');
@@ -1277,11 +1285,15 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
 
   const drawEnd = () => {
     if (shareId) track('listen_end', { story: s.id, shareId });
+    // 받은 쪽(아이 휴대폰)이면 도장을 찍고, 보낸 사람에게 "끝까지 들었어요"를 남겨요.
+    const stampNo = shareId && !profile ? addStamp(shareId, s.title) : 0;
+    if (shareId && !profile) markHeard(shareId);
     stage.innerHTML = `
       <div class="listen-start">
         <div class="celebrate-badge">🌟</div>
         <h1 class="title-xl">끝!</h1>
         <p class="sub">${reader}, 재미있는 이야기 고마워요!</p>
+        ${stampNo ? `<p class="stamp-got" role="status">🌟 도장 쾅! ${stampNo}번째 도장이에요</p>` : ''}
         <div class="end-actions">
           <button class="btn btn-primary full" data-act="again">처음부터 다시 듣기</button>
           ${endExtra}
@@ -2127,6 +2139,25 @@ function addFamilyShelf(id) {
   const list = familyShelves();
   if (!list.includes(id)) local.set('familyShelves', [...list, id].slice(-20));
 }
+// 듣기 도장판: 아이 휴대폰에서 동화를 끝까지 들을 때마다 도장 하나 (같은 동화는 한 번만)
+const stamps = () => (local.get('stamps') || []).filter((x) => x && SHELF_ID.test(x.id));
+function addStamp(id, title) {
+  const list = stamps();
+  if (list.some((x) => x.id === id)) return 0;
+  local.set('stamps', [...list, { id, title: String(title || '').slice(0, 30), at: Date.now() }].slice(-200));
+  return list.length + 1;
+}
+const STAMP_GOAL = 10;
+function stampBoardHTML() {
+  const n = stamps().length;
+  const goal = Math.max(STAMP_GOAL, Math.ceil((n + 1) / STAMP_GOAL) * STAMP_GOAL);
+  const from = goal - STAMP_GOAL;
+  return `<div class="stamp-board" aria-label="듣기 도장 ${n}개">
+    <p class="stamp-title">🌟 듣기 도장 <b>${n}</b>개 <small>${goal}개를 모으면 가족에게 자랑해요</small></p>
+    <div class="stamp-row">${Array.from({ length: STAMP_GOAL }, (_, k) => `<i class="${from + k < n ? 'on' : ''}">${from + k < n ? '🌟' : from + k + 1}</i>`).join('')}</div>
+  </div>`;
+}
+
 // 책 등 색: 동화마다 늘 같은 색이 되게 제목으로 골라요.
 const SPINE = ['#E4573D', '#3E6FB0', '#3FA36B', '#F2A33C', '#8E6CC8', '#D9668C', '#2E8C8C', '#B07440'];
 const spineColor = (t) => SPINE[[...String(t)].reduce((h, c) => h + c.charCodeAt(0), 0) % SPINE.length];
@@ -2179,6 +2210,7 @@ async function familyView(focus) {
   box.innerHTML = `
     <h1 class="title-xl">우리 가족 책장</h1>
     <p class="sub">${zones.length}명이 들려준 동화 ${total}편. 오늘은 누구 목소리로 들을까요?</p>
+    ${stampBoardHTML()}
     <nav class="zone-tabs">${zones.map((z) => `<a class="zone-tab" href="#zone-${z.id}" data-zone="${z.id}"><span>${z.by.emoji}</span>${esc(z.by.name)}</a>`).join('')}</nav>
     ${zones.map((z) => `
       <section class="zone" id="zone-${z.id}">
@@ -2500,6 +2532,16 @@ async function loadReplies(force = false) {
   return replyCache.list;
 }
 const replyKey = (r) => `${r.shareId}/${r.n}`;
+// 보낸 링크 중 아이가 끝까지 들은 것 (3분에 한 번만 물어봐요)
+let heardCache = { at: 0, count: 0 };
+async function loadHeard() {
+  if (!shareEnabled()) return heardCache;
+  if (Date.now() - heardCache.at < 3 * 60e3) return heardCache;
+  const sent = local.get('sentShares') || [];
+  const marks = await Promise.all(sent.map((x) => fetchHeard(x.id)));
+  heardCache = { at: Date.now(), count: marks.filter(Boolean).length };
+  return heardCache;
+}
 const unheardReplies = (list) => {
   const heard = new Set(local.get('repliesHeard') || []);
   return list.filter((r) => !heard.has(replyKey(r)));

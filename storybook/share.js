@@ -186,3 +186,19 @@ export async function fetchShelf(shelfId) {
   }
   return out;
 }
+
+// 끝까지 들었어요: 아이 휴대폰이 처음 끝까지 들은 동화에 heard.json 을 한 번 올려요. (보낸 사람 홈에서 봐요)
+export async function markHeard(id) {
+  if (!ID_RE.test(id) || !shareEnabled()) return false;
+  try {
+    await upload(`${id}/heard.json`, JSON.stringify({ at: new Date().toISOString() }), 'application/json');
+    return true;
+  } catch (e) {
+    return Boolean(e.taken);   // 이미 누가 들었다고 올렸으면 그대로 좋아요
+  }
+}
+export async function fetchHeard(id) {
+  if (!ID_RE.test(id) || !shareEnabled()) return false;
+  const res = await fetch(publicUrl(id, 'heard.json'), { method: 'HEAD', cache: 'no-store' }).catch(() => null);
+  return Boolean(res?.ok);
+}

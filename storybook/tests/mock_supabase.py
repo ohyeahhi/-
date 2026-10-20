@@ -80,7 +80,7 @@ class H(http.server.BaseHTTPRequestHandler):
         if self.headers.get('apikey') != KEY: return self.err(401)
         rel = self.path[len(pre):]
         # supabase/storage.sql 과 같은 규칙: 앱이 쓰는 이름만 올릴 수 있어요.
-        if not __import__('re').fullmatch(r'[a-z0-9]{12}/(manifest\.json|([0-9]{1,2}|q)\.(m4a|mp4|webm|ogg)|reply-[1-9]|owner\.json|s-([1-9]|[12][0-9]|30)\.json)', rel): return self.err(403)
+        if not __import__('re').fullmatch(r'[a-z0-9]{12}/(manifest\.json|([0-9]{1,2}|q)\.(m4a|mp4|webm|ogg)|reply-[1-9]|heard\.json|owner\.json|s-([1-9]|[12][0-9]|30)\.json)', rel): return self.err(403)
         dest = os.path.join(ROOT, rel)
         if os.path.exists(dest): return self.err(409)  # insert only
         os.makedirs(os.path.dirname(dest), exist_ok=True)
