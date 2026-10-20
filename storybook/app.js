@@ -1233,7 +1233,7 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
       if (bed === b) b.lock = lock; else lock?.release?.().catch(() => {});
     } catch { /* 화면 켜 두기를 못 해도 들을 수는 있어요 */ }
   };
-  onDispose(() => { alive = false; clearTimeout(advanceTimer); stopAudio(); player.onerror = null; player.onplaying = null; endBed(); });
+  onDispose(() => { alive = false; clearTimeout(advanceTimer); stopAudio(); player.onerror = null; player.onplaying = null; endBed(); if (recorder.active) recorder.stop(); });
 
   const drawStart = () => {
     stage.innerHTML = `
@@ -1243,6 +1243,7 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
         <h1 class="title-xl">${esc(s.title)}</h1>
         ${kid ? `<p class="sub">${esc(toOf(kid))}</p>` : ''}
         <button class="play-big" data-act="start" aria-label="듣기 시작">${I.play}</button>
+        <label class="echo-pick"><input type="checkbox" id="echo-on"${echoMode ? ' checked' : ''}><span>🗣️ <b>따라 읽기</b> · 한 쪽을 들은 뒤 아이가 따라 말해요</span></label>
         <div class="bed-pick">
           <p class="bed-label">🌙 잠자리 모드 <span>화면을 어둡게 하고 정한 시간 동안 되풀이해 들려줘요</span></p>
           <div class="bed-row">
@@ -1255,6 +1256,35 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
         </div>
       </div>`;
   };
+  // 따라 읽기: 한 쪽이 끝나면 아이가 같은 글을 따라 말하고, 바로 자기 목소리를 들어 봐요.
+  let echoMode = Boolean(local.get('echoMode'));
+  const echoes = new Map();   // 쪽 위치 → 아이 목소리 (건너뛰면 null)
+  const drawEcho = () => {
+    stage.querySelector('.controls')?.remove();
+    stage.querySelector('.echo')?.remove();
+    stage.querySelector('.dots')?.insertAdjacentHTML('afterend', `
+      <div class="echo" role="group" aria-label="따라 읽기">
+        <p class="echo-say">🗣️ 따라 말해 볼까?</p>
+        <button class="rec-btn" data-act="echo-rec" aria-label="따라 읽기 녹음"><span class="rec-inner"></span></button>
+        <div class="done-row"><button class="pill" data-act="echo-skip">건너뛰기</button></div>
+      </div>`);
+  };
+  const echoDone = () => {
+    const box = stage.querySelector('.echo');
+    if (!box) return;
+    box.innerHTML = `<p class="echo-say">👏 잘했어요! 내 목소리 들어 보기</p>
+      <div class="done-row"><button class="pill" data-act="echo-play">${I.play}<span>다시 듣기</span></button>
+      <button class="btn btn-primary" data-act="echo-next">${pos < list.length - 1 ? '다음 쪽' : '다 읽었어요'}</button></div>`;
+  };
+  async function sendEcho(blob) {
+    const ok = await ask({
+      icon: '💌', title: `${reader}께 보낼까요?`,
+      body: `따라 읽은 목소리를 ${reader}께 보내요.<label class="check consent-check"><input type="checkbox" id="echo-ok"><span>보호자(부모)가 함께 보고 있어요.</span></label>`,
+      secondary: '취소', primary: '보내기',
+    });
+    if (!ok) return;
+    try { await uploadReply(shareId, blob); track('reply', { story: s.id, shareId, meta: { echo: true } }); toast(`${reader}께 보냈어요 💌`); } catch { toast('보내지 못했어요. 인터넷을 확인해 주세요'); }
+  }
   const drawSleep = () => {
     stopAudio();
     endBed();
@@ -1297,6 +1327,8 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
         <h1 class="title-xl">끝!</h1>
         <p class="sub">${reader}, 재미있는 이야기 고마워요!</p>
         ${stampNo ? `<p class="stamp-got" role="status">🌟 도장 쾅! ${stampNo}번째 도장이에요</p>` : ''}
+        ${[...echoes.values()].some(Boolean) ? `<div class="echo-list"><p class="echo-say">🗣️ 따라 읽은 목소리</p>${[...echoes].filter(([, b]) => b).map(([k]) => `
+          <div class="echo-item"><span>${list[k].n}쪽</span><button class="pill" data-act="echo-hear" data-k="${k}">${I.play}<span>듣기</span></button>${shareId && shareEnabled() ? `<button class="pill pill-accent" data-act="echo-send" data-k="${k}">${esc(reader)}께 보내기</button>` : ''}</div>`).join('')}</div>` : ''}
         <div class="end-actions">
           <button class="btn btn-primary full" data-act="again">처음부터 다시 듣기</button>
           ${endExtra}
@@ -1348,6 +1380,7 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
 
   // 한 쪽이 끝나면: 다음 쪽 → 끝. 잠자리 모드면 처음부터 되풀이하고, 시간이 다 되면 "잘 자요".
   function advance() {
+    if (echoMode && !bed && !list[pos].intro && !echoes.has(pos)) { drawEcho(); return; }
     if (bed?.timeUp) drawSleep();
     else if (pos < list.length - 1) playAt(pos + 1);
     else if (bed) { if (shareId && !bed.counted) { bed.counted = true; track('listen_end', { story: s.id, shareId }); } playAt(0); }
@@ -1378,7 +1411,7 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
   stage.addEventListener('change', (e) => {
     if (e.target.id === 'bed-min') { bedMin = okMin(Number(e.target.value)); local.set('bedtime', bedMin); }
   });
-  stage.addEventListener('click', (e) => {
+  stage.addEventListener('click', async (e) => {
     const act = e.target.closest('[data-act]')?.dataset.act;
     if (act === 'bedstep') {
       bedMin = okMin(Math.min(60, Math.max(0, bedMin + Number(e.target.closest('[data-d]').dataset.d))));
@@ -1395,9 +1428,38 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
       document.body.append(dim);
       return;
     }
-    if (act === 'start') { startBed(); playAt(first); if (shareId) track('listen', { story: s.id, shareId, n: list[first]?.n ?? 0 }); }
+    if (act === 'echo-rec') {
+      const btn = e.target.closest('[data-act]');
+      if (recorder.active) {
+        const blob = await recorder.stop();
+        btn.classList.remove('is-rec');
+        if (!blob || blob.size < 1500) { toast('한 번 더 말해 볼까?'); return; }
+        echoes.set(pos, blob);
+        echoDone();
+        setSource(URL.createObjectURL(blob), true);
+        player.onended = null;
+        player.play().catch(() => {});
+      } else {
+        stopAudio();
+        try { await recorder.start(() => {}); } catch { toast('마이크를 쓸 수 없어요'); return; }
+        btn.classList.add('is-rec');
+        stage.querySelector('.echo-say').textContent = '🎙️ 듣고 있어요… 다 말하면 눌러요';
+      }
+      return;
+    }
+    if (act === 'echo-play' && echoes.get(pos)) { setSource(URL.createObjectURL(echoes.get(pos)), true); player.onended = null; player.play().catch(() => {}); return; }
+    if (act === 'echo-skip') { if (recorder.active) await recorder.stop(); echoes.set(pos, null); advance(); return; }
+    if (act === 'echo-next') { stopAudio(); advance(); return; }
+    if (act === 'echo-hear' || act === 'echo-send') {
+      const blob = echoes.get(Number(e.target.closest('[data-k]').dataset.k));
+      if (!blob) return;
+      if (act === 'echo-send') { sendEcho(blob); return; }
+      setSource(URL.createObjectURL(blob), true); player.onended = null; player.play().catch(() => {});
+      return;
+    }
+    if (act === 'start') { echoMode = Boolean(stage.querySelector('#echo-on')?.checked); local.set('echoMode', echoMode); if (!echoMode) startBed(); playAt(first); if (shareId) track('listen', { story: s.id, shareId, n: list[first]?.n ?? 0 }); }
     else if (act === 'invite' && shareId) track('invite', { shareId });
-    else if (act === 'again') { if (stage.querySelector('.bed-end')) startBed(); playAt(0); }
+    else if (act === 'again') { echoes.clear(); if (stage.querySelector('.bed-end')) startBed(); playAt(0); }
     else if (act === 'prev') playAt(pos - 1);
     else if (act === 'next') playAt(pos + 1);
     else if (act === 'toggle') {
