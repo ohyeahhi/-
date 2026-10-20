@@ -436,7 +436,7 @@ async function uploadWithProgress(story, recorded, question = null) {
         shelf: shelfId(),
         ...(story.custom ? { custom: { title: story.title, ...(story.memoir ? { memoir: true } : {}), ...(story.card ? { card: story.card } : {}), pages: story.pages.map(({ text, seed, noCast, ask, art }) => ({ text, seed, ...(noCast ? { noCast: true } : {}), ...(ask ? { ask } : {}), ...(art ? { art } : {}) })) } } : {}),
       },
-      recorded.map(({ i, blob, trim }) => ({ i, blob, trim })),
+      recorded.map(({ i, blob, trim, by }) => ({ i, blob, trim, by })),
       (n, t) => { bar.style.width = `${(n / t) * 100}%`; label.textContent = `${n} / ${t}`; },
       question ? { blob: question.blob, text: question.text, trim: question.trim } : null,
     );
@@ -597,7 +597,9 @@ function welcomeView() {
     if (!profile) track('start', { meta: { role, kid: Boolean(app.querySelector('#kid').value.trim()) } });
     profile = { role, name: finalName, emoji, kid: app.querySelector('#kid').value.trim() };
     local.set('profile', profile);
-    location.hash = '#/';
+    const after = local.get('afterWelcome');
+    local.set('afterWelcome', null);
+    location.hash = /^#\/relay\/[a-z0-9]{12}$/.test(after || '') ? after : '#/';
   });
 }
 
@@ -761,6 +763,8 @@ async function storyView(id) {
       <div class="chip-row">
         ${s.card ? '' : `<a class="chip" href="#/book/${id}">📖 그림책으로 만들기</a>`}
         ${s.card ? '' : `<a class="chip" href="#/color/story/${id}">🖍️ 색칠놀이</a>`}
+        ${s.custom && !s.card && !s.memoir && n === pages.length ? '<button class="chip" id="relay">🔗 이어 짓기 부탁하기</button>' : ''}
+        ${s.card ? '' : `<button class="chip${holidayOn(id) ? ' chip-on' : ''}" id="holiday">🎉 명절 모드${holidayOn(id) ? ' 켜짐' : ''}</button>`}
         ${s.custom && !s.card ? `<a class="chip" href="#/edit/${id}">${I.edit}이야기 고치기</a>` : ''}
         ${s.memoir ? '<a class="chip" href="#/memory">💭 추억 질문 더 답하기</a>' : ''}
       </div>
@@ -777,7 +781,19 @@ async function storyView(id) {
     <div class="cta-bar">${cta}</div>
   `);
   app.querySelector('#share')?.addEventListener('click', () => shareStory(id));
+  app.querySelector('#relay')?.addEventListener('click', () => askRelay(id));
+  app.querySelector('#holiday')?.addEventListener('click', () => {
+    const on = !holidayOn(id);
+    local.set('holiday', { ...(local.get('holiday') || {}), [id]: on });
+    toast(on ? '명절 모드: 쪽마다 읽는 사람을 고르고, 휴대폰을 돌려 가며 녹음해요' : '명절 모드를 껐어요');
+    route();
+  });
 }
+
+// 명절 모드: 가족이 모였을 때 휴대폰 한 대로 돌아가며 한 쪽씩 녹음해요. 쪽마다 "누가 읽었는지"를 남겨요.
+const holidayOn = (id) => Boolean(local.get('holiday')?.[id]);
+const holidayNames = () => [...new Set([who(), ...(local.get('holidayNames') || []), '할머니', '할아버지', '엄마', '아빠', '이모', '삼촌', '고모'].map(cleanName).filter(Boolean))].slice(0, 12);
+const presetEmoji = (name) => (name === who() ? emojiOf(profile) : PRESETS.find(([, n]) => name.endsWith(n))?.[2] || '🎙️');
 
 /* ---------- 화면: 녹음 ---------- */
 async function recordView(id, idxStr) {
@@ -807,6 +823,11 @@ async function recordView(id, idxStr) {
       ${i > 0 ? `<a class="page-nav-btn" data-nav href="#/record/${id}/${i - 1}">${I.prev}<span>${i - 1 === 0 ? '인사말' : `${i - 1}쪽`}</span></a>` : '<span></span>'}
       ${!last ? `<a class="page-nav-btn" data-nav href="#/record/${id}/${i + 1}"><span>${i + 1}쪽</span>${I.next}</a>` : '<span></span>'}
     </nav>
+    ${holidayOn(id) && !s.card ? `<div class="holiday-row" role="radiogroup" aria-label="누가 읽나요">
+      <span class="holiday-label">🎉 누가 읽나요?</span>
+      ${holidayNames().map((n) => `<button class="holiday-who${n === (local.get('holidayReader') || who()) ? ' on' : ''}" data-who="${esc(n)}">${presetEmoji(n)} ${esc(n)}</button>`).join('')}
+      <button class="holiday-who holiday-add" data-who="+">＋ 이름</button>
+    </div>` : ''}
     ${inKakao ? `
       <div class="notice">
         <p>카카오톡 안에서는 녹음이 안 될 수 있어요.</p>
@@ -823,6 +844,18 @@ async function recordView(id, idxStr) {
 
   const dock = app.querySelector('#dock');
   const pip = app.querySelector('#pip');
+  app.querySelector('.holiday-row')?.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-who]');
+    if (!b || recorder.active) return;
+    let name = b.dataset.who;
+    if (name === '+') {
+      name = cleanName(prompt('읽는 사람 이름을 적어 주세요 (예: 큰삼촌)') || '');
+      if (!name) return;
+      local.set('holidayNames', [...new Set([...(local.get('holidayNames') || []), name])].slice(-8));
+    }
+    local.set('holidayReader', name);
+    route();
+  });
   // 녹음하는 동안에는 다른 쪽으로 가지 않아요. (녹음이 사라지지 않게)
   app.querySelector('.page-nav').addEventListener('click', (e) => {
     if (e.target.closest('[data-nav]') && recorder.active) { e.preventDefault(); toast('녹음을 먼저 멈춰 주세요'); }
@@ -994,7 +1027,8 @@ async function recordView(id, idxStr) {
       return;
     }
     const take = analyzeTake(recorder.lastTake);
-    await db.putBlob(key, blob, take?.trim ? { trim: take.trim } : {});
+    const reader = holidayOn(id) && !s.card ? cleanName(local.get('holidayReader') || who()) : '';
+    await db.putBlob(key, blob, { ...(take?.trim ? { trim: take.trim } : {}), ...(reader ? { by: { name: reader, emoji: presetEmoji(reader) } } : {}) });
     local.set('lastRecording', { id, i, at: Date.now() });
     track('record', { story: id, n: i, meta: { video: isVideo(blob.type), tip: take?.tip || null } });
     draw('done', take);
@@ -1112,6 +1146,7 @@ async function listenView(id) {
     .map(({ rec, ...p }) => ({
       ...p,
       video: isVideo(rec.blob.type),
+      by: rec.by || null,
       load: async () => { setSource(URL.createObjectURL(rec.blob), true, rec.trim); return true; },
     }));
   if (!list.length) {
@@ -1168,7 +1203,8 @@ async function sharedView(shareId, page) {
       ...pages[f.i],
       n: f.i,
       video: isVideo(f.type),
-      load: async () => { setSource(publicUrl(shareId, f.file), false, f.trim); return true; },
+      by: f.by?.name ? { name: cleanName(f.by.name), emoji: EMOJIS.includes(f.by.emoji) ? f.by.emoji : '' } : null,
+      load: async () => { setSource(publicUrl(/^[a-z0-9]{12}$/.test(f.from || '') ? f.from : shareId, f.file), false, f.trim); return true; },
     }));
   mountPlayer(stage, {
     story: s,
@@ -1300,6 +1336,7 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
   const drawPage = () => {
     const p = list[pos];
     stage.innerHTML = `
+      ${p.by?.name ? `<p class="by-chip">${p.by.emoji || '🎙️'} ${esc(p.by.name)}${hasBatchim(p.by.name) ? '이' : '가'} 읽어요</p>` : ''}
       ${sceneHTML(p, p.video ? 'scene-xl scene-call' : 'scene-xl')}
       ${p.video
         ? `<div class="call-row">
@@ -2467,6 +2504,153 @@ async function coloringView(kind, id) {
   });
 }
 
+/* ---------- 이야기 릴레이 ---------- */
+// 한 사람이 장면을 짓고 녹음해 보내면, 다음 사람이 이어서 한 장면을 짓고 녹음해요.
+// 앞사람이 올린 녹음은 다시 올리지 않고 그 링크의 파일을 가리켜요. (manifest.pages[].from)
+async function askRelay(id) {
+  const story = getStory(id);
+  if (!shareEnabled()) { noServerSheet(); return; }
+  const { recorded, latest, question } = await recordingsOf(story);
+  const shareId = savedShareId(story, latest) || await uploadWithProgress(story, recorded, question);
+  if (shareId) sendRelayLink(story.title, shareId);
+}
+function sendRelayLink(title, shareId) {
+  const url = `${appBase()}#/relay/${shareId}`;
+  const text = `‘${title}’ 다음 장면을 이어서 지어 주세요 🔗 장면을 하나 적고 목소리로 읽으면 이야기가 이어져요.`;
+  sheet({
+    icon: '🔗',
+    title: '이어 짓기 부탁하기',
+    body: `이 링크를 받은 가족(삼촌·이모…)이 다음 장면을 짓고 녹음해요. 다 되면 이어진 이야기 링크가 다시 만들어져요.<span class="link-box">${esc(url)}</span>`,
+    secondary: navigator.share ? '링크 복사' : '',
+    primary: navigator.share ? '카톡·문자로 보내기' : '링크 복사하기',
+    onSecondary: () => copyText(url),
+    onPrimary: () => (navigator.share ? navigator.share({ title, text, url }).catch(() => {}) : copyText(url)),
+  });
+}
+
+async function relayView(shareId) {
+  const here = stillHere();
+  render(`${topbar({ back: '#/', title: '이야기 릴레이' })}<div class="loading"><span class="spinner"></span></div>`, 'screen-editor');
+  const loaded = await loadShared(shareId);
+  if (!here()) return;
+  const m = loaded?.manifest;
+  if (!loaded?.s || !m?.custom) return notFound();
+  const sofar = m.custom.pages || [];
+  if (sofar.length >= MAX_PAGES) {
+    render(`${topbar({ back: '#/', title: '이야기 릴레이' })}<div class="celebrate"><div class="celebrate-badge">📚</div><h1 class="title-lg">이야기가 다 찼어요</h1><p class="sub">장면은 ${MAX_PAGES}개까지 이어 지을 수 있어요.</p></div>`);
+    return;
+  }
+  const byOf = (f) => (f?.by?.name ? { name: cleanName(f.by.name), emoji: EMOJIS.includes(f.by.emoji) ? f.by.emoji : '🎙️' } : { name: readerOf(m), emoji: emojiOf(m) });
+  const files = m.pages || [];
+  const fileFor = (i) => files.find((f) => f.i === i);
+  let seed = 0;
+  let blob = null;
+  let take = null;
+  render(`
+    ${topbar({ back: '#/', title: '이야기 릴레이' })}
+    <p class="eyebrow">🔗 이야기 릴레이</p>
+    <h1 class="title-lg">‘${esc(m.custom.title || '이야기')}’<br>다음 장면을 이어 주세요</h1>
+    <p class="sub">지금까지 ${sofar.length}장면이에요. 눌러서 들어 보고, 그다음 일을 한 장면 지어 주세요.</p>
+    <ol class="relay-list">${sofar.map((p, k) => {
+      const f = fileFor(k + 1);
+      const by = byOf(f);
+      return `<li class="relay-item"><img src="${mine.pageImage(p.text, p.seed || 0, Boolean(p.noCast))}" alt="">
+        <div><p class="relay-by">${by.emoji} ${esc(by.name)}</p><p>${esc(p.text)}</p>
+        ${f ? `<button class="pill" data-hear="${k + 1}">${I.play}<span>듣기</span></button>` : ''}</div></li>`;
+    }).join('')}</ol>
+    <h2 class="section-label">${sofar.length + 1}번째 장면 · ${esc(who())}</h2>
+    <div class="page-art relay-art"><img alt="" src="${mine.pageImage('', 0)}"></div>
+    <textarea id="relay-text" class="input textarea page-text" rows="3" maxlength="200" placeholder="예) 그때 마당으로 누렁이가 꼬리를 흔들며 달려왔어요."></textarea>
+    <div class="page-tools">
+      ${SpeechRec ? `<button class="pill" id="relay-dictate">${I.mic}<span>말로 쓰기</span></button>` : ''}
+      <button class="pill" id="relay-reroll">${I.shuffle}다른 그림</button>
+    </div>
+    <div class="q-dock" id="relay-dock"></div>
+  `, 'screen-editor');
+  const ta = app.querySelector('#relay-text');
+  const img = app.querySelector('.relay-art img');
+  const dock = app.querySelector('#relay-dock');
+  let tmr = 0;
+  const refresh = () => { clearTimeout(tmr); tmr = setTimeout(() => { img.src = mine.pageImage(ta.value.trim(), seed); }, 400); };
+  onDispose(() => { clearTimeout(tmr); stopDictation(); if (recorder.active) recorder.stop(); });
+  ta.addEventListener('input', refresh);
+  app.querySelector('#relay-dictate')?.addEventListener('click', (e) => dictateInto(ta, e.currentTarget));
+  app.querySelector('#relay-reroll').addEventListener('click', () => { seed += 1; refresh(); });
+  app.querySelector('.relay-list').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-hear]');
+    const f = b && fileFor(Number(b.dataset.hear));
+    if (f) { setSource(publicUrl(/^[a-z0-9]{12}$/.test(f.from || '') ? f.from : shareId, f.file), false, f.trim); player.play().catch(() => {}); }
+  });
+  const draw = (state) => {
+    dock.innerHTML = state === 'rec'
+      ? '<button class="rec-btn is-rec" data-r-act="rec" aria-label="녹음 멈추기"><span class="rec-inner"></span></button><p class="dock-hint small">다 읽으면 한 번 더 눌러요</p>'
+      : `${take?.tip ? `<p class="take-tip take-${take.tip}">${TAKE_TIPS[take.tip]}</p>` : ''}
+        <button class="rec-btn" data-r-act="rec" aria-label="녹음"><span class="rec-inner"></span></button>
+        <p class="dock-hint small">${state === 'done' ? '다시 누르면 새로 녹음해요' : '장면을 적고, 빨간 버튼을 눌러 소리 내어 읽어 주세요'}</p>
+        ${state === 'done' ? `<div class="done-row"><button class="pill" data-r-act="play">${I.play}<span>들어보기</span></button></div>
+          <button class="btn btn-primary full" data-r-act="send">이어 붙여 보내기</button>` : ''}`;
+  };
+  draw('idle');
+  dock.addEventListener('click', async (e) => {
+    const act = e.target.closest('[data-r-act]')?.dataset.rAct;
+    if (act === 'rec') {
+      if (recorder.active) {
+        const b = await recorder.stop();
+        if (!b || b.size < 1500) { toast('녹음이 너무 짧아요. 한 번 더 해볼까요?'); draw('idle'); return; }
+        blob = b;
+        take = analyzeTake(recorder.lastTake);
+        draw('done');
+        return;
+      }
+      if (!ta.value.trim()) { toast('먼저 장면을 적어 주세요'); ta.focus(); return; }
+      stopAudio();
+      try { await recorder.start(() => {}); } catch { toast('마이크를 쓸 수 없어요. 브라우저 설정에서 마이크를 허용해 주세요'); return; }
+      draw('rec');
+    } else if (act === 'play' && blob) {
+      setSource(URL.createObjectURL(blob), true, take?.trim);
+      player.play().catch(() => {});
+    } else if (act === 'send' && blob) {
+      const text = ta.value.trim();
+      if (!text) { toast('장면 글을 적어 주세요'); return; }
+      if (!(await askUploadConsent([{ blob }]))) return;
+      const btn = e.target.closest('[data-r-act]');
+      btn.disabled = true;
+      btn.textContent = '보내는 중…';
+      const me = { name: who(), emoji: emojiOf(profile) };
+      const prevPages = files.map((f) => ({ i: f.i, file: f.file, type: f.type, from: /^[a-z0-9]{12}$/.test(f.from || '') ? f.from : shareId, trim: f.trim, by: f.by?.name ? f.by : (f.i === 0 ? { name: readerOf(m), emoji: emojiOf(m) } : byOf(f)) }));
+      const nextI = sofar.length + 1;
+      try {
+        const newId = await uploadShare({
+          storyId: m.storyId,
+          role: profile?.role || 'family', name: who(), emoji: emojiOf(profile), kid: m.kid || kidName(), shelf: shelfId(),
+          custom: { title: m.custom.title, pages: [...sofar, { text, seed }] },
+          relay: true,
+        }, [...prevPages, { i: nextI, blob, trim: take?.trim, by: me }]);
+        local.set('sentShares', [{ id: newId, story: m.storyId, at: Date.now() }, ...(local.get('sentShares') || [])].slice(0, 30));
+        track('share', { story: m.storyId, shareId: newId, n: nextI, meta: { relay: true } });
+        await addToShelf(shelfId(), { by: me, shareId: newId, storyId: m.storyId, title: m.custom.title, at: new Date().toISOString(), cover: { text: sofar[0]?.text || text, seed: sofar[0]?.seed || 0, noCast: false } })
+          .then(() => local.set('shelfOk', true)).catch(() => {});
+        render(`
+          ${topbar({ back: '#/' })}
+          <div class="celebrate"><div class="celebrate-badge">🔗</div>
+            <h1 class="title-lg">${nextI}장면까지 이어졌어요</h1>
+            <p class="sub">이어진 이야기를 아이에게 보내거나, 다음 사람에게 또 이어 달라고 부탁해요.</p></div>
+          <div class="end-actions">
+            <button class="btn btn-primary full" id="relay-kid">아이에게 보내기</button>
+            <button class="btn btn-secondary full" id="relay-next">🔗 다음 사람에게 이어 짓기 부탁하기</button>
+          </div>`);
+        const story = { id: m.storyId, title: m.custom.title };
+        app.querySelector('#relay-kid').addEventListener('click', () => sendLink(story, newId));
+        app.querySelector('#relay-next').addEventListener('click', () => sendRelayLink(m.custom.title, newId));
+      } catch {
+        btn.disabled = false;
+        btn.textContent = '이어 붙여 보내기';
+        toast('보내지 못했어요. 인터넷을 확인하고 다시 눌러 주세요');
+      }
+    }
+  });
+}
+
 /* ---------- 화면: 목소리 카드 ---------- */
 // 동화 대신 한 장짜리 축하 카드: 생일·어린이날·입학… 할 말을 고치고 한 번 녹음해서 보내요.
 const CARD_KINDS = [
@@ -2784,6 +2968,7 @@ const routes = [
   [/^#\/policy\/(terms|privacy|refund)$/, policyView],
   [/^#\/about$/, aboutView],
   [/^#\/replies$/, repliesView],
+  [/^#\/relay\/([a-z0-9]{12})$/, relayView],
   [/^#\/color\/(s|story)\/([\w-]+)$/, coloringView],
   [/^#\/question\/([\w-]+)$/, questionView],
   [/^#\/card(?:\/([a-z]+))?$/, cardView],
@@ -2809,7 +2994,8 @@ async function route() {
   const open = ['#/s/', '#/color/s/', '#/shelf/', '#/family', '#/pass/', '#/print/', '#/policy/', '#/about', '#/keep/', '#/flyer/'].some((p) => hash.startsWith(p));
   if (!profile && hash !== '#/welcome' && !open) {
     // 아이 휴대폰(처음 설정 없음)에서 앱을 열면, 가족 책장이 있으면 그리로 가요.
-    location.replace(familyShelves().length ? '#/family' : '#/welcome');
+    if (hash.startsWith('#/relay/')) local.set('afterWelcome', hash);   // 릴레이 링크는 처음 설정 뒤 바로 돌아와요
+    location.replace(familyShelves().length && !hash.startsWith('#/relay/') ? '#/family' : '#/welcome');
     return;
   }
   for (const [re, view] of routes) {

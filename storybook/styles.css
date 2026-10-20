@@ -954,3 +954,20 @@ html.bedtime .listen-text { font-size: 20px; }
 .echo-list { width: 100%; margin-top: 18px; padding: 14px; border-radius: 18px; background: var(--surface); box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 8px; }
 .echo-item { display: flex; align-items: center; gap: 8px; }
 .echo-item > span { font-weight: 700; min-width: 40px; }
+
+/* 명절 모드 · 쪽마다 읽은 사람 */
+.chip-on { background: var(--accent); color: var(--accent-ink); }
+.holiday-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 10px 0 4px; }
+.holiday-label { font-size: 14px; font-weight: 700; color: var(--accent-text); margin-right: 2px; }
+.holiday-who { height: 38px; padding: 0 12px; border-radius: 19px; background: var(--fill); font-size: 14px; font-weight: 700; color: var(--text-2); }
+.holiday-who.on { background: var(--accent); color: var(--accent-ink); }
+.by-chip { display: inline-block; margin: 0 0 8px; padding: 6px 12px; border-radius: 16px; background: var(--accent-weak); font-size: 15px; font-weight: 700; color: var(--text); }
+
+/* 이야기 릴레이 */
+.relay-list { list-style: none; margin: 18px 0 8px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.relay-item { display: flex; gap: 12px; align-items: flex-start; padding: 12px; border-radius: 18px; background: var(--surface); box-shadow: 0 1px 0 rgba(0,0,0,.04); }
+.relay-item img { width: 88px; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 12px; flex: none; }
+.relay-item > div { min-width: 0; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.relay-item p { margin: 0; line-height: 1.5; word-break: keep-all; overflow-wrap: anywhere; }
+.relay-by { font-size: 14px; font-weight: 700; color: var(--accent-text); }
+.relay-art { margin-top: 8px; }

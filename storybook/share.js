@@ -46,17 +46,24 @@ async function upload(path, body, type) {
 
 export const publicUrl = (id, file) => `${base()}/storage/v1/object/public/${bucket()}/${id}/${file}`;
 
-// pages: [{ i, blob, trim? }]  trim: 들을 때 건너뛸 앞뒤 빈 소리 [시작 초, 끝 초]  meta: { storyId, role, kid }
+// pages: [{ i, blob, trim?, by? }] 또는 이미 올린 쪽 [{ i, file, type, from: 공유ID, by? }]  trim: 들을 때 건너뛸 앞뒤 빈 소리 [시작 초, 끝 초]  meta: { storyId, role, kid }
 // question: { blob, text, trim? } — 동화 끝에 남긴 질문 (q.m4a 등)
 export async function uploadShare(meta, pages, onProgress = () => {}, question = null) {
   const id = newShareId();
   const total = pages.length + 1 + (question ? 1 : 0);
   const files = [];
-  for (const [n, { i, blob, trim }] of pages.entries()) {
+  for (const [n, { i, blob, trim, by, from, file: oldFile, type: oldType }] of pages.entries()) {
+    const extra = { ...(Array.isArray(trim) ? { trim } : {}), ...(by?.name ? { by: { name: String(by.name).slice(0, 10), emoji: String(by.emoji || '').slice(0, 8) } } : {}) };
+    // 이야기 릴레이: 앞사람이 이미 올린 쪽은 다시 올리지 않고, 그 링크의 파일을 가리켜요.
+    if (!blob && from && ID_RE.test(from) && /^[0-9]{1,2}\.(m4a|mp4|webm|ogg)$/.test(oldFile || '')) {
+      files.push({ i, file: oldFile, type: oldType, from, ...extra });
+      onProgress(n + 1, total);
+      continue;
+    }
     const type = blob.type || 'audio/webm';
     const file = `${i}.${extOf(type)}`;
     await upload(`${id}/${file}`, blob, type);
-    files.push({ i, file, type, ...(Array.isArray(trim) ? { trim } : {}) });
+    files.push({ i, file, type, ...extra });
     onProgress(n + 1, total);
   }
   let q = null;
