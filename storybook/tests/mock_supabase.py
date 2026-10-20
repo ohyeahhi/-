@@ -17,7 +17,7 @@ class H(http.server.BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path == '/rest/v1/events':
             n = int(self.headers.get('content-length', 0)); ev = json.loads(self.rfile.read(n) or b'{}')
-            ok = ev.get('name') in ('open', 'start', 'record', 'complete', 'share', 'listen', 'listen_end', 'invite', 'create', 'book', 'order', 'paid', 'about', 'send_parents', 'keep_view', 'reply') and (ev.get('org') is None or __import__('re').fullmatch(r'[a-z0-9-]{2,20}', ev['org'])) and 8 <= len(ev.get('device', '')) <= 40
+            ok = ev.get('name') in ('open', 'start', 'record', 'complete', 'share', 'listen', 'listen_end', 'invite', 'create', 'book', 'order', 'paid', 'about', 'send_parents', 'keep_view', 'reply', 'coloring') and (ev.get('org') is None or __import__('re').fullmatch(r'[a-z0-9-]{2,20}', ev['org'])) and 8 <= len(ev.get('device', '')) <= 40
             if ok:
                 with open(os.path.join(ROOT, 'events.log'), 'a') as f: f.write(json.dumps(ev, ensure_ascii=False) + '\n')
             self.send_response(201 if ok else 403); self.cors(); self.end_headers(); return

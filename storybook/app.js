@@ -5,6 +5,7 @@ import * as mine from './mystories.js';
 import * as memo from './memories.js';
 import { gateOn, passed, login } from './access.js';
 import { analyzeTake, TAKE_TIPS } from './take.js';
+import * as coloring from './coloring.js';
 import { describe } from './composer.js';
 import qrcode from './vendor/qrcode.js';
 import { payEnabled, startPayment, confirmPayment, keepStatus, passStatus, claimPass } from './pay.js';
@@ -759,6 +760,7 @@ async function storyView(id) {
       <p class="sub">${esc(s.desc)}</p>
       <div class="chip-row">
         ${s.card ? '' : `<a class="chip" href="#/book/${id}">📖 그림책으로 만들기</a>`}
+        ${s.card ? '' : `<a class="chip" href="#/color/story/${id}">🖍️ 색칠놀이</a>`}
         ${s.custom && !s.card ? `<a class="chip" href="#/edit/${id}">${I.edit}이야기 고치기</a>` : ''}
         ${s.memoir ? '<a class="chip" href="#/memory">💭 추억 질문 더 답하기</a>' : ''}
       </div>
@@ -1173,7 +1175,8 @@ async function sharedView(shareId, page) {
     list,
     reader: readerOf(manifest),
     kid: (manifest.kid || '').trim(),
-    endExtra: `${/^[a-z0-9]{12}$/.test(manifest.shelf || '') ? '<a class="btn btn-secondary full" href="#/family">📚 우리 가족 책장에서 다른 동화 보기</a>' : ''}
+    endExtra: `<a class="btn btn-secondary full" href="#/color/s/${shareId}">🖍️ 이 동화로 색칠놀이</a>
+      ${/^[a-z0-9]{12}$/.test(manifest.shelf || '') ? '<a class="btn btn-secondary full" href="#/family">📚 우리 가족 책장에서 다른 동화 보기</a>' : ''}
       ${question ? `<div class="q-card"><p class="q-eyebrow">💬 ${esc(readerOf(manifest))}의 질문</p>
         <p class="q-text">${esc(question.text || '할머니가 물어볼 게 있대요')}</p>
         <button class="btn btn-secondary full" data-act="qplay">▶ 질문 듣기</button></div>` : ''}
@@ -2311,6 +2314,97 @@ async function questionView(id) {
   });
 }
 
+/* ---------- 화면: 색칠놀이 ---------- */
+// 동화 그림을 선 그림으로 바꿔서, 휴대폰에서 눌러 칠하거나 종이에 뽑아 칠해요.
+const CRAYONS = ['#E4573D', '#FF8FA3', '#F2A33C', '#FFD66B', '#8CCB8A', '#3FA36B', '#7FB8E6', '#3E6FB0', '#B9A7E8', '#8A5A3B', '#FFFFFF'];
+async function coloringView(kind, id) {
+  const here = stillHere();
+  render(`${topbar({ title: '색칠놀이' })}<div class="loading"><span class="spinner"></span><p class="sub">색칠 그림을 만들고 있어요</p></div>`, 'screen-color');
+  let s = null;
+  let pages = [];
+  let back = '#/';
+  if (kind === 'story') {
+    s = getStory(id);
+    if (s) pages = pagesOf(s).filter((p) => !p.intro && p.image);
+    back = `#/story/${id}`;
+  } else {
+    const loaded = await loadShared(id);
+    s = loaded?.s;
+    if (s) pages = pagesOf(s, readerOf(loaded.manifest), loaded.manifest.kid || '').filter((p) => !p.intro && p.image);
+    back = `#/s/${id}`;
+  }
+  if (!here()) return;
+  if (!s || !pages.length) return notFound();
+  let k = 0;
+  let color = CRAYONS[0];
+  let art = null;
+  render(`
+    ${topbar({ back, title: '색칠놀이' })}
+    <h1 class="title-lg">${esc(s.title)}</h1>
+    <p class="sub">색을 고르고 그림을 누르면 칠해져요. 종이에 뽑아서 크레파스로 칠해도 좋아요.</p>
+    <div class="color-thumbs">${pages.map((p, j) => `<button class="color-thumb${j === 0 ? ' on' : ''}" data-k="${j}" aria-label="${j + 1}번째 그림"><img src="${esc(p.image)}" alt=""></button>`).join('')}</div>
+    <div class="color-stage"><canvas id="color-canvas" width="${coloring.W}" height="${coloring.H}" aria-label="색칠할 그림"></canvas></div>
+    <div class="crayons" role="radiogroup" aria-label="색">${CRAYONS.map((c, j) => `<button class="crayon${j === 0 ? ' on' : ''}" data-c="${c}" style="--c:${c}" aria-label="${c === '#FFFFFF' ? '지우개' : `색 ${j + 1}`}">${c === '#FFFFFF' ? '🧽' : ''}</button>`).join('')}</div>
+    <div class="color-tools">
+      <button class="pill" id="color-reset">${I.redo}처음부터</button>
+      <button class="pill" id="color-save">그림 저장</button>
+      <button class="pill pill-accent" id="color-print">🖨️ 인쇄하기</button>
+    </div>
+    <div class="color-print" id="color-print-area" aria-hidden="true"></div>
+  `, 'screen-color');
+  const canvas = app.querySelector('#color-canvas');
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  const arts = new Map();
+  const getArt = async (j) => {
+    if (!arts.has(j)) arts.set(j, await coloring.lineArt(pages[j].image));
+    return arts.get(j);
+  };
+  const show = async (j) => {
+    k = j;
+    art = await getArt(j);
+    ctx.putImageData(art, 0, 0);
+    app.querySelectorAll('.color-thumb').forEach((b) => b.classList.toggle('on', Number(b.dataset.k) === j));
+  };
+  await show(0);
+  track('coloring', { story: s.id });
+  app.querySelector('.color-thumbs').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-k]');
+    if (b) show(Number(b.dataset.k));
+  });
+  app.querySelector('.crayons').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-c]');
+    if (!b) return;
+    color = b.dataset.c;
+    app.querySelectorAll('.crayon').forEach((x) => x.classList.toggle('on', x === b));
+  });
+  canvas.addEventListener('click', (e) => {
+    const r = canvas.getBoundingClientRect();
+    if (coloring.fill(art, (e.clientX - r.left) * (coloring.W / r.width), (e.clientY - r.top) * (coloring.H / r.height), color)) ctx.putImageData(art, 0, 0);
+  });
+  app.querySelector('#color-reset').addEventListener('click', async () => { arts.delete(k); await show(k); });
+  app.querySelector('#color-save').addEventListener('click', () => {
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = `${s.title}-색칠-${k + 1}.png`;
+    a.click();
+  });
+  app.querySelector('#color-print').addEventListener('click', async () => {
+    const area = app.querySelector('#color-print-area');
+    const c2 = document.createElement('canvas');
+    c2.width = coloring.W;
+    c2.height = coloring.H;
+    const x2 = c2.getContext('2d');
+    const urls = [];
+    for (let j = 0; j < pages.length; j++) {
+      x2.putImageData(await coloring.lineArt(pages[j].image), 0, 0);
+      urls.push(c2.toDataURL('image/png'));
+    }
+    area.innerHTML = urls.map((u, j) => `<figure><img src="${u}" alt=""><figcaption>${esc(s.title)} · ${j + 1}</figcaption></figure>`).join('');
+    await Promise.all([...area.querySelectorAll('img')].map((im) => (im.complete ? null : new Promise((r) => { im.onload = r; }))));
+    window.print();
+  });
+}
+
 /* ---------- 화면: 목소리 카드 ---------- */
 // 동화 대신 한 장짜리 축하 카드: 생일·어린이날·입학… 할 말을 고치고 한 번 녹음해서 보내요.
 const CARD_KINDS = [
@@ -2628,6 +2722,7 @@ const routes = [
   [/^#\/policy\/(terms|privacy|refund)$/, policyView],
   [/^#\/about$/, aboutView],
   [/^#\/replies$/, repliesView],
+  [/^#\/color\/(s|story)\/([\w-]+)$/, coloringView],
   [/^#\/question\/([\w-]+)$/, questionView],
   [/^#\/card(?:\/([a-z]+))?$/, cardView],
   [/^#\/shelf\/([a-z0-9]{12})$/, shelfView],
@@ -2649,7 +2744,7 @@ async function route() {
   if (/[?&]pay=/.test(location.search)) { await payReturnView(); return; }
   const hash = location.hash || '#/';
   // 공유 링크(#/s/…)는 처음 설정 없이 바로 열려요.
-  const open = ['#/s/', '#/shelf/', '#/family', '#/pass/', '#/print/', '#/policy/', '#/about', '#/keep/', '#/flyer/'].some((p) => hash.startsWith(p));
+  const open = ['#/s/', '#/color/s/', '#/shelf/', '#/family', '#/pass/', '#/print/', '#/policy/', '#/about', '#/keep/', '#/flyer/'].some((p) => hash.startsWith(p));
   if (!profile && hash !== '#/welcome' && !open) {
     // 아이 휴대폰(처음 설정 없음)에서 앱을 열면, 가족 책장이 있으면 그리로 가요.
     location.replace(familyShelves().length ? '#/family' : '#/welcome');

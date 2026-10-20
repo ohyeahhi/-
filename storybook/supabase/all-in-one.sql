@@ -112,7 +112,7 @@ create policy "anon can add events" on public.events
   for insert to anon
   with check (
     name in ('open', 'start', 'record', 'complete', 'share', 'listen', 'listen_end', 'invite',
-             'create', 'book', 'order', 'paid', 'about', 'send_parents', 'keep_view', 'reply')
+             'create', 'book', 'order', 'paid', 'about', 'send_parents', 'keep_view', 'reply', 'coloring')
     and length(device) between 8 and 40
     and (story is null or length(story) <= 40)
     and (share_id is null or share_id ~ '^[a-z0-9]{12}$')
