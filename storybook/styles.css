@@ -883,3 +883,20 @@ html.bedtime .listen-text { font-size: 20px; }
 .read-text.reading .ln { color: var(--text-3); }
 .read-text.reading .ln.past { color: var(--text-3); opacity: .7; }
 .read-text.reading .ln.now { color: var(--text); background: var(--accent-weak); box-shadow: 0 0 0 4px var(--accent-weak); }
+
+/* ---------- 목소리 카드 ---------- */
+.card-row {
+  display: flex; align-items: center; gap: 14px; margin: 0 0 14px; padding: 14px 16px; border-radius: 18px;
+  background: var(--surface); box-shadow: var(--shadow); font-size: 14px; color: var(--text-2); line-height: 1.5;
+}
+.card-row > span:first-child { font-size: 28px; }
+.card-row b { font-size: 16px; color: var(--text); }
+.card-row .chev { margin-left: auto; }
+.card-kinds { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 18px 0 14px; }
+.card-kind {
+  min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 2px; border-radius: 16px;
+  background: var(--surface); box-shadow: var(--shadow); font-size: 13px; font-weight: 700; color: var(--text-2); border: 2px solid transparent; text-align: center;
+}
+.card-kind span { font-size: 26px; }
+.card-kind.on { border-color: var(--accent); background: var(--accent-weak); color: var(--text); }
+.card-art { margin-bottom: 14px; }

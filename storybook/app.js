@@ -78,7 +78,8 @@ const kidTo = () => toOf(kidName());
 
 // 모든 동화의 첫 쪽은 손주에게 건네는 인사말이에요.
 // 공유 링크로 열면 보낸 사람의 이름 정보(role, kid)로 그려요.
-const pagesOf = (story, reader = who(), kid = kidName()) => [
+// 목소리 카드는 인사말 쪽 없이 카드 한 장이 곧 할 말이에요.
+const pagesOf = (story, reader = who(), kid = kidName()) => (story.card ? [...story.pages] : [
   {
     intro: true,
     image: 'img/intro.svg',
@@ -86,7 +87,7 @@ const pagesOf = (story, reader = who(), kid = kidName()) => [
     hint: `예) ${callOf(kid) ? `${callOf(kid)}, ` : ''}${ya(reader)}. 오늘은 ‘${story.title}’ 이야기를 들려줄게.`,
   },
   ...story.pages,
-];
+]);
 const keyOf = (id, i) => `${id}/${i}`;
 // 추억 질문으로 만든 장면은 글 위에 질문을 작게 보여 줘요.
 const askHTML = (p) => (p.ask ? `<span class="ask">Q. ${esc(p.ask)}</span>` : '');
@@ -430,7 +431,7 @@ async function uploadWithProgress(story, recorded) {
         emoji: emojiOf(profile),
         kid: kidName(),
         shelf: shelfId(),
-        ...(story.custom ? { custom: { title: story.title, ...(story.memoir ? { memoir: true } : {}), pages: story.pages.map(({ text, seed, noCast, ask }) => ({ text, seed, ...(noCast ? { noCast: true } : {}), ...(ask ? { ask } : {}) })) } } : {}),
+        ...(story.custom ? { custom: { title: story.title, ...(story.memoir ? { memoir: true } : {}), ...(story.card ? { card: story.card } : {}), pages: story.pages.map(({ text, seed, noCast, ask, art }) => ({ text, seed, ...(noCast ? { noCast: true } : {}), ...(ask ? { ask } : {}), ...(art ? { art } : {}) })) } } : {}),
       },
       recorded.map(({ i, blob, trim }) => ({ i, blob, trim })),
       (n, t) => { bar.style.width = `${(n / t) * 100}%`; label.textContent = `${n} / ${t}`; },
@@ -440,7 +441,7 @@ async function uploadWithProgress(story, recorded) {
     local.set('sentShares', [{ id: shareId, story: story.id, at: Date.now() }, ...(local.get('sentShares') || [])].slice(0, 30));
     track('share', { story: story.id, shareId, n: recorded.length });
     // 책장에 더하기는 실패해도 링크 보내기는 그대로 돼요. 결과는 보내기 화면에 알려 줘요.
-    lastShelfAdd = await addToShelf(shelfId(), { by: { name: who(), emoji: emojiOf(profile) }, shareId, storyId: story.id, title: story.title, at: new Date().toISOString(), ...(story.custom ? { cover: { text: story.pages[0].text, seed: story.pages[0].seed || 0, noCast: Boolean(story.pages[0].noCast) } } : {}) })
+    lastShelfAdd = await addToShelf(shelfId(), { by: { name: who(), emoji: emojiOf(profile) }, shareId, storyId: story.id, title: story.title, at: new Date().toISOString(), ...(story.custom ? { cover: { text: story.pages[0].art || story.pages[0].text, seed: story.pages[0].seed || 0, noCast: Boolean(story.pages[0].noCast) } } : {}) })
       .then(() => { local.set('shelfOk', true); return 'ok'; })
       .catch((e) => (e.full ? 'full' : 'fail'));
     // 1년권 기간이면 서버가 (서명된 책장 항목을 확인하고) 10년 보관으로 올려요.
@@ -664,6 +665,7 @@ async function homeView() {
     <div id="reply-slot"></div>
     ${resume}
     ${memoryCard()}
+    <a class="card-row" href="#/card"><span>💌</span><span><b>목소리 카드 보내기</b><br>생일·어린이날·입학 축하를 한마디로</span><span class="chev">${I.chevron}</span></a>
     <div id="shelf-slot"></div>
     <h2 class="section-label">우리 옛이야기</h2>
     ${STORIES.filter((s) => s.origin === 'korean').map(card).join('')}
@@ -745,8 +747,8 @@ async function storyView(id) {
       <h1 class="title-lg">${esc(s.title)}</h1>
       <p class="sub">${esc(s.desc)}</p>
       <div class="chip-row">
-        <a class="chip" href="#/book/${id}">📖 그림책으로 만들기</a>
-        ${s.custom ? `<a class="chip" href="#/edit/${id}">${I.edit}이야기 고치기</a>` : ''}
+        ${s.card ? '' : `<a class="chip" href="#/book/${id}">📖 그림책으로 만들기</a>`}
+        ${s.custom && !s.card ? `<a class="chip" href="#/edit/${id}">${I.edit}이야기 고치기</a>` : ''}
         ${s.memoir ? '<a class="chip" href="#/memory">💭 추억 질문 더 답하기</a>' : ''}
       </div>
       <div class="stat-row">
@@ -779,7 +781,7 @@ async function recordView(id, idxStr) {
   render(`
     ${topbar({
       back: `#/story/${id}`,
-      title: i === 0 ? '인사말' : `${i} / ${pages.length - 1}쪽`,
+      title: s.card ? '목소리 카드' : i === 0 ? '인사말' : `${i} / ${pages.length - 1}쪽`,
       right: `<div class="chip-group">
         <button class="chip chip-cam" id="cam-toggle" aria-pressed="false"></button>
         <button class="chip" id="guide">${I.speaker}안내</button>
@@ -2190,6 +2192,47 @@ async function familyView(focus) {
   });
 }
 
+/* ---------- 화면: 목소리 카드 ---------- */
+// 동화 대신 한 장짜리 축하 카드: 생일·어린이날·입학… 할 말을 고치고 한 번 녹음해서 보내요.
+const CARD_KINDS = [
+  ['birthday', '🎂', '생일', '생일 축하해! 오늘 하루 제일 행복한 사람이 되렴. 사랑해.', '생일잔치 케이크 풍선 하트 기뻤어요'],
+  ['childrensday', '🎈', '어린이날', '어린이날 축하해! 씩씩하고 건강하게 자라 줘서 고마워.', '어린이날 풍선 선물 놀이터에서 신났어요'],
+  ['school', '🎒', '입학·새 학기', '입학 축하해! 새 친구들이랑 즐겁게 지내렴. 언제나 응원할게.', '학교에 입학했어요 친구들과 웃었어요'],
+  ['cheer', '💪', '힘내', '오늘 많이 힘들었지? 괜찮아, 너는 정말 잘하고 있어. 힘내!', '무지개가 떴어요 해님이 웃었어요 용기'],
+  ['thanks', '🙏', '고마워', '늘 웃어 줘서 고마워. 네 덕분에 매일 행복해.', '꽃다발 선물 하트 고마웠어요'],
+  ['love', '💛', '사랑해', '사랑해, 정말 많이 많이 사랑해. 보고 싶다.', '하트 별빛 꼭 안아 주었어요 사랑해'],
+  ['christmas', '🎄', '크리스마스', '메리 크리스마스! 산타 할아버지가 선물 가져다주실 거야.', '크리스마스 트리 선물 눈이 펑펑'],
+  ['newyear', '🧧', '새해', '새해 복 많이 받아! 올해도 건강하고 씩씩하게 자라렴.', '설날 세배 떡국 해돋이'],
+];
+
+function cardView(kindKey) {
+  const kid = kidName();
+  const pick = CARD_KINDS.find(([k]) => k === kindKey) || CARD_KINDS[0];
+  const [k, emoji, label, msg, art] = pick;
+  const greet = kid ? `${callOf(kid)}, ` : '';
+  render(`
+    ${topbar({ back: '#/', title: '목소리 카드' })}
+    <h1 class="title-lg">${esc(kidTo())} 목소리 카드를 보내요</h1>
+    <p class="sub">축하 한마디를 녹음해서 링크로 보내요. 동화보다 짧아서 금방 끝나요.</p>
+    <div class="card-kinds" role="radiogroup" aria-label="카드 종류">
+      ${CARD_KINDS.map(([kk, e, l]) => `<a class="card-kind${kk === k ? ' on' : ''}" role="radio" aria-checked="${kk === k}" href="#/card/${kk}"><span>${e}</span>${l}</a>`).join('')}
+    </div>
+    <div class="page-art card-art"><img alt="" src="${mine.pageImage(art, 0)}"></div>
+    <label class="label" for="card-text">할 말 <span class="opt">고쳐도 돼요</span></label>
+    <textarea id="card-text" class="input textarea" rows="4" maxlength="200">${esc(greet + msg)}</textarea>
+    <div class="cta-bar"><button class="btn btn-primary" id="card-go">${emoji} 녹음하기</button></div>
+  `, 'screen-editor');
+  app.querySelector('#card-go').addEventListener('click', () => {
+    const text = app.querySelector('#card-text').value.trim();
+    if (!text) { toast('할 말을 적어 주세요'); return; }
+    const id = mine.newId();
+    const title = `${kid ? `${kid} ` : ''}${label.split('·')[0]} 카드`;
+    if (!mine.saveRaw({ id, title, card: k, pages: [{ text, seed: 0, art }] })) { toast('저장하지 못했어요. 휴대폰 저장 공간을 확인해 주세요'); return; }
+    track('create', { story: id, n: 1, meta: { card: k } });
+    location.hash = `#/record/${id}/0`;
+  });
+}
+
 /* ---------- 화면: 추억 질문 ---------- */
 // 하루 하나씩 질문에 답하면 장면이 하나씩 쌓여서 "옛날 이야기" 책이 돼요.
 const memoirTitle = () => `${who()}의 옛날 이야기`;
@@ -2456,6 +2499,7 @@ const routes = [
   [/^#\/policy\/(terms|privacy|refund)$/, policyView],
   [/^#\/about$/, aboutView],
   [/^#\/replies$/, repliesView],
+  [/^#\/card(?:\/([a-z]+))?$/, cardView],
   [/^#\/shelf\/([a-z0-9]{12})$/, shelfView],
   [/^#\/family$/, () => familyView()],
   [/^#\/pass\/([a-z0-9]{12})$/, passView],
