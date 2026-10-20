@@ -17,11 +17,18 @@ export default async function ({ check, browser }) {
   check('1쪽 앞은 "인사말"', (await p.textContent('.page-nav-btn >> nth=0')).includes('인사말'));
   await p.click('[data-act="rec"]');
   await p.waitForTimeout(500);
+  check('녹음을 시작하면 첫 문장이 밝아져요 (따라가는 대본)', (await p.$$eval('.read-text .ln.now', (e) => e.length)) === 1 && (await p.getAttribute('.read-text .ln.now', 'data-ln')) !== null);
+  const lnCount = await p.$$eval('.read-text .ln', (e) => e.length);
+  if (lnCount > 1) {
+    await p.click('.read-text .ln >> nth=1');
+    check('문장을 누르면 그 문장으로 옮겨요', (await p.getAttribute('.read-text .ln.now', 'data-ln')) === '1');
+  }
   await p.click('.page-nav-btn >> nth=0');
   await p.waitForTimeout(300);
   check('녹음하는 동안에는 쪽을 옮기지 않아요', (await p.evaluate(() => location.hash)) === '#/record/sun-moon/1');
   await p.click('[data-act="rec"]');
   await p.waitForSelector('.take-tip', { timeout: 5000 }).catch(() => {});
+  check('녹음을 멈추면 밝힘이 사라져요', !(await p.$('.read-text .ln.now')));
   check('녹음이 끝나면 녹음 도우미가 한마디 해요', Boolean(await p.$('.take-tip')), await p.evaluate(() => document.querySelector('.dock-main')?.innerText));
   check('오류가 없어요', !p.errors.length, p.errors);
   await p.context().close();

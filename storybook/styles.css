@@ -877,3 +877,9 @@ html.bedtime .listen-text { font-size: 20px; }
 .take-tip { margin: 0 0 12px; padding: 12px 14px; border-radius: 14px; font-size: 16px; font-weight: 600; line-height: 1.45; text-align: center; background: var(--accent-weak); color: var(--text); }
 .take-tip small { font-size: 13px; font-weight: 500; color: var(--text-2); }
 .take-quiet, .take-noisy, .take-loud { background: rgba(240, 68, 82, .1); }
+
+/* 따라가는 대본 */
+.read-text .ln { transition: color .25s, background-color .25s; border-radius: 6px; }
+.read-text.reading .ln { color: var(--text-3); }
+.read-text.reading .ln.past { color: var(--text-3); opacity: .7; }
+.read-text.reading .ln.now { color: var(--text); background: var(--accent-weak); box-shadow: 0 0 0 4px var(--accent-weak); }

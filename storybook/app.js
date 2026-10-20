@@ -197,6 +197,12 @@ const recorder = {
   },
 };
 
+// 글을 문장으로 나눠요. ("…했어요. 그런데" → 두 문장) 문장이 너무 길면 쉼표에서 한 번 더 나눠요.
+function sentencesOf(text) {
+  const parts = String(text).match(/[^.!?…]+[.!?…]*["”’]?\s*/g) || [String(text)];
+  return parts.flatMap((t) => (t.length > 40 ? t.split(/(?<=,)\s*/).filter(Boolean).map((x, i, a) => (i < a.length - 1 ? `${x} ` : x)) : [t]));
+}
+
 /* ---------- 공통 UI ---------- */
 let toastTimer;
 function toast(msg) {
@@ -790,7 +796,7 @@ async function recordView(id, idxStr) {
         <button class="notice-btn" id="external">다른 브라우저로 열기</button>
       </div>` : ''}
     ${sceneHTML(p)}
-    <p class="read-text">${askHTML(p)}${esc(p.text)}</p>
+    <p class="read-text">${askHTML(p)}${p.intro ? esc(p.text) : sentencesOf(p.text).map((t, k) => `<span class="ln" data-ln="${k}">${esc(t)}</span>`).join('')}</p>
     ${p.intro ? `<div class="hint-card">${esc(p.hint)}</div>` : ''}
     <div class="rec-dock">
       <div class="self-cam" id="pip" hidden></div>
@@ -893,11 +899,50 @@ async function recordView(id, idxStr) {
     }
   };
 
-  const shape = [0.45, 0.7, 0.9, 1, 1.1, 1, 0.9, 0.7, 0.45];
-  const onLevel = (lv) => bars.forEach((b, j) => {
-    const v = Math.max(0.12, Math.min(1, lv * shape[j] * (0.85 + Math.random() * 0.3)));
-    b.style.transform = `scaleY(${v})`;
+  // 따라가는 대본: 녹음하는 동안 읽을 문장을 밝혀 주고, 말을 멈추면 다음 문장으로 넘어가요.
+  //   (한 글자에 0.26초쯤으로 어림해서, 반쯤 읽은 뒤 쉬면 넘기고, 너무 오래 걸리면 저절로 넘겨요)
+  const lines = [...app.querySelectorAll('.read-text .ln')];
+  const prompter = { on: false, k: 0, spoken: 0, quietSince: 0, last: 0 };
+  const showLine = (k) => {
+    prompter.k = Math.max(0, Math.min(lines.length - 1, k));
+    prompter.spoken = 0;
+    lines.forEach((el, j) => { el.classList.toggle('now', j === prompter.k); el.classList.toggle('past', j < prompter.k); });
+    lines[prompter.k]?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+  };
+  const startPrompter = () => {
+    if (lines.length < 2) return;
+    Object.assign(prompter, { on: true, last: Date.now(), quietSince: 0 });
+    app.querySelector('.read-text').classList.add('reading');
+    showLine(0);
+  };
+  const stopPrompter = () => {
+    prompter.on = false;
+    app.querySelector('.read-text')?.classList.remove('reading');
+    lines.forEach((el) => el.classList.remove('now', 'past'));
+  };
+  app.querySelector('.read-text').addEventListener('click', (e) => {
+    const ln = e.target.closest('.ln');
+    if (ln && prompter.on) showLine(Number(ln.dataset.ln));
   });
+  const followVoice = (lv) => {
+    if (!prompter.on) return;
+    const now = Date.now();
+    const dt = now - prompter.last;
+    prompter.last = now;
+    const est = Math.max(1200, lines[prompter.k].textContent.trim().length * 260);
+    if (lv > 0.12) { prompter.spoken += dt; prompter.quietSince = 0; } else if (!prompter.quietSince) prompter.quietSince = now;
+    const paused = prompter.quietSince && now - prompter.quietSince > 450;
+    if (prompter.k < lines.length - 1 && ((paused && prompter.spoken > est * 0.5) || prompter.spoken > est * 1.8)) showLine(prompter.k + 1);
+  };
+
+  const shape = [0.45, 0.7, 0.9, 1, 1.1, 1, 0.9, 0.7, 0.45];
+  const onLevel = (lv) => {
+    followVoice(lv);
+    bars.forEach((b, j) => {
+      const v = Math.max(0.12, Math.min(1, lv * shape[j] * (0.85 + Math.random() * 0.3)));
+      b.style.transform = `scaleY(${v})`;
+    });
+  };
 
   async function startRec() {
     stopAudio();
@@ -909,6 +954,7 @@ async function recordView(id, idxStr) {
       return;
     }
     draw('recording');
+    if (!p.intro) startPrompter();
     navigator.vibrate?.(15);
     const started = Date.now();
     const el = dock.querySelector('#timer');
@@ -922,6 +968,7 @@ async function recordView(id, idxStr) {
   async function stopRec() {
     if (!recorder.active) return;
     clearInterval(timer);
+    stopPrompter();
     const blob = await recorder.stop();
     navigator.vibrate?.(15);
     if (!blob || blob.size < 1500) {
