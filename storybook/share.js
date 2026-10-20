@@ -47,9 +47,10 @@ async function upload(path, body, type) {
 export const publicUrl = (id, file) => `${base()}/storage/v1/object/public/${bucket()}/${id}/${file}`;
 
 // pages: [{ i, blob, trim? }]  trim: 들을 때 건너뛸 앞뒤 빈 소리 [시작 초, 끝 초]  meta: { storyId, role, kid }
-export async function uploadShare(meta, pages, onProgress = () => {}) {
+// question: { blob, text, trim? } — 동화 끝에 남긴 질문 (q.m4a 등)
+export async function uploadShare(meta, pages, onProgress = () => {}, question = null) {
   const id = newShareId();
-  const total = pages.length + 1;
+  const total = pages.length + 1 + (question ? 1 : 0);
   const files = [];
   for (const [n, { i, blob, trim }] of pages.entries()) {
     const type = blob.type || 'audio/webm';
@@ -58,7 +59,15 @@ export async function uploadShare(meta, pages, onProgress = () => {}) {
     files.push({ i, file, type, ...(Array.isArray(trim) ? { trim } : {}) });
     onProgress(n + 1, total);
   }
-  const manifest = { v: 1, ...meta, pages: files, createdAt: new Date().toISOString() };
+  let q = null;
+  if (question?.blob) {
+    const type = question.blob.type || 'audio/webm';
+    const file = `q.${extOf(type)}`;
+    await upload(`${id}/${file}`, question.blob, type);
+    q = { file, type, text: String(question.text || '').slice(0, 80), ...(Array.isArray(question.trim) ? { trim: question.trim } : {}) };
+    onProgress(pages.length + 1, total);
+  }
+  const manifest = { v: 1, ...meta, pages: files, ...(q ? { question: q } : {}), createdAt: new Date().toISOString() };
   await upload(`${id}/manifest.json`, JSON.stringify(manifest), 'application/json');
   onProgress(total, total);
   return id;

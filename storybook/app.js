@@ -352,7 +352,9 @@ const ask = (opts) => new Promise((resolve) => sheet({
 async function recordingsOf(story) {
   const records = await Promise.all(pagesOf(story).map((_, i) => db.getRecord(keyOf(story.id, i)).catch(() => null)));
   const recorded = records.map((r, i) => r && { i, ...r }).filter(Boolean);
-  return { recorded, latest: Math.max(0, ...recorded.map((r) => r.at || 0)), total: records.length };
+  // 동화 끝 질문 (있으면): 질문을 새로 녹음해도 링크를 새로 만들도록 latest 에 넣어요.
+  const question = story.card ? null : await db.getRecord(keyOf(story.id, 'q')).catch(() => null);
+  return { recorded, question, latest: Math.max(0, question?.at || 0, ...recorded.map((r) => r.at || 0)), total: records.length };
 }
 
 // 올린 뒤로 다시 녹음한 쪽이 없고, (지은 이야기라면) 글·그림 설정도 그대로면 예전 공유 ID 를 그대로 써요.
@@ -410,7 +412,7 @@ const shelfId = () => {
 const shelfUrl = (id) => `${appBase()}#/shelf/${id}`;
 let lastShelfAdd = null;   // 마지막으로 책장에 넣은 결과: ok · full · fail
 
-async function uploadWithProgress(story, recorded) {
+async function uploadWithProgress(story, recorded, question = null) {
   if (!(await askUploadConsent(recorded))) return null;
   await new Promise((r) => setTimeout(r, 280));
   const total = recorded.length + 1;
@@ -435,6 +437,7 @@ async function uploadWithProgress(story, recorded) {
       },
       recorded.map(({ i, blob, trim }) => ({ i, blob, trim })),
       (n, t) => { bar.style.width = `${(n / t) * 100}%`; label.textContent = `${n} / ${t}`; },
+      question ? { blob: question.blob, text: question.text, trim: question.trim } : null,
     );
     local.set(shareKey, { ...(local.get(shareKey) || {}), [story.id]: { id: shareId, at: Date.now(), sig: contentSig(story) } });
     // 보낸 링크는 모두 기억해요. 고쳐서 다시 보내도 예전 링크로 온 답장을 놓치지 않게.
@@ -459,14 +462,14 @@ async function uploadWithProgress(story, recorded) {
       secondary: '닫기',
       primary: '다시 시도',
     });
-    return retry ? uploadWithProgress(story, recorded) : null;
+    return retry ? uploadWithProgress(story, recorded, question) : null;
   }
 }
 
 async function shareStory(id) {
   const story = getStory(id);
   if (!shareEnabled()) { noServerSheet(); return; }
-  const { recorded, latest } = await recordingsOf(story);
+  const { recorded, latest, question } = await recordingsOf(story);
   const saved = savedShareId(story, latest);
   if (saved) { sendLink(story, saved); return; }
   const ok = await ask({
@@ -477,7 +480,7 @@ async function shareStory(id) {
     primary: '링크 만들기',
   });
   if (!ok) return;
-  const shareId = await uploadWithProgress(story, recorded);
+  const shareId = await uploadWithProgress(story, recorded, question);
   if (shareId) sendLink(story, shareId);
 }
 
@@ -759,6 +762,8 @@ async function storyView(id) {
     </div>
     <h2 class="section-label">쪽마다 녹음해요</h2>
     <ol class="list">${rows}</ol>
+    ${s.card ? '' : `<a class="list-row q-row" href="#/question/${id}"><span class="num ${rec.has(keyOf(id, 'q')) ? 'done' : ''}">${rec.has(keyOf(id, 'q')) ? I.check : '?'}</span>
+      <span class="list-text"><b>끝에 질문 남기기</b> · ${esc(kidTo())} 물어볼 한마디 (선택)</span><span class="chev">${I.chevron}</span></a>`}
     <div class="cta-bar">${cta}</div>
   `);
   app.querySelector('#share')?.addEventListener('click', () => shareStory(id));
@@ -1145,6 +1150,7 @@ async function sharedView(shareId, page) {
     return;
   }
   const pages = pagesOf(s, readerOf(manifest), manifest.kid || '');
+  const question = manifest.question && /^q\.(m4a|mp4|webm|ogg)$/.test(manifest.question.file || '') ? manifest.question : null;
   addFamilyShelf(manifest.shelf);   // 이 링크를 보낸 사람의 책장도 가족 책장에 모아 둬요
   const list = manifest.pages
     .filter((f) => pages[f.i])
@@ -1160,14 +1166,18 @@ async function sharedView(shareId, page) {
     reader: readerOf(manifest),
     kid: (manifest.kid || '').trim(),
     endExtra: `${/^[a-z0-9]{12}$/.test(manifest.shelf || '') ? '<a class="btn btn-secondary full" href="#/family">📚 우리 가족 책장에서 다른 동화 보기</a>' : ''}
-      ${shareEnabled() ? `<button class="btn btn-secondary full" data-act="reply">🎤 ${readerOf(manifest)}께 답장 보내기</button>` : ''}
+      ${question ? `<div class="q-card"><p class="q-eyebrow">💬 ${esc(readerOf(manifest))}의 질문</p>
+        <p class="q-text">${esc(question.text || '할머니가 물어볼 게 있대요')}</p>
+        <button class="btn btn-secondary full" data-act="qplay">▶ 질문 듣기</button></div>` : ''}
+      ${shareEnabled() ? `<button class="btn ${question ? 'btn-primary' : 'btn-secondary'} full" data-act="reply">🎤 ${question ? '대답하기' : `${readerOf(manifest)}께 답장 보내기`}</button>` : ''}
       <a class="keep-link" href="#/keep/${shareId}">🔒 이 목소리 오래 간직하기<span>${I.chevron}</span></a>
       <a class="btn btn-secondary full" href="#/about" data-act="invite">우리 가족도 만들어 보기</a>`,
     startAt: Number(page) || 0,
     shareId,
   });
   stage.addEventListener('click', (e) => {
-    if (e.target.closest('[data-act="reply"]')) replySheet(shareId, readerOf(manifest), (manifest.kid || '').trim(), s.id);
+    if (e.target.closest('[data-act="reply"]')) replySheet(shareId, readerOf(manifest), (manifest.kid || '').trim(), s.id, question?.text);
+    if (e.target.closest('[data-act="qplay"]') && question) { setSource(publicUrl(shareId, question.file), false, question.trim); player.play().catch(() => {}); }
   });
   // 무료 보관이 60일 안에 끝나면 위에 알려 줘요.
   const freeUntil = freeKeepUntil(manifest);
@@ -1542,8 +1552,8 @@ function editorView(editId) {
     }
     // 녹음은 쪽 번호로 저장돼 있어요(0 = 인사말). 장면을 지우거나 순서가 바뀌면 녹음도 같이 옮기고, 지운 장면 녹음은 지워요.
     if (editId) {
-      const moves = [[0, 0], ...kept.map((p, j) => (p.orig == null ? null : [p.orig + 1, j + 1])).filter(Boolean)];
-      const same = moves.every(([a, b]) => a === b) && moves.length === raw.pages.length + 1;
+      const moves = [[0, 0], ['q', 'q'], ...kept.map((p, j) => (p.orig == null ? null : [p.orig + 1, j + 1])).filter(Boolean)];
+      const same = moves.every(([a, b]) => a === b) && moves.length === raw.pages.length + 2;
       if (!same) await db.remap(state.id, moves).catch(() => {});
     }
     if (!editId) { local.set(DRAFT, null); track('create', { n: pages.length }); }
@@ -1627,7 +1637,7 @@ async function bookView(id) {
   const s = getStory(id);
   if (!s) return notFound();
   track('book', { story: id });
-  const { recorded, latest, total } = await recordingsOf(s);
+  const { recorded, latest, total, question } = await recordingsOf(s);
   const done = recorded.length === total;
   let shareId = shareEnabled() && done ? savedShareId(s, latest) : null;
 
@@ -1653,7 +1663,7 @@ async function bookView(id) {
           ? '<p>🔌 공유 서버를 연결하면 쪽마다 QR코드를 넣을 수 있어요.</p>'
           : `<p>📱 녹음을 올리면 쪽마다 <b>QR코드</b>가 들어가요.</p><button class="btn btn-secondary full" id="make-qr">QR코드 넣기</button>`;
     notice.querySelector('#make-qr')?.addEventListener('click', async () => {
-      const got = await uploadWithProgress(s, recorded);
+      const got = await uploadWithProgress(s, recorded, question);
       if (got) { shareId = got; draw(); toast('QR코드를 넣었어요'); }
     });
   };
@@ -1879,12 +1889,12 @@ async function orderView(id) {
     if (!$('#o-agree').checked) { toast('주문 내용에 동의해 주세요'); return; }
     if (!shareEnabled()) { noServerSheet(); return; }
     // 인쇄소가 같은 책(그림·글·QR)을 만들 수 있도록 녹음을 먼저 올려 둬요.
-    const { recorded, latest, total } = await recordingsOf(s);
+    const { recorded, latest, total, question } = await recordingsOf(s);
     if (recorded.length < total) {
       toast(`녹음을 다 마친 뒤에 주문할 수 있어요 (${recorded.length}/${total}쪽)`);
       return;
     }
-    const shareId = savedShareId(s, latest) || await uploadWithProgress(s, recorded);
+    const shareId = savedShareId(s, latest) || await uploadWithProgress(s, recorded, question);
     if (!shareId) return;
     await checkout({
       shareId,
@@ -2192,6 +2202,83 @@ async function familyView(focus) {
   });
 }
 
+/* ---------- 화면: 동화 끝 질문 (할머니의 질문) ---------- */
+// 동화를 다 들은 아이에게 할머니가 물어봐요. 아이는 목소리로 대답하고, 대답은 답장처럼 할머니께 가요.
+const QUESTION_IDEAS = (kid, title) => [
+  `${kid ? callOf(kid) : '우리 강아지'}, ‘${title}’에서 누가 제일 좋았어?`,
+  `${kid ? `${kid}${hasBatchim(kid) ? '이' : ''}` : '너'}라면 어떻게 했을 것 같아?`,
+  '이야기에서 제일 무서웠던 데는 어디야?',
+  '다음엔 무슨 이야기 들려줄까?',
+];
+async function questionView(id) {
+  const here = stillHere();
+  const s = getStory(id);
+  if (!s || s.card) return notFound();
+  const key = keyOf(id, 'q');
+  const saved = await db.getRecord(key).catch(() => null);
+  if (!here()) return;
+  const ideas = QUESTION_IDEAS(kidName(), s.title);
+  render(`
+    ${topbar({ back: `#/story/${id}`, title: '끝에 질문 남기기' })}
+    <h1 class="title-lg">${esc(kidTo())} 물어보세요</h1>
+    <p class="sub">동화가 끝나면 ${esc(kidTo())} 이 질문이 들려요. 아이가 목소리로 대답하면 ${esc(who())}께 와요.</p>
+    <div class="q-ideas">${ideas.map((q) => `<button class="pill q-idea" data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>
+    <label class="label" for="q-text">질문 <span class="opt">이 글을 소리 내어 읽어 주세요</span></label>
+    <textarea id="q-text" class="input textarea" rows="2" maxlength="80">${esc(saved?.text || ideas[0])}</textarea>
+    <div class="q-dock" id="q-dock"></div>
+  `, 'screen-editor');
+  const dock = app.querySelector('#q-dock');
+  const ta = app.querySelector('#q-text');
+  let timer = 0;
+  const draw = (state, tip = null) => {
+    dock.innerHTML = state === 'rec'
+      ? `<button class="rec-btn is-rec" data-q-act="rec" aria-label="녹음 멈추기"><span class="rec-inner"></span></button><p class="dock-hint small">다 말하면 한 번 더 눌러요</p>`
+      : `${tip ? `<p class="take-tip take-${tip}">${TAKE_TIPS[tip]}</p>` : ''}
+         <button class="rec-btn" data-q-act="rec" aria-label="${state === 'done' ? '다시 녹음' : '녹음 시작'}"><span class="rec-inner"></span></button>
+         <p class="dock-hint small">${state === 'done' ? '저장했어요. 다시 누르면 새로 녹음해요.' : '빨간 버튼을 누르고 질문을 읽어 주세요'}</p>
+         ${state === 'done' ? `<div class="done-row"><button class="pill pill-accent" data-q-act="play">${I.play}<span>들어보기</span></button>
+           <button class="pill" data-q-act="del">${I.trash}질문 빼기</button></div>
+           <a class="btn btn-primary full" href="#/story/${id}">다 했어요</a>` : ''}`;
+  };
+  draw(saved ? 'done' : 'idle');
+  onDispose(() => { clearInterval(timer); if (recorder.active) recorder.stop(); });
+  app.querySelector('.q-ideas').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-q]');
+    if (b) ta.value = b.dataset.q;
+  });
+  dock.addEventListener('click', async (e) => {
+    const act = e.target.closest('[data-q-act]')?.dataset.qAct;
+    if (act === 'rec') {
+      if (recorder.active) {
+        clearInterval(timer);
+        const blob = await recorder.stop();
+        if (!blob || blob.size < 1500) { toast('녹음이 너무 짧아요. 한 번 더 해볼까요?'); draw('idle'); return; }
+        const take = analyzeTake(recorder.lastTake);
+        await db.putBlob(key, blob, { text: ta.value.trim().slice(0, 80), ...(take?.trim ? { trim: take.trim } : {}) });
+        track('record', { story: id, meta: { question: true } });
+        draw('done', take?.tip);
+        return;
+      }
+      stopAudio();
+      try { await recorder.start(() => {}); } catch (err) { toast('마이크를 쓸 수 없어요. 브라우저 설정에서 마이크를 허용해 주세요'); return; }
+      draw('rec');
+      timer = setInterval(() => { if (!recorder.active) clearInterval(timer); }, 1000);
+    } else if (act === 'play') {
+      const r = await db.getRecord(key);
+      if (r) { setSource(URL.createObjectURL(r.blob), true, r.trim); player.play().catch(() => {}); }
+    } else if (act === 'del') {
+      await db.remove(key);
+      toast('질문을 뺐어요');
+      draw('idle');
+    }
+  });
+  // 글을 고치면 저장된 질문 글도 바꿔 둬요 (녹음은 그대로)
+  ta.addEventListener('change', async () => {
+    const r = await db.getRecord(key);
+    if (r) await db.putBlob(key, r.blob, { text: ta.value.trim().slice(0, 80), ...(r.trim ? { trim: r.trim } : {}) });
+  });
+}
+
 /* ---------- 화면: 목소리 카드 ---------- */
 // 동화 대신 한 장짜리 축하 카드: 생일·어린이날·입학… 할 말을 고치고 한 번 녹음해서 보내요.
 const CARD_KINDS = [
@@ -2312,14 +2399,14 @@ function memoryView(qid) {
 
 /* ---------- 손주 답장: 다 듣고 나서 "고마워요"를 목소리로 보내요 ---------- */
 const REPLY_SECONDS = 30;
-function replySheet(shareId, reader, kid, storyId) {
+function replySheet(shareId, reader, kid, storyId, askText = '') {
   let blob = null;
   let timer = 0;
   let left = REPLY_SECONDS;
   const { el, close } = sheet({
     icon: '💌',
-    title: `${reader}께 답장 보내기`,
-    body: `<span class="reply-hint">"${reader}, 이야기 고마워요!" 처럼 짧게 말해 보세요. (${REPLY_SECONDS}초까지)</span>
+    title: askText ? `${reader}의 질문에 대답하기` : `${reader}께 답장 보내기`,
+    body: `<span class="reply-hint">${askText ? `“${esc(askText)}”<br>생각나는 대로 말해 보세요.` : `"${reader}, 이야기 고마워요!" 처럼 짧게 말해 보세요.`} (${REPLY_SECONDS}초까지)</span>
       <span class="reply-box">
         <button class="reply-rec" data-r="rec" aria-label="녹음 시작">${I.mic}</button>
         <span class="reply-state" role="status">눌러서 말하기</span>
@@ -2499,6 +2586,7 @@ const routes = [
   [/^#\/policy\/(terms|privacy|refund)$/, policyView],
   [/^#\/about$/, aboutView],
   [/^#\/replies$/, repliesView],
+  [/^#\/question\/([\w-]+)$/, questionView],
   [/^#\/card(?:\/([a-z]+))?$/, cardView],
   [/^#\/shelf\/([a-z0-9]{12})$/, shelfView],
   [/^#\/family$/, () => familyView()],

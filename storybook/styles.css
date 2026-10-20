@@ -900,3 +900,13 @@ html.bedtime .listen-text { font-size: 20px; }
 .card-kind span { font-size: 26px; }
 .card-kind.on { border-color: var(--accent); background: var(--accent-weak); color: var(--text); }
 .card-art { margin-bottom: 14px; }
+
+/* 할머니의 질문 */
+.q-row { margin-top: 10px; }
+.q-ideas { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 6px; }
+.q-idea { height: auto; min-height: 40px; padding: 8px 14px; text-align: left; line-height: 1.4; white-space: normal; }
+.q-dock { display: flex; flex-direction: column; align-items: center; gap: 12px; margin-top: 22px; }
+.q-dock .done-row { justify-content: center; }
+.q-card { padding: 18px; border-radius: 20px; background: var(--accent-weak); text-align: left; display: flex; flex-direction: column; gap: 10px; }
+.q-eyebrow { font-size: 15px; font-weight: 700; color: var(--accent-text); }
+.q-text { font-size: 20px; font-weight: 800; line-height: 1.4; color: var(--text); }
