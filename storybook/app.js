@@ -1,4 +1,4 @@
-import { STORIES, getStory as getBuiltin } from './stories.js';
+import { STORIES, SONGS, getStory as getBuiltin } from './stories.js';
 import * as db from './db.js';
 import { shareEnabled, uploadShare, fetchShare, publicUrl, uploadReply, fetchReplies, newShelfId, addToShelf, fetchShelf, markHeard, fetchHeard } from './share.js';
 import * as mine from './mystories.js';
@@ -20,6 +20,12 @@ const MAX_SECONDS = 180;
 const MAX_SECONDS_VIDEO = 90;
 const inKakao = /KAKAOTALK/i.test(navigator.userAgent);
 const getStory = (id) => getBuiltin(id) || (mine.getRaw(id) ? mine.toStory(mine.getRaw(id)) : null);
+// 동요·자장가 그림은 처음 볼 때 art 글로 그려요.
+for (const song of SONGS) {
+  song.song = true;
+  for (const p of song.pages) Object.defineProperty(p, 'image', { get: () => mine.pageImage(p.art, 0), enumerable: true });
+  Object.defineProperty(song, 'coverImage', { get: () => song.pages[0].image, enumerable: true });
+}
 
 /* ---------- 아이콘 ---------- */
 const svg = (d, w = 24) =>
@@ -85,7 +91,7 @@ const pagesOf = (story, reader = who(), kid = kidName()) => (story.card ? [...st
     intro: true,
     image: 'img/intro.svg',
     text: `${toOf(kid)} 인사를 건네주세요`,
-    hint: `예) ${callOf(kid) ? `${callOf(kid)}, ` : ''}${ya(reader)}. 오늘은 ‘${story.title}’ 이야기를 들려줄게.`,
+    hint: `예) ${callOf(kid) ? `${callOf(kid)}, ` : ''}${ya(reader)}. 오늘은 ‘${story.title}’ ${story.song ? '노래를 불러' : '이야기를 들려'}줄게.`,
   },
   ...story.pages,
 ]);
@@ -604,6 +610,41 @@ function welcomeView() {
 }
 
 /* ---------- 화면: 홈 ---------- */
+// 오늘의 추천: 계절·명절·시간에 맞는 동화나 노래를 하루 하나 골라 줘요. (다 녹음한 건 빼요)
+const PICKS = [
+  // [달(1~12), 동화 id, 까닭]
+  [[1, 2], 'patjuk', '추운 겨울엔 뜨끈한 팥죽 이야기 어때요?'],
+  [[1, 2, 12], 'song-lullaby', '긴 겨울밤, 자장가 한 곡 불러 주세요'],
+  [[3, 4, 5], 'mice', '꽃 피는 봄나들이 철, 시골쥐와 서울쥐 이야기'],
+  [[3, 4, 5], 'song-bird', '새들이 돌아오는 봄, 파랑새 노래 어때요?'],
+  [[5], 'heungbu', '어린이날 달, 착한 마음이 복을 받는 흥부 이야기'],
+  [[6, 7, 8], 'ant', '더운 여름엔 개미와 베짱이 이야기 어때요?'],
+  [[6, 7, 8], 'song-toad', '바닷가 모래 놀이 노래, 두껍아 두껍아'],
+  [[7, 8], 'rabbit-jara', '바다 이야기: 토끼와 자라'],
+  [[9, 10], 'sun-moon', '추석 보름달 뜨는 달, 해님 달님 이야기'],
+  [[9, 10], 'song-moon', '보름달 보며 ‘달아 달아 밝은 달아’'],
+  [[9, 10, 11], 'brothers', '가을걷이 때 서로 나누는 의좋은 형제'],
+  [[7], 'gyeonwoo', '칠월 칠석, 견우와 직녀가 만나는 날'],
+  [[11, 12], 'golden-hen', '욕심부리지 말자는 이야기, 황금알을 낳는 닭'],
+  [[1, 2], 'spring', '새해 첫 달, 젊어지는 샘물 이야기로 웃음 한 번'],
+];
+function todayPickHTML(rec, now = new Date()) {
+  const done = (s) => pagesOf(s).every((_, i) => rec.has(keyOf(s.id, i)));
+  const m = now.getMonth() + 1;
+  const night = now.getHours() >= 19 || now.getHours() < 5;
+  let pool = PICKS.filter(([ms, id]) => ms.includes(m) && getBuiltin(id) && !done(getBuiltin(id)));
+  if (night) pool = [[null, 'song-lullaby', '잠들 시간이에요. 오늘 밤엔 자장가 어때요?'], ...pool].filter(([, id]) => !done(getBuiltin(id)));
+  if (!pool.length) pool = [...STORIES, ...SONGS].filter((s) => !done(s)).map((s) => [null, s.id, '아직 안 들려준 이야기예요']);
+  if (!pool.length) return '';
+  const day = Math.floor((now.getTime() - now.getTimezoneOffset() * 60e3) / 864e5);
+  const [, id, why] = night && pool[0][1] === 'song-lullaby' ? pool[0] : pool[day % pool.length];
+  const s = getBuiltin(id);
+  return `<a class="pick-card" href="#/story/${s.id}">
+    ${coverHTML(s)}
+    <span class="pick-body"><span class="pick-eyebrow">🌟 오늘의 추천</span><b>${esc(s.title)}</b><span class="pick-why">${esc(why)}</span></span>
+    <span class="chev">${I.chevron}</span></a>`;
+}
+
 // 홈의 "오늘의 추억 질문" 카드
 function memoryCard() {
   const q = memo.todayQuestion(memorySkip);
@@ -674,10 +715,14 @@ async function homeView() {
     ${memoryCard()}
     <a class="card-row" href="#/card"><span>💌</span><span><b>목소리 카드 보내기</b><br>생일·어린이날·입학 축하를 한마디로</span><span class="chev">${I.chevron}</span></a>
     <div id="shelf-slot"></div>
+    ${todayPickHTML(rec)}
+    <a class="card-row" href="#/new/village"><span>🏡</span><span><b>우리 동네 옛이야기 짓기</b><br>고향 마을에 전해 오는 이야기를 질문 따라 적어요</span><span class="chev">${I.chevron}</span></a>
     <h2 class="section-label">우리 옛이야기</h2>
     ${STORIES.filter((s) => s.origin === 'korean').map(card).join('')}
     <h2 class="section-label">세계 명작</h2>
     ${STORIES.filter((s) => s.origin !== 'korean').map(card).join('')}
+    <h2 class="section-label">🎵 불러 주는 동요·자장가</h2>
+    ${SONGS.map(card).join('')}
     <h2 class="section-label">내가 지은 이야기</h2>
     ${mineList.map(card).join('')}
     <a class="story-card new-card" href="#/new">
@@ -835,7 +880,7 @@ async function recordView(id, idxStr) {
       </div>` : ''}
     ${sceneHTML(p)}
     <p class="read-text">${askHTML(p)}${p.intro ? esc(p.text) : sentencesOf(p.text).map((t, k) => `<span class="ln" data-ln="${k}">${esc(t)}</span>`).join('')}</p>
-    ${p.intro ? `<div class="hint-card">${esc(p.hint)}</div>` : ''}
+    ${p.intro ? `<div class="hint-card">${esc(p.hint)}</div>` : s.song ? '<div class="hint-card">🎵 아는 가락으로 노래하듯 불러 주세요. 가락이 생각나지 않으면 천천히 읽어 주셔도 좋아요.</div>' : ''}
     <div class="rec-dock">
       <div class="self-cam" id="pip" hidden></div>
       <div class="dock-main" id="dock" aria-live="polite"></div>
@@ -1206,7 +1251,31 @@ async function sharedView(shareId, page) {
       by: f.by?.name ? { name: cleanName(f.by.name), emoji: EMOJIS.includes(f.by.emoji) ? f.by.emoji : '' } : null,
       load: async () => { setSource(publicUrl(/^[a-z0-9]{12}$/.test(f.from || '') ? f.from : shareId, f.file), false, f.trim); return true; },
     }));
+  const tonight = tonightOf(shareId);
+  const nextUp = tonight && tonight.q[tonight.at + 1];
+  let tonightTimer = 0;
+  onDispose(() => clearInterval(tonightTimer));
   mountPlayer(stage, {
+    noBed: Boolean(tonight),
+    onEnd: tonight ? (st) => {
+      const box = st.querySelector('.end-actions');
+      if (!nextUp) {
+        local.set('tonight', null);
+        box.insertAdjacentHTML('beforebegin', `<p class="tonight-done">🌙 오늘 밤 이야기 ${tonight.q.length}편을 다 들었어요. 잘 자요!</p>`);
+        return;
+      }
+      box.insertAdjacentHTML('afterbegin', `<a class="btn btn-primary full tonight-next" href="#/s/${nextUp.id}">🌙 다음 이야기 (${tonight.at + 2}/${tonight.q.length}) · ${esc(nextUp.title)} <span class="tonight-count"></span></a>`);
+      local.set('tonightAuto', nextUp.id);
+      let left = 8;
+      const count = box.querySelector('.tonight-count');
+      count.textContent = `${left}`;
+      tonightTimer = setInterval(() => {
+        left -= 1;
+        if (count.isConnected) count.textContent = `${left}`;
+        if (left <= 0) { clearInterval(tonightTimer); if (count.isConnected) location.hash = `#/s/${nextUp.id}`; }
+      }, 1000);
+      box.querySelector('[data-act="again"]')?.addEventListener('click', () => { clearInterval(tonightTimer); local.set('tonightAuto', null); });
+    } : null,
     story: s,
     list,
     reader: readerOf(manifest),
@@ -1223,6 +1292,11 @@ async function sharedView(shareId, page) {
     startAt: Number(page) || 0,
     shareId,
   });
+  // 오늘 밤 목록에서 넘어왔으면 바로 들려줘요. (재생이 막히면 시작 버튼이 그대로 남아요)
+  if (tonight && local.get('tonightAuto') === shareId) {
+    local.set('tonightAuto', null);
+    stage.querySelector('[data-act="start"]')?.click();
+  }
   stage.addEventListener('click', (e) => {
     if (e.target.closest('[data-act="reply"]')) replySheet(shareId, readerOf(manifest), (manifest.kid || '').trim(), s.id, question?.text);
     if (e.target.closest('[data-act="qplay"]') && question) { setSource(publicUrl(shareId, question.file), false, question.trim); player.play().catch(() => {}); }
@@ -1239,7 +1313,7 @@ async function sharedView(shareId, page) {
 }
 
 // 듣기 화면: 표지 → 쪽마다 그림 + 목소리 → 끝. 한 쪽이 끝나면 저절로 넘어가요.
-function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startAt = 0, shareId = null }) {
+function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startAt = 0, shareId = null, onEnd = null, noBed = false }) {
   const first = Math.max(0, list.findIndex((p) => p.n === startAt));
   let pos = 0;
   let alive = true;
@@ -1247,7 +1321,7 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
   // 잠자리 모드: 화면을 어둡게 하고, 정한 시간(15·30분) 동안 동화를 되풀이해 들려준 뒤 "잘 자요"로 끝나요.
   // 0(끄기) 또는 5~60분 (5분 단위)
   const okMin = (v) => (Number.isInteger(v) && v >= 0 && v <= 60 && v % 5 === 0 ? v : 0);
-  let bedMin = okMin(local.get('bedtime'));
+  let bedMin = noBed ? 0 : okMin(local.get('bedtime'));
   let bed = null;   // { until, timer, lock, timeUp }
   const endBed = () => {
     if (!bed) return;
@@ -1281,7 +1355,7 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
         ${kid ? `<p class="sub">${esc(toOf(kid))}</p>` : ''}
         <button class="play-big" data-act="start" aria-label="듣기 시작">${I.play}</button>
         <label class="echo-pick"><input type="checkbox" id="echo-on"${echoMode ? ' checked' : ''}><span>🗣️ <b>따라 읽기</b> · 한 쪽을 들은 뒤 아이가 따라 말해요</span></label>
-        <div class="bed-pick">
+        ${noBed ? '' : `<div class="bed-pick">
           <p class="bed-label">🌙 잠자리 모드 <span>화면을 어둡게 하고 정한 시간 동안 되풀이해 들려줘요</span></p>
           <div class="bed-row">
             <button class="bed-step" data-act="bedstep" data-d="-5" aria-label="5분 줄이기">−</button>
@@ -1290,7 +1364,7 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
             </select>
             <button class="bed-step" data-act="bedstep" data-d="5" aria-label="5분 늘리기">+</button>
           </div>
-        </div>
+        </div>`}
       </div>`;
   };
   // 따라 읽기: 한 쪽이 끝나면 아이가 같은 글을 따라 말하고, 바로 자기 목소리를 들어 봐요.
@@ -1372,6 +1446,7 @@ function mountPlayer(stage, { story: s, list, reader, kid, endExtra = '', startA
           ${endExtra}
         </div>
       </div>`;
+    onEnd?.(stage);
   };
 
   const setToggle = (playing) => {
@@ -1549,6 +1624,23 @@ function foundHTML(text, noCast = false) {
   return (rows ? `<p class="found-title">그림에 넣은 것</p>${rows}` : '') + (d.tip ? `<p class="found-tip">💡 ${esc(d.tip)}</p>` : '');
 }
 
+// 우리 동네 옛이야기: 질문을 따라 장면을 채우는 새 이야기 틀. (쓰던 새 이야기가 있으면 그걸 먼저 이어 써요)
+const VILLAGE = [
+  ['어느 동네 이야기인가요? 그 동네는 어떤 곳이었나요?', '예) 할머니가 자란 곳은 강원도 산골 마을이었는데, 마을 앞에 커다란 느티나무가 있었단다.'],
+  ['그 동네에 전해 오는 신기한 이야기가 있나요? (바위·나무·우물·고개·다리…)', '예) 그 느티나무에는 마을을 지켜 주는 신령님이 산다고 했어.'],
+  ['그 이야기에는 누가 나오나요? 무슨 일이 있었나요?', '예) 옛날에 큰 홍수가 났을 때, 느티나무 아래로 피한 사람들만 무사했대.'],
+  ['그래서 어떻게 되었나요? 지금도 남아 있는 흔적이나 풍습이 있나요?', '예) 그래서 지금도 정월 대보름이면 마을 사람들이 나무 앞에 모여 소원을 빈단다.'],
+];
+function villageStart() {
+  const draft = local.get(DRAFT);
+  if (draft?.pages?.some((p) => p.text?.trim())) {
+    toast('쓰던 새 이야기가 있어서 그걸 먼저 열었어요');
+  } else {
+    local.set(DRAFT, { id: mine.newId(), title: '우리 동네 옛이야기', pages: VILLAGE.map(([hint, ex]) => ({ text: '', seed: 0, hint, ex })) });
+  }
+  location.replace('#/new');
+}
+
 function editorView(editId) {
   const raw = editId ? mine.getRaw(editId) : null;
   if (editId && !raw) return notFound();
@@ -1579,10 +1671,11 @@ function editorView(editId) {
           <b>${n + 1}번째 장면</b>
           ${state.pages.length > 1 ? `<button class="icon-mini" data-act="del" aria-label="장면 지우기">${I.trash}</button>` : ''}
         </div>
+        ${p.hint ? `<p class="page-hint">💡 ${esc(p.hint)}</p>` : ''}
         <div class="page-art"><img alt="" src="${mine.pageImage(p.text, p.seed, p.noCast)}"></div>
-        <textarea class="page-text" rows="3" maxlength="200" placeholder="${n === 0
+        <textarea class="page-text" rows="3" maxlength="200" placeholder="${esc(p.ex || (n === 0
           ? '예) 옛날 옛날, 할머니가 어렸을 때 우리 집에는 누렁이라는 강아지가 있었단다.'
-          : '다음 장면을 적어 주세요'}">${esc(p.text)}</textarea>
+          : '다음 장면을 적어 주세요'))}">${esc(p.text)}</textarea>
         <div class="page-found" aria-live="polite">${foundHTML(p.text, p.noCast)}</div>
         <div class="page-tools">
           ${SpeechRec ? `<button class="pill" data-act="dictate">${I.mic}<span>말로 쓰기</span></button>` : ''}
@@ -1660,7 +1753,7 @@ function editorView(editId) {
   app.querySelector('#save').addEventListener('click', async () => {
     const kept = state.pages.filter((p) => p.text.trim());
     if (!kept.length) { toast('한 장면 이상 적어 주세요'); return; }
-    const pages = kept.map(({ orig, ...p }) => p);
+    const pages = kept.map(({ orig, hint, ex, ...p }) => p);
     if (!mine.saveRaw({ ...state, title: state.title.trim() || '내가 지은 이야기', pages })) {
       toast('저장하지 못했어요. 휴대폰 저장 공간을 확인해 주세요');
       return;
@@ -2314,6 +2407,7 @@ async function familyView(focus) {
     <h1 class="title-xl">우리 가족 책장</h1>
     <p class="sub">${zones.length}명이 들려준 동화 ${total}편. 오늘은 누구 목소리로 들을까요?</p>
     ${treeHTML(zones)}
+    ${total > 1 ? `<button class="btn btn-primary full tonight-btn" id="tonight">🌙 오늘 밤 이어 듣기 · ${Math.min(TONIGHT_MAX, total)}편</button>` : ''}
     ${stampBoardHTML()}
     <nav class="zone-tabs">${zones.map((z) => `<a class="zone-tab" href="#zone-${z.id}" data-zone="${z.id}"><span>${z.by.emoji}</span>${esc(z.by.name)}</a>`).join('')}</nav>
     ${zones.map((z) => `
@@ -2331,12 +2425,38 @@ async function familyView(focus) {
       </section>`).join('')}
     <p class="zone-help">다른 가족(삼촌·이모·할아버지…)이 보낸 동화 링크를 이 휴대폰에서 한 번 열면, 그 사람 존이 여기에 생겨요.</p>`;
   mountTree(box, zones);
+  box.querySelector('#tonight')?.addEventListener('click', () => {
+    const q = tonightPicks(zones);
+    local.set('tonight', { q, at: Date.now() });
+    local.set('tonightAuto', q[0].id);
+    location.hash = `#/s/${q[0].id}`;
+  });
   box.querySelector('.zone-tabs').addEventListener('click', (e) => {
     const t = e.target.closest('[data-zone]');
     if (!t) return;
     e.preventDefault();   // 주소(#/family)는 그대로 두고 그 존으로 내려가요
     box.querySelector(`#zone-${t.dataset.zone}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
+}
+
+/* ---------- 오늘 밤 재생 목록 ---------- */
+// 가족 책장에서 동화 몇 편을 골라 차례로 이어 들려줘요. 아직 안 들은 동화를, 가족마다 번갈아 골라요.
+const TONIGHT_MAX = 3;
+function tonightPicks(zones) {
+  const heard = new Set(stamps().map((x) => x.id));
+  const lanes = zones.map((z) => [...z.books].sort((a, b) => heard.has(a.shareId) - heard.has(b.shareId)));
+  const out = [];
+  for (let k = 0; out.length < TONIGHT_MAX && lanes.some((l) => l[k]); k++) {
+    for (const l of lanes) if (l[k] && out.length < TONIGHT_MAX) out.push({ id: l[k].shareId, title: String(l[k].title || getBuiltin(l[k].storyId)?.title || '동화').slice(0, 30) });
+  }
+  return out;
+}
+// 지금 듣는 동화가 오늘 밤 목록에 있으면 { at: 몇 번째, q } (반나절이 지난 목록은 잊어요)
+function tonightOf(shareId) {
+  const t = local.get('tonight');
+  if (!Array.isArray(t?.q) || Date.now() - (t.at || 0) > 12 * 3600e3) return null;
+  const at = t.q.findIndex((x) => x?.id === shareId);
+  return at < 0 ? null : { at, q: t.q.filter((x) => SHELF_ID.test(x?.id || '')) };
 }
 
 /* ---------- 목소리 가계도 ---------- */
@@ -3112,6 +3232,7 @@ const routes = [
   [/^#\/keep\/([a-z0-9]{12})$/, keepView],
   [/^#\/flyer\/([a-z0-9-]{2,20})$/, flyerView],
   [/^#\/new$/, () => editorView()],
+  [/^#\/new\/village$/, villageStart],
   [/^#\/edit\/([\w-]+)$/, editorView],
 ];
 

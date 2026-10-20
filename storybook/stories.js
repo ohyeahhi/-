@@ -427,9 +427,82 @@ export const STORIES = [
   },
 ];
 
+// 불러 주는 동요·자장가: 지은이가 알려지지 않은 전래 동요라 누구나 불러 줄 수 있어요.
+// 그림은 art 글로 지은 이야기처럼 그려요. (app.js 에서 composer 로 만들어요)
+const v = (...lines) => lines.map(([text, art]) => ({ text, art }));
+export const SONGS = [
+  {
+    id: 'song-lullaby',
+    origin: 'song',
+    title: '자장 자장 우리 아기',
+    desc: '옛날부터 할머니들이 불러 주던 자장가',
+    cover: '🌙',
+    tint: ['#D9D3F5', '#B8C7F0'],
+    minutes: 2,
+    pages: v(
+      ['자장 자장 우리 아기, 잘도 잔다 우리 아기. 꼬꼬닭아 우지 마라, 우리 아기 잠을 깰라.', '밤 아기가 쿨쿨 잠들었어요 닭 달'],
+      ['멍멍개야 짖지 마라, 우리 아기 잠을 깰라. 자장 자장 우리 아기, 은자동아 금자동아.', '밤 강아지 아기가 잠들었어요 별'],
+      ['금을 주면 너를 사랴, 은을 주면 너를 사랴. 나라에는 충신동이, 부모에겐 효자동이.', '할머니가 아기를 사랑해요 밤 별'],
+      ['자장 자장 우리 아기, 잘도 잔다 우리 아기. 달님도 별님도 우리 아기 지켜 준단다.', '밤 달 별 아기가 새근새근 잠들었어요'],
+    ),
+  },
+  {
+    id: 'song-moon',
+    origin: 'song',
+    title: '달아 달아 밝은 달아',
+    desc: '보름달을 보며 부르던 전래 동요',
+    cover: '🌕',
+    tint: ['#FFF0B8', '#D9D3F5'],
+    minutes: 2,
+    pages: v(
+      ['달아 달아 밝은 달아, 이태백이 놀던 달아. 저기 저기 저 달 속에 계수나무 박혔으니,', '보름달 밤 나무 달'],
+      ['옥도끼로 찍어 내고 금도끼로 다듬어서, 초가삼간 집을 짓고 양친 부모 모셔다가,', '초가집 도끼 나무 밤 달'],
+      ['천년만년 살고 지고, 천년만년 살고 지고. 달님 달님, 우리 집도 환하게 비춰 주세요.', '할머니 할아버지 초가집 보름달 행복했어요'],
+    ),
+  },
+  {
+    id: 'song-toad',
+    origin: 'song',
+    title: '두껍아 두껍아',
+    desc: '모래성 쌓으며 부르던 놀이 노래',
+    cover: '🐸',
+    tint: ['#C8F0C9', '#FFE7A8'],
+    minutes: 1,
+    pages: v(
+      ['두껍아 두껍아, 헌 집 줄게 새 집 다오. 두껍아 두껍아, 헌 집 줄게 새 집 다오.', '바닷가 모래 개구리 집 신났어요'],
+      ['두껍아 두껍아, 물 길어 오너라. 너희 집 지어 줄게, 두껍아 두껍아.', '개구리 물 모래 집 놀이터 웃었어요'],
+    ),
+  },
+  {
+    id: 'song-bird',
+    origin: 'song',
+    title: '새야 새야 파랑새야',
+    desc: '녹두밭 파랑새를 부르는 옛 노래',
+    cover: '🐦',
+    tint: ['#BFE6F5', '#C8F0C9'],
+    minutes: 1,
+    pages: v(
+      ['새야 새야 파랑새야, 녹두밭에 앉지 마라.', '파랑새 새 밭 들판 꽃'],
+      ['녹두꽃이 떨어지면 청포 장수 울고 간다.', '꽃 밭 새 들판 바람'],
+    ),
+  },
+  {
+    id: 'song-hide',
+    origin: 'song',
+    title: '꼭꼭 숨어라',
+    desc: '숨바꼭질하며 부르던 놀이 노래',
+    cover: '🙈',
+    tint: ['#FFD9C2', '#FFF0B8'],
+    minutes: 1,
+    pages: v(
+      ['숨바꼭질할 사람 여기 붙어라. 꼭꼭 숨어라, 머리카락 보일라.', '아이들 숨바꼭질 마당 나무 신났어요'],
+      ['꼭꼭 숨어라, 옷자락 보일라. 꼭꼭 숨어라, 꼬리 보일라. 하나 둘 셋, 찾았다!', '아이들 숨바꼭질 마당 웃었어요 깡충'],
+    ),
+  },
+];
 for (const story of STORIES) {
   story.pages.forEach((page, n) => { if (!page.scene) page.image ??= `img/${story.id}-${n + 1}.svg`; });
   if (story.coverPage) story.coverImage = story.pages[story.coverPage - 1].image;
 }
 
-export const getStory = (id) => STORIES.find((s) => s.id === id);
+export const getStory = (id) => STORIES.find((s) => s.id === id) || SONGS.find((s) => s.id === id);
