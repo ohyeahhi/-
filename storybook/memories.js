@@ -76,11 +76,38 @@ export function todayQuestion(skip = 0, now = new Date()) {
 }
 
 // 대답을 옛날 이야기 책의 한 장면으로 저장하고, 몇 번째 장면인지(0부터) 돌려줘요.
-export function saveAnswer(qid, text, { title, role, seed = 0 }) {
+export function saveAnswer(qid, text, { title, role, seed = 0, when = '' }) {
   const q = questionOf(qid);
   if (!q || !text.trim()) return -1;
   const raw = memoirRaw() || { id: MEMOIR_ID, title, memoir: true, pages: [] };
   if (raw.pages.length >= MAX_ANSWERS) return -1;
-  raw.pages.push({ text: text.trim(), seed, q: qid, ask: askText(q, role) });
+  const w = cleanWhen(when);
+  raw.pages.push({ text: text.trim(), seed, q: qid, ask: askText(q, role), ...(w ? { when: w } : {}) });
   return mine.saveRaw(raw) ? raw.pages.length - 1 : -1;
+}
+
+// 인생 연표: 질문 갈래를 삶의 때(어린 시절 → 학교 → 젊은 날 → 엄마·아빠를 키울 때 → 지금)로 묶어요.
+export const ERAS = [
+  ['🧒', '어린 시절'],
+  ['🎒', '학교 다닐 때'],
+  ['🌸', '젊은 날'],
+  ['👶', '엄마·아빠를 키울 때'],
+  ['🌳', '지금, 손주에게'],
+];
+const ERA_OF = { '어린 시절': 0, 가족: 0, 학교: 1, '젊은 날': 2, '엄마·아빠 이야기': 3, 손주에게: 4, '좋아하는 것': 4, '그때와 지금': 4 };
+export const cleanWhen = (w) => String(w || '').replace(/[^0-9가-힣a-zA-Z ~.]/g, '').trim().slice(0, 12);
+// 장면(p.q 또는 p.ask)으로 때를 찾아요. 모르면 맨 끝(지금)에 둬요.
+export function eraOf(p) {
+  const q = questionOf(p?.q) || QUESTIONS.find((x) => p?.ask && (x[2] === p.ask || askText(x, 'grandma') === p.ask || askText(x, 'grandpa') === p.ask));
+  return q ? ERA_OF[q[1]] ?? 4 : 4;
+}
+// 적어 둔 때에서 연도(1950~2099)를 찾아요. 없으면 null.
+export const yearOf = (when) => {
+  const m = String(when || '').match(/(19[0-9]{2}|20[0-9]{2})/);
+  return m ? Number(m[1]) : null;
+};
+// 연표 순서: 때 → 적은 연도 → 원래 순서
+export function timeline(pages) {
+  return pages.map((p, k) => ({ ...p, k, era: eraOf(p), year: yearOf(p.when) }))
+    .sort((a, b) => a.era - b.era || (a.year ?? 9999) - (b.year ?? 9999) || a.k - b.k);
 }

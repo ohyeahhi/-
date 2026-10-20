@@ -44,7 +44,7 @@ export function pageImage(text, seed = 0, noCast = false) {
 // 저장된 글을 앱의 동화 모양으로 바꿔요. 공유받은 가족도 같은 방법으로 그림을 다시 만들어요.
 export function toStory(raw) {
   const pages = (raw.pages || []).filter((p) => p.text?.trim())
-    .map((p) => ({ text: p.text.trim(), seed: p.seed || 0, noCast: Boolean(p.noCast), ...(p.ask ? { ask: p.ask } : {}), ...(p.art ? { art: String(p.art).slice(0, 200) } : {}),
+    .map((p) => ({ text: p.text.trim(), seed: p.seed || 0, noCast: Boolean(p.noCast), ...(p.ask ? { ask: p.ask } : {}), ...(/^[a-z0-9-]{1,20}$/.test(p.q || '') ? { q: p.q } : {}), ...(p.when ? { when: String(p.when).slice(0, 12) } : {}), ...(p.art ? { art: String(p.art).slice(0, 200) } : {}),
       image: pageImage((p.art ? String(p.art).slice(0, 200) : '') || p.text.trim(), p.seed || 0, Boolean(p.noCast)) }));
   const n = [...raw.id].reduce((a, c) => a + c.charCodeAt(0), 0);
   return {

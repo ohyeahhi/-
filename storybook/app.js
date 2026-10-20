@@ -434,7 +434,7 @@ async function uploadWithProgress(story, recorded, question = null) {
         emoji: emojiOf(profile),
         kid: kidName(),
         shelf: shelfId(),
-        ...(story.custom ? { custom: { title: story.title, ...(story.memoir ? { memoir: true } : {}), ...(story.card ? { card: story.card } : {}), pages: story.pages.map(({ text, seed, noCast, ask, art }) => ({ text, seed, ...(noCast ? { noCast: true } : {}), ...(ask ? { ask } : {}), ...(art ? { art } : {}) })) } } : {}),
+        ...(story.custom ? { custom: { title: story.title, ...(story.memoir ? { memoir: true } : {}), ...(story.card ? { card: story.card } : {}), pages: story.pages.map(({ text, seed, noCast, ask, art, q, when }) => ({ text, seed, ...(noCast ? { noCast: true } : {}), ...(ask ? { ask } : {}), ...(art ? { art } : {}), ...(q ? { q } : {}), ...(when ? { when } : {}) })) } } : {}),
       },
       recorded.map(({ i, blob, trim, by }) => ({ i, blob, trim, by })),
       (n, t) => { bar.style.width = `${(n / t) * 100}%`; label.textContent = `${n} / ${t}`; },
@@ -766,7 +766,7 @@ async function storyView(id) {
         ${s.custom && !s.card && !s.memoir && n === pages.length ? '<button class="chip" id="relay">🔗 이어 짓기 부탁하기</button>' : ''}
         ${s.card ? '' : `<button class="chip${holidayOn(id) ? ' chip-on' : ''}" id="holiday">🎉 명절 모드${holidayOn(id) ? ' 켜짐' : ''}</button>`}
         ${s.custom && !s.card ? `<a class="chip" href="#/edit/${id}">${I.edit}이야기 고치기</a>` : ''}
-        ${s.memoir ? '<a class="chip" href="#/memory">💭 추억 질문 더 답하기</a>' : ''}
+        ${s.memoir ? '<a class="chip" href="#/memory">💭 추억 질문 더 답하기</a><a class="chip" href="#/timeline">🕰️ 인생 연표</a>' : ''}
       </div>
       <div class="stat-row">
         <div><b>${pages.length}쪽</b><span>분량</span></div>
@@ -1211,7 +1211,8 @@ async function sharedView(shareId, page) {
     list,
     reader: readerOf(manifest),
     kid: (manifest.kid || '').trim(),
-    endExtra: `<a class="btn btn-secondary full" href="#/color/s/${shareId}">🖍️ 이 동화로 색칠놀이</a>
+    endExtra: `${s.memoir ? `<a class="btn btn-secondary full" href="#/timeline/s/${shareId}">🕰️ ${esc(readerOf(manifest))}의 인생 연표 보기</a>` : ''}
+      <a class="btn btn-secondary full" href="#/color/s/${shareId}">🖍️ 이 동화로 색칠놀이</a>
       ${/^[a-z0-9]{12}$/.test(manifest.shelf || '') ? '<a class="btn btn-secondary full" href="#/family">📚 우리 가족 책장에서 다른 동화 보기</a>' : ''}
       ${question ? `<div class="q-card"><p class="q-eyebrow">💬 ${esc(readerOf(manifest))}의 질문</p>
         <p class="q-text">${esc(question.text || '할머니가 물어볼 게 있대요')}</p>
@@ -2312,6 +2313,7 @@ async function familyView(focus) {
   box.innerHTML = `
     <h1 class="title-xl">우리 가족 책장</h1>
     <p class="sub">${zones.length}명이 들려준 동화 ${total}편. 오늘은 누구 목소리로 들을까요?</p>
+    ${treeHTML(zones)}
     ${stampBoardHTML()}
     <nav class="zone-tabs">${zones.map((z) => `<a class="zone-tab" href="#zone-${z.id}" data-zone="${z.id}"><span>${z.by.emoji}</span>${esc(z.by.name)}</a>`).join('')}</nav>
     ${zones.map((z) => `
@@ -2328,11 +2330,67 @@ async function familyView(focus) {
         ${payEnabled() ? `<a class="zone-pass" href="#/pass/${z.id}">🔒 ${esc(z.by.name)} 존 10년 간직하기 · 가족 1년권</a>` : ''}
       </section>`).join('')}
     <p class="zone-help">다른 가족(삼촌·이모·할아버지…)이 보낸 동화 링크를 이 휴대폰에서 한 번 열면, 그 사람 존이 여기에 생겨요.</p>`;
+  mountTree(box, zones);
   box.querySelector('.zone-tabs').addEventListener('click', (e) => {
     const t = e.target.closest('[data-zone]');
     if (!t) return;
     e.preventDefault();   // 주소(#/family)는 그대로 두고 그 존으로 내려가요
     box.querySelector(`#zone-${t.dataset.zone}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+}
+
+/* ---------- 목소리 가계도 ---------- */
+// 가족 책장 맨 위에 할머니·할아버지 → 이모·삼촌·엄마·아빠 → 나(아이) 순서로 얼굴을 늘어놓아요.
+// 얼굴을 누르면 그 사람이 마지막으로 보낸 동화의 첫 인사 목소리가 나와요.
+const ELDER_RE = /할머니|할아버지|할매|할배|할미|할비|증조/;
+function treeHTML(zones) {
+  const node = (z) => `<button class="tree-node" data-tree="${z.id}" aria-label="${esc(z.by.name)} 목소리 듣기"><span class="tree-face">${z.by.emoji}</span><span class="tree-name">${esc(z.by.name)}</span></button>`;
+  const elders = zones.filter((z) => ELDER_RE.test(z.by.name));
+  const others = zones.filter((z) => !ELDER_RE.test(z.by.name));
+  const rows = [elders, others].filter((r) => r.length);
+  return `<section class="tree" aria-label="목소리 가계도">
+    <h2 class="section-label">🌳 우리 가족 목소리 나무 <small>얼굴을 누르면 목소리가 나와요</small></h2>
+    ${rows.map((r) => `<div class="tree-row">${r.map(node).join('')}</div>`).join('<i class="tree-stem" aria-hidden="true"></i>')}
+    <i class="tree-stem" aria-hidden="true"></i>
+    <div class="tree-row"><span class="tree-node tree-me"><span class="tree-face">🧒</span><span class="tree-name" id="tree-kid">나</span></span></div>
+  </section>`;
+}
+function mountTree(box, zones) {
+  const tree = box.querySelector('.tree');
+  if (!tree) return;
+  const here = stillHere();
+  const cache = new Map();
+  const latest = (z) => z.books[0];
+  const manifestOf = (z) => {
+    if (!cache.has(z.id)) cache.set(z.id, fetchShare(latest(z).shareId).catch(() => null));
+    return cache.get(z.id);
+  };
+  // 아이 이름은 첫 동화 링크에 적혀 있어요
+  if (zones[0]) manifestOf(zones[0]).then((m) => { const k = cleanName(m?.kid || ''); if (k && here()) tree.querySelector('#tree-kid').textContent = k; });
+  let on = null;
+  const quiet = () => { on?.classList.remove('is-speaking'); on = null; };
+  onDispose(() => { stopAudio(); });
+  tree.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-tree]');
+    if (!b) return;
+    const again = on === b;
+    stopAudio();
+    quiet();
+    if (again) return;
+    const z = zones.find((x) => x.id === b.dataset.tree);
+    b.classList.add('is-loading');
+    const m = await manifestOf(z);
+    b.classList.remove('is-loading');
+    if (!here()) return;
+    // 첫 인사(0쪽)가 있으면 그걸, 없으면 맨 앞 쪽을 들려줘요. (이 사람이 읽은 쪽을 먼저 찾아요)
+    const files = (m?.pages || []).slice().sort((a, x) => a.i - x.i);
+    const f = files.find((x) => x.by?.name && cleanName(x.by.name) === z.by.name) || files[0];
+    if (!f) { toast('목소리를 불러오지 못했어요'); return; }
+    setSource(publicUrl(/^[a-z0-9]{12}$/.test(f.from || '') ? f.from : latest(z).shareId, f.file), false, f.trim);
+    on = b;
+    b.classList.add('is-speaking');
+    player.onended = quiet;
+    player.play().catch(quiet);
   });
 }
 
@@ -2725,6 +2783,8 @@ function memoryView(qid) {
     <div class="page-art memo-art"><img alt="" src="${mine.pageImage('', 0)}"></div>
     <textarea id="memo-text" class="input textarea page-text" rows="4" maxlength="200" placeholder="예) 우리 집 앞에는 큰 감나무가 있었는데, 가을이면 동생이랑 감을 따 먹었단다."></textarea>
     <div class="page-found" id="memo-found" aria-live="polite"></div>
+    <label class="memo-when"><span>🕰️ 언제쯤이었나요? <small>(적지 않아도 돼요)</small></span>
+      <input id="memo-when" class="input" maxlength="12" placeholder="예) 1968년, 열 살 무렵" autocomplete="off"></label>
     <div class="page-tools">
       ${SpeechRec ? `<button class="pill" id="memo-dictate">${I.mic}<span>말로 쓰기</span></button>` : ''}
       <button class="pill" id="memo-reroll">${I.shuffle}다른 그림</button>
@@ -2752,7 +2812,7 @@ function memoryView(qid) {
   app.querySelector('#memo-skip')?.addEventListener('click', () => { memorySkip += 1; route(); });
   save.addEventListener('click', () => {
     stopDictation();
-    const n = memo.saveAnswer(q[0], ta.value, { title: memoirTitle(), role: profile?.role, seed });
+    const n = memo.saveAnswer(q[0], ta.value, { title: memoirTitle(), role: profile?.role, seed, when: app.querySelector('#memo-when').value });
     if (n < 0) { toast('저장하지 못했어요. 휴대폰 저장 공간을 확인해 주세요'); return; }
     memorySkip = 0;
     track('create', { story: memo.MEMOIR_ID, n: n + 1, meta: { memory: q[0] } });
@@ -2766,6 +2826,78 @@ function memoryView(qid) {
       onSecondary: () => { location.hash = '#/'; },
       onDismiss: () => { location.hash = '#/'; },
     });
+  });
+}
+
+/* ---------- 화면: 인생 연표 ---------- */
+// 추억 질문에 답한 장면들을 삶의 때(어린 시절 → 학교 → 젊은 날 → …)와 적어 둔 연도 순으로 늘어놓아요.
+// #/timeline 은 이 휴대폰의 옛날 이야기(녹음은 휴대폰에서), #/timeline/s/<공유ID> 는 받은 링크로 봐요.
+async function timelineView(shareId) {
+  const here = stillHere();
+  let s;
+  let name;
+  let emoji;
+  let hear;   // (쪽 번호) => 재생 준비가 되면 true
+  if (shareId) {
+    render(`${topbar({ back: `#/s/${shareId}` })}<div class="loading"><span class="spinner"></span></div>`, 'screen-timeline');
+    const loaded = await loadShared(shareId);
+    if (!here()) return;
+    if (!loaded?.s?.memoir) return notFound();
+    s = loaded.s;
+    name = readerOf(loaded.manifest);
+    emoji = emojiOf(loaded.manifest);
+    const files = loaded.manifest.pages || [];
+    hear = async (n) => {
+      const f = files.find((x) => x.i === n);
+      if (!f) return false;
+      setSource(publicUrl(/^[a-z0-9]{12}$/.test(f.from || '') ? f.from : shareId, f.file), false, f.trim);
+      return true;
+    };
+  } else {
+    s = getStory(memo.MEMOIR_ID);
+    if (!s) { location.replace('#/memory'); return; }
+    name = who();
+    emoji = emojiOf(profile);
+    hear = async (n) => {
+      const rec = await db.getRecord(keyOf(s.id, n)).catch(() => null);
+      if (!rec?.blob) return false;
+      setSource(URL.createObjectURL(rec.blob), true, rec.trim);
+      return true;
+    };
+  }
+  const items = memo.timeline(s.pages);
+  const eras = memo.ERAS.map(([icon, label], e) => ({ icon, label, items: items.filter((p) => p.era === e) })).filter((x) => x.items.length);
+  render(`
+    ${topbar({ back: shareId ? `#/s/${shareId}` : `#/story/${memo.MEMOIR_ID}` })}
+    <p class="eyebrow">🕰️ 인생 연표</p>
+    <h1 class="title-lg">${esc(emoji)} ${esc(name)}의 지나온 날</h1>
+    <p class="sub">추억 이야기 ${items.length}개를 때 순서로 늘어놓았어요. 눌러서 목소리로 들어요.</p>
+    <ol class="timeline">${eras.map((x) => `
+      <li class="tl-era"><h2 class="tl-era-head"><span>${x.icon}</span>${esc(x.label)}</h2>
+        <ol class="tl-items">${x.items.map((p) => `
+          <li class="tl-item">
+            ${p.when ? `<p class="tl-when">${esc(p.when)}</p>` : ''}
+            <div class="tl-card">
+              <img src="${p.image}" alt="">
+              <div>${p.ask ? `<p class="tl-ask">Q. ${esc(p.ask)}</p>` : ''}<p class="tl-text">${esc(p.text)}</p>
+                <button class="pill" data-tl="${p.k + 1}">${I.play}<span>듣기</span></button></div>
+            </div></li>`).join('')}</ol></li>`).join('')}</ol>
+  `, 'screen-timeline');
+  let playing = null;
+  const reset = () => { if (playing) { playing.innerHTML = `${I.play}<span>듣기</span>`; playing = null; } };
+  onDispose(() => { stopAudio(); });
+  app.querySelector('.timeline').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-tl]');
+    if (!b) return;
+    const again = playing === b;
+    stopAudio();
+    reset();
+    if (again) return;
+    if (!(await hear(Number(b.dataset.tl)))) { toast('이 장면은 아직 녹음이 없어요'); return; }
+    playing = b;
+    b.innerHTML = '<span>■ 멈추기</span>';
+    player.onended = reset;
+    player.play().catch(reset);
   });
 }
 
@@ -2969,6 +3101,7 @@ const routes = [
   [/^#\/about$/, aboutView],
   [/^#\/replies$/, repliesView],
   [/^#\/relay\/([a-z0-9]{12})$/, relayView],
+  [/^#\/timeline(?:\/s\/([a-z0-9]{12}))?$/, timelineView],
   [/^#\/color\/(s|story)\/([\w-]+)$/, coloringView],
   [/^#\/question\/([\w-]+)$/, questionView],
   [/^#\/card(?:\/([a-z]+))?$/, cardView],
@@ -2991,7 +3124,7 @@ async function route() {
   if (/[?&]pay=/.test(location.search)) { await payReturnView(); return; }
   const hash = location.hash || '#/';
   // 공유 링크(#/s/…)는 처음 설정 없이 바로 열려요.
-  const open = ['#/s/', '#/color/s/', '#/shelf/', '#/family', '#/pass/', '#/print/', '#/policy/', '#/about', '#/keep/', '#/flyer/'].some((p) => hash.startsWith(p));
+  const open = ['#/s/', '#/color/s/', '#/shelf/', '#/family', '#/pass/', '#/print/', '#/policy/', '#/about', '#/keep/', '#/flyer/', '#/timeline/s/'].some((p) => hash.startsWith(p));
   if (!profile && hash !== '#/welcome' && !open) {
     // 아이 휴대폰(처음 설정 없음)에서 앱을 열면, 가족 책장이 있으면 그리로 가요.
     if (hash.startsWith('#/relay/')) local.set('afterWelcome', hash);   // 릴레이 링크는 처음 설정 뒤 바로 돌아와요

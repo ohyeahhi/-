@@ -73,6 +73,15 @@ export default async function ({ check, browser }) {
   const zones = await m.$$eval('.zone-head b', (e) => e.map((x) => x.textContent));
   check('삼촌 링크를 한 번 열면 "큰삼촌 존"이 생겨요', zones.includes('할아버지') && zones.includes('큰삼촌'), zones);
   await shot(m, 'family-shelf');
+  // 목소리 가계도: 할아버지 줄 → 삼촌 줄 → 아이
+  const rows = await m.$$eval('.tree-row', (r) => r.map((x) => x.textContent.replace(/\s+/g, ' ').trim()));
+  check('가계도: 할아버지가 맨 위, 삼촌이 그 아래, 아이가 맨 아래', rows.length === 3 && rows[0].includes('할아버지') && rows[1].includes('큰삼촌'), rows);
+  await m.waitForFunction(() => document.querySelector('#tree-kid')?.textContent === '민준');
+  check('가계도 맨 아래에 아이 이름이 나와요', true);
+  await m.click('.tree-row >> nth=0 >> .tree-node');
+  await m.waitForSelector('.tree-node.is-speaking');
+  await m.waitForTimeout(400);
+  check('얼굴을 누르면 그 사람 목소리가 나와요', await m.evaluate(() => [...document.querySelectorAll('video, audio')].some((v) => !v.paused && v.currentTime > 0)));
   await m.goto(APP);
   await m.waitForFunction(() => location.hash === '#/family');
   check('아이 휴대폰에서 앱을 열면 가족 책장으로 가요', true);
