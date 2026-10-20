@@ -5,7 +5,7 @@ import { CONFIG } from './config.js';
 
 const KEY = 'access';
 const accounts = () => (Array.isArray(CONFIG.access) ? CONFIG.access : []);
-export const gateOn = () => accounts().length > 0;
+export const gateOn = () => !CONFIG.accessOff && accounts().length > 0;
 
 export function loggedIn() {
   if (!gateOn()) return true;
